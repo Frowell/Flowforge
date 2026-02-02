@@ -10,6 +10,7 @@ import {
   Controls,
   MiniMap,
   BackgroundVariant,
+  useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
@@ -27,7 +28,9 @@ function CanvasInner() {
   const onEdgesChange = useWorkflowStore((s) => s.onEdgesChange);
   const onConnect = useWorkflowStore((s) => s.onConnect);
   const selectNode = useWorkflowStore((s) => s.selectNode);
+  const addNode = useWorkflowStore((s) => s.addNode);
   const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId);
+  const { screenToFlowPosition } = useReactFlow();
 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: { id: string }) => {
@@ -39,6 +42,37 @@ function CanvasInner() {
   const onPaneClick = useCallback(() => {
     selectNode(null);
   }, [selectNode]);
+
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }, []);
+
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+      const nodeType = event.dataTransfer.getData("application/reactflow");
+      if (!nodeType) return;
+
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+      const id = `${nodeType}_${crypto.randomUUID().slice(0, 8)}`;
+
+      addNode({
+        id,
+        type: nodeType,
+        position,
+        data: {
+          label: nodeType.replace(/_/g, " "),
+          nodeType,
+          config: {},
+        },
+      });
+    },
+    [screenToFlowPosition, addNode],
+  );
 
   return (
     <div className="h-screen w-screen flex flex-col">
@@ -59,6 +93,8 @@ function CanvasInner() {
             onConnect={onConnect}
             onNodeClick={onNodeClick}
             onPaneClick={onPaneClick}
+            onDragOver={onDragOver}
+            onDrop={onDrop}
             nodeTypes={nodeTypes}
             fitView
             className="bg-canvas-bg"

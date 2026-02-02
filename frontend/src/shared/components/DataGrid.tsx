@@ -2,9 +2,19 @@
  * Data grid component for tabular data display.
  *
  * Used by Table Output nodes and data preview panels.
- * TODO: Replace with TanStack Table for full features.
+ * Built on @tanstack/react-table for sortable headers and column resizing.
  */
 
+import { useMemo, useState } from "react";
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  flexRender,
+  createColumnHelper,
+  type SortingState,
+  type ColumnDef,
+} from "@tanstack/react-table";
 import { cn } from "@/shared/lib/cn";
 
 interface DataGridProps {
@@ -14,28 +24,84 @@ interface DataGridProps {
 }
 
 export default function DataGrid({ columns, rows, className }: DataGridProps) {
+  const [sorting, setSorting] = useState<SortingState>([]);
+
+  const columnDefs = useMemo<ColumnDef<Record<string, unknown>, unknown>[]>(() => {
+    const helper = createColumnHelper<Record<string, unknown>>();
+    return columns.map((col) =>
+      helper.accessor((row) => row[col.name], {
+        id: col.name,
+        header: () => (
+          <span>
+            {col.name}
+            <span className="ml-1 text-xs text-white/30">{col.dtype}</span>
+          </span>
+        ),
+        cell: (info) => String(info.getValue() ?? ""),
+        size: 150,
+        minSize: 60,
+      }),
+    );
+  }, [columns]);
+
+  const table = useReactTable({
+    data: rows,
+    columns: columnDefs,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    columnResizeMode: "onChange",
+  });
+
   return (
     <div className={cn("w-full h-full overflow-auto", className)}>
-      <table className="w-full text-sm text-left">
-        <thead className="sticky top-0 bg-canvas-node border-b border-white/10">
-          <tr>
-            {columns.map((col) => (
-              <th
-                key={col.name}
-                className="px-3 py-2 font-medium text-white/70 whitespace-nowrap"
-              >
-                {col.name}
-                <span className="ml-1 text-xs text-white/30">{col.dtype}</span>
-              </th>
-            ))}
-          </tr>
+      <table className="w-full text-sm text-left" style={{ width: table.getCenterTotalSize() }}>
+        <thead className="sticky top-0 bg-canvas-node border-b border-white/10 z-10">
+          {table.getHeaderGroups().map((headerGroup) => (
+            <tr key={headerGroup.id}>
+              {headerGroup.headers.map((header) => (
+                <th
+                  key={header.id}
+                  className="px-3 py-2 font-medium text-white/70 whitespace-nowrap relative select-none"
+                  style={{ width: header.getSize() }}
+                >
+                  <div
+                    className={cn(
+                      "flex items-center gap-1",
+                      header.column.getCanSort() && "cursor-pointer hover:text-white",
+                    )}
+                    onClick={header.column.getToggleSortingHandler()}
+                  >
+                    {flexRender(header.column.columnDef.header, header.getContext())}
+                    {{
+                      asc: " \u2191",
+                      desc: " \u2193",
+                    }[header.column.getIsSorted() as string] ?? null}
+                  </div>
+                  <div
+                    onMouseDown={header.getResizeHandler()}
+                    onTouchStart={header.getResizeHandler()}
+                    className={cn(
+                      "absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none",
+                      header.column.getIsResizing() ? "bg-accent-primary" : "hover:bg-white/20",
+                    )}
+                  />
+                </th>
+              ))}
+            </tr>
+          ))}
         </thead>
         <tbody>
-          {rows.map((row, i) => (
-            <tr key={i} className="border-b border-white/5 hover:bg-white/5">
-              {columns.map((col) => (
-                <td key={col.name} className="px-3 py-1.5 text-white/80 whitespace-nowrap">
-                  {String(row[col.name] ?? "")}
+          {table.getRowModel().rows.map((row) => (
+            <tr key={row.id} className="border-b border-white/5 hover:bg-white/5">
+              {row.getVisibleCells().map((cell) => (
+                <td
+                  key={cell.id}
+                  className="px-3 py-1.5 text-white/80 whitespace-nowrap"
+                  style={{ width: cell.column.getSize() }}
+                >
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </td>
               ))}
             </tr>

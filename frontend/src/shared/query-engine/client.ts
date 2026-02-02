@@ -17,7 +17,7 @@ class APIClient {
   }
 
   async get<T>(path: string, params?: Record<string, string>): Promise<T> {
-    const url = new URL(path, window.location.origin);
+    const url = new URL(`${this.baseUrl}${path}`, window.location.origin);
     if (params) {
       for (const [key, value] of Object.entries(params)) {
         url.searchParams.set(key, value);
@@ -27,7 +27,7 @@ class APIClient {
   }
 
   async post<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
-    return this.request<T>(path, {
+    return this.request<T>(`${this.baseUrl}${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: body ? JSON.stringify(body) : undefined,
@@ -36,7 +36,7 @@ class APIClient {
   }
 
   async patch<T>(path: string, body: unknown): Promise<T> {
-    return this.request<T>(path, {
+    return this.request<T>(`${this.baseUrl}${path}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -44,7 +44,7 @@ class APIClient {
   }
 
   async delete(path: string): Promise<void> {
-    await this.request<void>(path, { method: "DELETE" });
+    await this.request<void>(`${this.baseUrl}${path}`, { method: "DELETE" });
   }
 
   private async request<T>(url: string, init: RequestInit): Promise<T> {

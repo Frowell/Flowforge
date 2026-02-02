@@ -9,11 +9,17 @@ import { useNodeInputSchema } from "../hooks/useSchemaEngine";
 
 import DataSourcePanel from "../panels/DataSourcePanel";
 import FilterPanel from "../panels/FilterPanel";
+import SelectPanel from "../panels/SelectPanel";
+import SortPanel from "../panels/SortPanel";
+import RenamePanel from "../panels/RenamePanel";
 import JoinPanel from "../panels/JoinPanel";
 import GroupByPanel from "../panels/GroupByPanel";
 import FormulaPanel from "../panels/FormulaPanel";
 import ChartConfigPanel from "../panels/ChartConfigPanel";
 import PivotPanel from "../panels/PivotPanel";
+import UnionPanel from "../panels/UnionPanel";
+import UniquePanel from "../panels/UniquePanel";
+import SamplePanel from "../panels/SamplePanel";
 
 interface ConfigPanelProps {
   nodeId: string;
@@ -22,11 +28,17 @@ interface ConfigPanelProps {
 const PANEL_MAP: Record<string, React.FC<{ nodeId: string }>> = {
   data_source: DataSourcePanel,
   filter: FilterPanel,
+  select: SelectPanel,
+  sort: SortPanel,
+  rename: RenamePanel,
   join: JoinPanel,
   group_by: GroupByPanel,
   pivot: PivotPanel,
   formula: FormulaPanel,
   chart_output: ChartConfigPanel,
+  union: UnionPanel,
+  unique: UniquePanel,
+  sample: SamplePanel,
 };
 
 export default function ConfigPanel({ nodeId }: ConfigPanelProps) {

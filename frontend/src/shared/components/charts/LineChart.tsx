@@ -25,7 +25,7 @@ interface Props extends BaseChartProps {
   config: LineChartConfig & Record<string, unknown>;
 }
 
-export default function LineChart({ data, config, interactive = true, onDrillDown, className }: Props) {
+export default function LineChart({ data, config, interactive = true, onDrillDown: _onDrillDown, className }: Props) {
   const { xAxis, yAxis, areaFill } = config;
   const ChartComponent = areaFill ? AreaChart : RechartsLineChart;
 

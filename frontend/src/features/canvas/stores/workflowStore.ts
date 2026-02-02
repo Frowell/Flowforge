@@ -9,7 +9,7 @@ import { create } from "zustand";
 import type { Node, Edge, OnNodesChange, OnEdgesChange, OnConnect } from "@xyflow/react";
 import { applyNodeChanges, applyEdgeChanges, addEdge } from "@xyflow/react";
 
-export interface WorkflowNodeData {
+export interface WorkflowNodeData extends Record<string, unknown> {
   label: string;
   nodeType: string;
   config: Record<string, unknown>;
@@ -39,7 +39,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   selectedNodeId: null,
 
   onNodesChange: (changes) => {
-    set({ nodes: applyNodeChanges(changes, get().nodes) });
+    set({ nodes: applyNodeChanges(changes, get().nodes) as Node<WorkflowNodeData>[] });
   },
 
   onEdgesChange: (changes) => {

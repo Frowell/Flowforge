@@ -62,3 +62,18 @@ export function useNodeInputSchema(nodeId: string | null): ColumnSchema[] {
 
   return schemas.get(sourceEdge.source) ?? [];
 }
+
+/**
+ * Get ALL input schemas for a node (array of arrays).
+ * Needed for multi-input nodes like Join and Union.
+ */
+export function useNodeInputSchemas(nodeId: string | null): ColumnSchema[][] {
+  const schemas = useSchemaEngine();
+  const edges = useWorkflowStore((s) => s.edges);
+
+  if (!nodeId) return [];
+
+  return edges
+    .filter((e) => e.target === nodeId)
+    .map((e) => schemas.get(e.source) ?? []);
+}
