@@ -10,12 +10,13 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_tenant_id, get_current_user_id, get_db
-from app.models.dashboard import Dashboard
+from app.models.dashboard import Dashboard, Widget
 from app.schemas.dashboard import (
     DashboardCreate,
     DashboardListResponse,
     DashboardResponse,
     DashboardUpdate,
+    WidgetResponse,
 )
 
 router = APIRouter()
@@ -131,3 +132,27 @@ async def delete_dashboard(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dashboard not found")
     await db.delete(dashboard)
     await db.commit()
+
+
+@router.get("/{dashboard_id}/widgets", response_model=list[WidgetResponse])
+async def list_dashboard_widgets(
+    dashboard_id: UUID,
+    tenant_id: UUID = Depends(get_current_tenant_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """List all widgets belonging to a dashboard."""
+    # Verify dashboard belongs to tenant
+    dash_result = await db.execute(
+        select(Dashboard).where(
+            Dashboard.id == dashboard_id,
+            Dashboard.tenant_id == tenant_id,
+        )
+    )
+    if not dash_result.scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dashboard not found")
+
+    result = await db.execute(
+        select(Widget).where(Widget.dashboard_id == dashboard_id)
+    )
+    widgets = result.scalars().all()
+    return [WidgetResponse.model_validate(w) for w in widgets]

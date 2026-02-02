@@ -68,6 +68,17 @@ export interface QueryResultResponse {
   truncated: boolean;
 }
 
+export interface WidgetDataResponse {
+  columns: Array<{ name: string; dtype: string }>;
+  rows: Record<string, unknown>[];
+  total_rows: number;
+  execution_ms: number;
+  cache_hit: boolean;
+  offset: number;
+  limit: number;
+  chart_config: Record<string, unknown> | null;
+}
+
 export interface PreviewResponse {
   columns: Array<{ name: string; dtype: string }>;
   rows: Record<string, unknown>[];

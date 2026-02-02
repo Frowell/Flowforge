@@ -4,9 +4,10 @@ Widgets inherit tenant scope from their parent Dashboard.
 Cross-tenant references (dashboard in tenant A, workflow in tenant B) are rejected.
 """
 
+import json
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -97,6 +98,7 @@ async def get_widget_data(
     widget_id: UUID,
     offset: int = 0,
     limit: int = 10_000,
+    filters: str | None = Query(None, description="JSON-encoded filter parameters"),
     tenant_id: UUID = Depends(get_current_tenant_id),
     db: AsyncSession = Depends(get_db),
     widget_data_service: WidgetDataService = Depends(get_widget_data_service),
@@ -126,11 +128,23 @@ async def get_widget_data(
     if not workflow:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Source workflow not found")
 
+    # Parse optional JSON filter params
+    filter_params: dict | None = None
+    if filters:
+        try:
+            filter_params = json.loads(filters)
+        except (json.JSONDecodeError, TypeError):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid filters JSON",
+            )
+
     data = await widget_data_service.fetch_widget_data(
         tenant_id=tenant_id,
         source_node_id=widget.source_node_id,
         graph_json=workflow.graph_json,
         config_overrides=widget.config_overrides,
+        filter_params=filter_params,
         offset=offset,
         limit=limit,
     )

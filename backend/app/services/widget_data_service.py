@@ -66,12 +66,23 @@ class WidgetDataService:
         import copy
         nodes = copy.deepcopy(nodes)
 
+        # Extract chart_config from the target node before overrides
+        chart_config = None
+        for node in nodes:
+            if node["id"] == source_node_id:
+                chart_config = node.get("data", {}).get("config")
+                if chart_config is not None:
+                    chart_config = dict(chart_config)
+                break
+
         if config_overrides:
             for node in nodes:
                 if node["id"] == source_node_id:
                     data = node.setdefault("data", {})
                     config = data.setdefault("config", {})
                     config.update(config_overrides)
+                    # Update chart_config with overrides applied
+                    chart_config = dict(config)
                     break
 
         cache_key = self._compute_cache_key(
@@ -98,6 +109,7 @@ class WidgetDataService:
                 "cache_hit": False,
                 "offset": offset,
                 "limit": limit,
+                "chart_config": chart_config,
             }
 
         # Apply offset/limit to the final segment
@@ -133,6 +145,7 @@ class WidgetDataService:
             "cache_hit": False,
             "offset": offset,
             "limit": limit,
+            "chart_config": chart_config,
         }
 
         # Determine TTL from final segment's target

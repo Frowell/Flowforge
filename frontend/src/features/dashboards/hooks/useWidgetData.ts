@@ -7,18 +7,21 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/shared/query-engine/client";
-import type { QueryResultResponse } from "@/shared/query-engine/types";
+import type { WidgetDataResponse } from "@/shared/query-engine/types";
 import { useDashboardStore } from "../stores/dashboardStore";
 
 export function useWidgetData(widgetId: string) {
   const activeFilters = useDashboardStore((s) => s.activeFilters);
 
+  const params: Record<string, string> = {};
+  if (activeFilters.length > 0) {
+    params.filters = JSON.stringify(activeFilters);
+  }
+
   return useQuery({
     queryKey: ["widgetData", widgetId, activeFilters],
     queryFn: () =>
-      apiClient.get<QueryResultResponse>(`/api/v1/widgets/${widgetId}/data`, {
-        filters: JSON.stringify(activeFilters),
-      }),
+      apiClient.get<WidgetDataResponse>(`/widgets/${widgetId}/data`, params),
     staleTime: 30_000,
   });
 }

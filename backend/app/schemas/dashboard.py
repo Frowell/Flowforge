@@ -102,3 +102,4 @@ class WidgetDataResponse(BaseModel):
     cache_hit: bool
     offset: int
     limit: int
+    chart_config: dict | None = None

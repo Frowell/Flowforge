@@ -5,7 +5,9 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
-import type { QueryResultResponse } from "@/shared/query-engine/types";
+import ChartRenderer from "@/shared/components/charts/ChartRenderer";
+import type { WidgetDataResponse } from "@/shared/query-engine/types";
+import type { ChartDataPoint } from "@/shared/components/charts/types";
 
 interface EmbedWidgetProps {
   widgetId: string;
@@ -16,7 +18,7 @@ interface EmbedWidgetProps {
 export default function EmbedWidget({ widgetId, apiKey, filterParams }: EmbedWidgetProps) {
   const { data, isLoading, error } = useQuery({
     queryKey: ["embed", widgetId, filterParams],
-    queryFn: async (): Promise<QueryResultResponse> => {
+    queryFn: async (): Promise<WidgetDataResponse> => {
       const params = new URLSearchParams({ api_key: apiKey, ...filterParams });
       const response = await fetch(`/api/v1/embed/${widgetId}?${params}`, {
         headers: { Accept: "application/json" },
@@ -47,13 +49,18 @@ export default function EmbedWidget({ widgetId, apiKey, filterParams }: EmbedWid
     );
   }
 
-  // TODO: Determine chart type from widget config and render the appropriate
-  // shared chart component via React.lazy for code splitting
+  if (!data) return null;
+
+  const chartType = (data.chart_config?.chart_type as string) ?? "bar";
+
   return (
     <div className="h-full w-full p-4">
-      <div className="text-white/30 text-sm text-center">
-        Widget loaded — {data?.total_rows ?? 0} rows
-      </div>
+      <ChartRenderer
+        chartType={chartType}
+        config={data.chart_config ?? {}}
+        data={data.rows as ChartDataPoint[]}
+        interactive={false}
+      />
     </div>
   );
 }
