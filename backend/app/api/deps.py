@@ -34,12 +34,21 @@ from app.core.auth import get_current_user_id  # noqa: E402, F401
 from fastapi import Depends  # noqa: E402
 
 from app.core.clickhouse import get_clickhouse_client
+from app.core.config import settings
 from app.services.preview_service import PreviewService
 from app.services.query_router import QueryRouter
 from app.services.rate_limiter import RateLimiter
 from app.services.schema_engine import SchemaEngine
+from app.services.schema_registry import SchemaRegistry
 from app.services.widget_data_service import WidgetDataService
 from app.services.workflow_compiler import WorkflowCompiler
+
+
+async def get_schema_registry(
+    redis=Depends(get_redis),
+) -> SchemaRegistry:
+    clickhouse = get_clickhouse_client()
+    return SchemaRegistry(redis=redis, clickhouse=clickhouse, cache_ttl=settings.schema_cache_ttl)
 
 
 async def get_schema_engine() -> SchemaEngine:

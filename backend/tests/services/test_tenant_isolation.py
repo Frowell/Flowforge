@@ -76,16 +76,20 @@ class TestGetCurrentTenantId:
     @pytest.mark.asyncio
     async def test_missing_auth_header_returns_401(self):
         request = _make_request()
-        with pytest.raises(HTTPException) as exc_info:
-            await get_current_tenant_id(request)
-        assert exc_info.value.status_code == 401
+        with patch("app.core.auth.settings") as mock_settings:
+            mock_settings.app_env = "production"
+            with pytest.raises(HTTPException) as exc_info:
+                await get_current_tenant_id(request)
+            assert exc_info.value.status_code == 401
 
     @pytest.mark.asyncio
     async def test_invalid_bearer_prefix_returns_401(self):
         request = _make_request({"Authorization": "Basic abc123"})
-        with pytest.raises(HTTPException) as exc_info:
-            await get_current_tenant_id(request)
-        assert exc_info.value.status_code == 401
+        with patch("app.core.auth.settings") as mock_settings:
+            mock_settings.app_env = "production"
+            with pytest.raises(HTTPException) as exc_info:
+                await get_current_tenant_id(request)
+            assert exc_info.value.status_code == 401
 
     @pytest.mark.asyncio
     async def test_missing_tenant_id_claim_returns_403(self):
@@ -117,9 +121,11 @@ class TestGetCurrentUserId:
     @pytest.mark.asyncio
     async def test_missing_auth_header_returns_401(self):
         request = _make_request()
-        with pytest.raises(HTTPException) as exc_info:
-            await get_current_user_id(request)
-        assert exc_info.value.status_code == 401
+        with patch("app.core.auth.settings") as mock_settings:
+            mock_settings.app_env = "production"
+            with pytest.raises(HTTPException) as exc_info:
+                await get_current_user_id(request)
+            assert exc_info.value.status_code == 401
 
     @pytest.mark.asyncio
     async def test_missing_sub_claim_returns_401(self):

@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     metrics_enabled: bool = True
 
+    # Dev-mode auth bypass (only used when app_env == "development" and no auth header)
+    dev_user_id: str = "00000000-0000-0000-0000-000000000001"
+    dev_tenant_id: str = "00000000-0000-0000-0000-000000000002"
+
     # Embed rate limiting
     embed_rate_limit_default: int = 100      # requests per second per API key
     embed_rate_limit_window: int = 1         # window size in seconds

@@ -11,6 +11,8 @@ import structlog
 from functools import lru_cache
 from uuid import UUID
 
+logger = structlog.stdlib.get_logger(__name__)
+
 import httpx
 from fastapi import Depends, HTTPException, Request, status
 from jose import JWTError, jwt
@@ -89,8 +91,17 @@ async def get_current_user_id(request: Request) -> UUID:
     """Extract and validate the current user from a Keycloak Bearer token.
 
     Used for canvas and dashboard routes.
+    In development mode, returns a hardcoded dev user when no auth header is present.
     """
     auth_header = request.headers.get("Authorization")
+
+    # Dev-mode bypass: no auth header and development environment
+    if settings.app_env == "development" and (not auth_header or not auth_header.startswith("Bearer ")):
+        logger.warning("dev_auth_bypass", msg="Using dev user ID — no auth header in development mode")
+        user_id = UUID(settings.dev_user_id)
+        structlog.contextvars.bind_contextvars(user_id=str(user_id))
+        return user_id
+
     if not auth_header or not auth_header.startswith("Bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -119,8 +130,17 @@ async def get_current_tenant_id(request: Request) -> UUID:
     Keycloak must be configured with a protocol mapper that includes
     a 'tenant_id' claim in the access token. This is the single source
     of truth for tenant context — never accept tenant_id from request bodies.
+    In development mode, returns a hardcoded dev tenant when no auth header is present.
     """
     auth_header = request.headers.get("Authorization")
+
+    # Dev-mode bypass: no auth header and development environment
+    if settings.app_env == "development" and (not auth_header or not auth_header.startswith("Bearer ")):
+        logger.warning("dev_auth_bypass", msg="Using dev tenant ID — no auth header in development mode")
+        tid = UUID(settings.dev_tenant_id)
+        structlog.contextvars.bind_contextvars(tenant_id=str(tid))
+        return tid
+
     if not auth_header or not auth_header.startswith("Bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

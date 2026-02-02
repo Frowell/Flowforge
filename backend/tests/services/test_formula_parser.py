@@ -54,3 +54,59 @@ class TestSQLCompilation:
         sql = parser.compile_to_sql("[revenue] - [cost]", dialect="clickhouse")
         assert "revenue" in sql
         assert "cost" in sql
+
+    def test_compile_arithmetic_to_sql(self):
+        parser = FormulaParser()
+        sql = parser.compile_to_sql("[revenue] - [cost]")
+        assert "revenue" in sql
+        assert "cost" in sql
+        assert "-" in sql
+
+    def test_compile_function_call(self):
+        parser = FormulaParser()
+        sql = parser.compile_to_sql("ROUND([price] * [quantity], 2)")
+        sql_upper = sql.upper()
+        assert "ROUND" in sql_upper
+        assert "2" in sql
+
+    def test_compile_if_expression(self):
+        parser = FormulaParser()
+        sql = parser.compile_to_sql('IF([quantity] > 1000, "large", "small")')
+        sql_upper = sql.upper()
+        # IF compiles to CASE WHEN in most SQL dialects
+        assert "CASE" in sql_upper or "IF" in sql_upper
+        assert "1000" in sql
+
+    def test_compile_nested_arithmetic(self):
+        parser = FormulaParser()
+        sql = parser.compile_to_sql("([price] + [cost]) * [quantity]")
+        assert "+" in sql
+        assert "*" in sql
+
+    def test_compile_comparison_operators(self):
+        parser = FormulaParser()
+        for op, expected in [
+            (">", ">"),
+            ("<", "<"),
+            (">=", ">="),
+            ("<=", "<="),
+        ]:
+            sql = parser.compile_to_sql(f"[price] {op} 100")
+            assert expected in sql
+
+    def test_compile_division(self):
+        parser = FormulaParser()
+        sql = parser.compile_to_sql("[revenue] / 1000")
+        assert "/" in sql
+        assert "1000" in sql
+
+    def test_compile_coalesce(self):
+        parser = FormulaParser()
+        sql = parser.compile_to_sql("COALESCE([price], 0)")
+        assert "COALESCE" in sql.upper()
+
+    def test_compile_string_literal(self):
+        parser = FormulaParser()
+        sql = parser.compile_to_sql('IF([price] > 100, "high", "low")')
+        sql_upper = sql.upper()
+        assert "CASE" in sql_upper or "IF" in sql_upper

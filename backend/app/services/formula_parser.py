@@ -1,9 +1,12 @@
 """Formula Parser — bracket [column] syntax -> AST -> SQL.
 
 Parses the expression grammar used in Formula nodes:
-  expression  = term (('+' | '-') term)*
-  term        = factor (('*' | '/') factor)*
-  factor      = NUMBER | STRING | COLUMN_REF | function_call | '(' expression ')'
+  expression  = comparison ((AND | OR) comparison)*
+  comparison  = term (('>' | '<' | '>=' | '<=' | '=' | '!=') term)?
+  term        = factor (('+' | '-') factor)*
+  factor      = unary (('*' | '/') unary)*
+  unary       = '-' unary | atom
+  atom        = NUMBER | STRING | COLUMN_REF | function_call | '(' expression ')'
   COLUMN_REF  = '[' column_name ']'
   function    = FUNC_NAME '(' expression (',' expression)* ')'
 
@@ -15,7 +18,6 @@ import logging
 from dataclasses import dataclass
 from enum import Enum, auto
 
-import sqlglot
 from sqlglot import exp
 
 from app.schemas.schema import ColumnSchema
@@ -29,6 +31,7 @@ class TokenType(Enum):
     COLUMN_REF = auto()
     FUNCTION = auto()
     OPERATOR = auto()
+    COMPARISON = auto()
     LPAREN = auto()
     RPAREN = auto()
     COMMA = auto()
@@ -68,6 +71,8 @@ class FormulaParser:
         "LAG", "LEAD", "ROW_NUMBER", "RANK", "RUNNING_TOTAL",
     }
 
+    COMPARISON_OPS = {">=", "<=", "!=", ">", "<", "="}
+
     def parse(self, expression: str) -> list[Token]:
         """Tokenize a formula expression.
 
@@ -97,6 +102,20 @@ class FormulaParser:
             elif ch in "+-*/":
                 tokens.append(Token(TokenType.OPERATOR, ch, i))
                 i += 1
+            elif ch in "><=!":
+                # Two-char comparison operators
+                two_char = expression[i : i + 2]
+                if two_char in (">=", "<=", "!="):
+                    tokens.append(Token(TokenType.COMPARISON, two_char, i))
+                    i += 2
+                elif ch in "><":
+                    tokens.append(Token(TokenType.COMPARISON, ch, i))
+                    i += 1
+                elif ch == "=":
+                    tokens.append(Token(TokenType.COMPARISON, "=", i))
+                    i += 1
+                else:
+                    raise ValueError(f"Unexpected character '{ch}' at position {i}")
             elif ch == "(":
                 tokens.append(Token(TokenType.LPAREN, "(", i))
                 i += 1
@@ -161,22 +180,177 @@ class FormulaParser:
     ) -> str:
         """Compile a formula expression to SQL for the given dialect.
 
-        Uses SQLGlot for dialect-aware compilation.
+        Uses SQLGlot for dialect-aware compilation via recursive descent parsing.
         """
-        # TODO: Build proper AST from tokens and convert to SQLGlot expressions
-        # For now, do simple bracket replacement
-        sql = expression
-        tokens = self.parse(expression)
+        self._tokens = self.parse(expression)
+        self._pos = 0
+        ast = self._parse_expression()
+        return ast.sql(dialect=dialect)
 
-        # Replace column refs: [col_name] -> col_name
-        for token in reversed(
-            [t for t in tokens if t.type == TokenType.COLUMN_REF]
+    def compile_to_expression(
+        self,
+        expression: str,
+    ) -> exp.Expression:
+        """Compile a formula expression to a SQLGlot Expression AST node."""
+        self._tokens = self.parse(expression)
+        self._pos = 0
+        return self._parse_expression()
+
+    # ---- Recursive descent parser producing SQLGlot AST ----
+
+    def _current(self) -> Token:
+        return self._tokens[self._pos]
+
+    def _advance(self) -> Token:
+        token = self._tokens[self._pos]
+        self._pos += 1
+        return token
+
+    def _expect(self, token_type: TokenType, value: str | None = None) -> Token:
+        token = self._current()
+        if token.type != token_type:
+            raise ValueError(
+                f"Expected {token_type.name} but got {token.type.name} at position {token.position}"
+            )
+        if value is not None and token.value != value:
+            raise ValueError(
+                f"Expected '{value}' but got '{token.value}' at position {token.position}"
+            )
+        return self._advance()
+
+    def _parse_expression(self) -> exp.Expression:
+        """expression = comparison"""
+        return self._parse_comparison()
+
+    def _parse_comparison(self) -> exp.Expression:
+        """comparison = term (('>' | '<' | '>=' | '<=' | '=' | '!=') term)?"""
+        left = self._parse_term()
+
+        if self._current().type == TokenType.COMPARISON:
+            op_token = self._advance()
+            right = self._parse_term()
+
+            op_map = {
+                ">": exp.GT,
+                "<": exp.LT,
+                ">=": exp.GTE,
+                "<=": exp.LTE,
+                "=": exp.EQ,
+                "!=": exp.NEQ,
+            }
+            op_class = op_map[op_token.value]
+            return op_class(this=left, expression=right)
+
+        return left
+
+    def _parse_term(self) -> exp.Expression:
+        """term = factor (('+' | '-') factor)*"""
+        left = self._parse_factor()
+
+        while (
+            self._current().type == TokenType.OPERATOR
+            and self._current().value in ("+", "-")
         ):
-            start = token.position
-            end = start + len(token.value) + 2  # +2 for brackets
-            sql = sql[:start] + token.value + sql[end:]
+            op_token = self._advance()
+            right = self._parse_factor()
+            if op_token.value == "+":
+                left = exp.Add(this=left, expression=right)
+            else:
+                left = exp.Sub(this=left, expression=right)
 
-        # Handle IF -> CASE WHEN translation
-        # TODO: Proper AST-based compilation
+        return left
 
-        return sqlglot.transpile(sql, read=dialect, write=dialect)[0]
+    def _parse_factor(self) -> exp.Expression:
+        """factor = unary (('*' | '/') unary)*"""
+        left = self._parse_unary()
+
+        while (
+            self._current().type == TokenType.OPERATOR
+            and self._current().value in ("*", "/")
+        ):
+            op_token = self._advance()
+            right = self._parse_unary()
+            if op_token.value == "*":
+                left = exp.Mul(this=left, expression=right)
+            else:
+                left = exp.Div(this=left, expression=right)
+
+        return left
+
+    def _parse_unary(self) -> exp.Expression:
+        """unary = '-' unary | atom"""
+        if (
+            self._current().type == TokenType.OPERATOR
+            and self._current().value == "-"
+        ):
+            self._advance()
+            operand = self._parse_unary()
+            return exp.Neg(this=operand)
+
+        return self._parse_atom()
+
+    def _parse_atom(self) -> exp.Expression:
+        """atom = NUMBER | STRING | COLUMN_REF | function_call | '(' expression ')'"""
+        token = self._current()
+
+        if token.type == TokenType.NUMBER:
+            self._advance()
+            return exp.Literal.number(token.value)
+
+        if token.type == TokenType.STRING:
+            self._advance()
+            return exp.Literal.string(token.value)
+
+        if token.type == TokenType.COLUMN_REF:
+            self._advance()
+            return exp.Column(this=exp.to_identifier(token.value))
+
+        if token.type == TokenType.FUNCTION:
+            return self._parse_function_call()
+
+        if token.type == TokenType.LPAREN:
+            self._advance()
+            inner = self._parse_expression()
+            self._expect(TokenType.RPAREN)
+            return exp.Paren(this=inner)
+
+        raise ValueError(
+            f"Unexpected token {token.type.name} '{token.value}' at position {token.position}"
+        )
+
+    def _parse_function_call(self) -> exp.Expression:
+        """function_call = FUNC_NAME '(' expression (',' expression)* ')'"""
+        func_token = self._advance()  # consume function name
+        func_name = func_token.value
+
+        self._expect(TokenType.LPAREN)
+
+        args: list[exp.Expression] = []
+        if self._current().type != TokenType.RPAREN:
+            args.append(self._parse_expression())
+            while self._current().type == TokenType.COMMA:
+                self._advance()
+                args.append(self._parse_expression())
+
+        self._expect(TokenType.RPAREN)
+
+        # Special handling for IF -> exp.If (compiles to CASE WHEN)
+        if func_name == "IF":
+            if len(args) < 2:
+                raise ValueError(f"IF requires at least 2 arguments at position {func_token.position}")
+            return exp.If(
+                this=args[0],
+                true=args[1],
+                false=args[2] if len(args) > 2 else exp.Null(),
+            )
+
+        # Special handling for COALESCE
+        if func_name == "COALESCE":
+            return exp.Coalesce(this=args[0], expressions=args[1:])
+
+        # Special handling for NULLIF
+        if func_name == "NULLIF":
+            return exp.Nullif(this=args[0], expression=args[1])
+
+        # All other functions -> exp.Anonymous
+        return exp.Anonymous(this=func_name, expressions=args)
