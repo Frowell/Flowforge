@@ -1,0 +1,122 @@
+{
+  "name": "FlowForge — React Flow Alteryx Clone",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspace",
+
+  // ── VS Code Settings ──────────────────────────────────────────────
+  "customizations": {
+    "vscode": {
+      "settings": {
+        // Python
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.analysis.typeCheckingMode": "basic",
+        "python.analysis.autoImportCompletions": true,
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff",
+          "editor.formatOnSave": true,
+          "editor.codeActionsOnSave": {
+            "source.fixAll": "explicit",
+            "source.organizeImports": "explicit"
+          }
+        },
+
+        // TypeScript / React
+        "[typescript]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode",
+          "editor.formatOnSave": true
+        },
+        "[typescriptreact]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode",
+          "editor.formatOnSave": true
+        },
+        "[javascript]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode",
+          "editor.formatOnSave": true
+        },
+        "[json]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode",
+          "editor.formatOnSave": true
+        },
+
+        // General
+        "editor.tabSize": 2,
+        "editor.rulers": [88, 120],
+        "files.trimTrailingWhitespace": true,
+        "files.insertFinalNewline": true,
+
+        // Testing
+        "python.testing.pytestEnabled": true,
+        "python.testing.pytestArgs": ["backend/tests"],
+
+        // Terminal
+        "terminal.integrated.defaultProfile.linux": "zsh"
+      },
+
+      "extensions": [
+        // Python
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "charliermarsh.ruff",
+
+        // JavaScript/TypeScript/React
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint",
+        "bradlc.vscode-tailwindcss",
+
+        // Docker & Infrastructure
+        "ms-azuretools.vscode-docker",
+
+        // Database
+        "mtxr.sqltools",
+        "mtxr.sqltools-driver-pg",
+
+        // General DX
+        "eamodio.gitlens",
+        "usernamehw.errorlens",
+        "mikestead.dotenv",
+        "redhat.vscode-yaml",
+        "ms-vscode.makefile-tools",
+        "streetsidesoftware.code-spell-checker",
+
+        // API Development
+        "humao.rest-client",
+        "42Crunch.vscode-openapi"
+      ]
+    }
+  },
+
+  // ── Ports ──────────────────────────────────────────────────────────
+  "forwardPorts": [
+    5173,   // Vite React dev server
+    8000,   // FastAPI backend
+    5432,   // PostgreSQL
+    6379,   // Redis
+    8080    // pgAdmin (optional)
+  ],
+  "portsAttributes": {
+    "5173": { "label": "Frontend (Vite)",      "onAutoForward": "openBrowser" },
+    "8000": { "label": "Backend (FastAPI)",     "onAutoForward": "notify" },
+    "5432": { "label": "PostgreSQL",            "onAutoForward": "silent" },
+    "6379": { "label": "Redis",                 "onAutoForward": "silent" },
+    "8080": { "label": "pgAdmin",               "onAutoForward": "silent" }
+  },
+
+  // ── Lifecycle ─────────────────────────────────────────────────────
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "postStartCommand": "bash .devcontainer/post-start.sh",
+
+  // ── Features ──────────────────────────────────────────────────────
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "22"
+    },
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers-extra/features/zsh-plugins:0": {
+      "plugins": "git docker-compose python node npm"
+    }
+  },
+
+  // ── Remote User ───────────────────────────────────────────────────
+  "remoteUser": "vscode"
+}

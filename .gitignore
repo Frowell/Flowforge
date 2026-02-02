@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.egg-info/
+.eggs/
+
+# Build
+dist/
+build/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+!.vscode/settings.json
+.idea/
+
+# Environment
+.env
+.env.local
+*.env
+
+# Caches
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code local state
+.claude/
+CLAUDE.local.md
+
+# Claude Code local state
+.claude/
+CLAUDE.local.md

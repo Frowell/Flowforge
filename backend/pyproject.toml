@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=75.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flowforge"
+version = "0.1.0"
+description = "Visual analytics canvas + BI layer — compiles workflows to SQL"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi[standard]>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "python-multipart>=0.0.12",
+    # Database
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30.0",
+    "psycopg2-binary>=2.9.10",
+    "alembic>=1.14.0",
+    "greenlet>=3.1.0",
+    "redis>=5.2.0",
+    # SQL generation (NOT DataFrames)
+    "sqlglot>=25.0.0",
+    # Validation
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.6.0",
+    "orjson>=3.10.0",
+    # Auth (Keycloak OIDC)
+    "python-jose[cryptography]>=3.3.0",
+    "httpx>=0.28.0",
+    # Preview formatting only (never for query execution)
+    "pandas>=2.2.0",
+    "pyarrow>=18.0.0",
+    # Observability
+    "structlog>=24.1.0",
+    "prometheus-client>=0.20.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
+    "httpx>=0.28.0",
+    "ruff>=0.8.0",
+    "mypy>=1.13.0",
+    "ipython>=8.29.0",
+    "rich>=13.9.0",
+    "pre-commit>=4.0.0",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "N", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
