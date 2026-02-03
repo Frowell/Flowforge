@@ -144,9 +144,42 @@ registerTransform("sample", (_config, inputs) => {
   return inputs[0] ? [...inputs[0]] : [];
 });
 
+// Limit: passthrough
+registerTransform("limit", (_config, inputs) => {
+  return inputs[0] ? [...inputs[0]] : [];
+});
+
+// Window: input + new window column
+registerTransform("window", (config, inputs) => {
+  if (!inputs[0]) return [];
+  const outputColumn = (config.output_column as string) ?? "window_result";
+  const func = (config.function as string) ?? "ROW_NUMBER";
+
+  // Determine output dtype based on function
+  let dtype: ColumnSchema["dtype"] = "int64";
+  if (["SUM", "AVG", "MIN", "MAX"].includes(func)) {
+    dtype = "float64";
+  } else if (["FIRST_VALUE", "LAST_VALUE", "LAG", "LEAD"].includes(func)) {
+    // Match source column dtype
+    const sourceCol = (config.source_column as string) ?? "";
+    const srcSchema = inputs[0].find((c) => c.name === sourceCol);
+    dtype = srcSchema?.dtype ?? "float64";
+  }
+
+  return [
+    ...inputs[0],
+    {
+      name: outputColumn,
+      dtype,
+      nullable: true,
+    },
+  ];
+});
+
 // Terminal nodes: no output
 registerTransform("chart_output", () => []);
 registerTransform("table_output", () => []);
+registerTransform("kpi_output", () => []);
 
 // ── Engine ──────────────────────────────────────────────────────────────
 

@@ -183,6 +183,39 @@ def sample_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[Col
     return list(inputs[0])
 
 
+@register_transform("limit")
+def limit_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[ColumnSchema]:
+    """Passthrough — limited rows."""
+    if not inputs:
+        return []
+    return list(inputs[0])
+
+
+@register_transform("window")
+def window_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[ColumnSchema]:
+    """Input columns + new window function column."""
+    if not inputs:
+        return []
+    output = list(inputs[0])
+    output_column = config.get("output_column", "window_result")
+    func = config.get("function", "ROW_NUMBER")
+
+    # Determine output dtype based on function
+    if func in ("SUM", "AVG", "MIN", "MAX"):
+        dtype = "float64"
+    elif func in ("FIRST_VALUE", "LAST_VALUE", "LAG", "LEAD"):
+        # Match source column dtype
+        source_col = config.get("source_column", "")
+        input_by_name = {col.name: col for col in inputs[0]}
+        src_schema = input_by_name.get(source_col)
+        dtype = src_schema.dtype if src_schema else "float64"
+    else:
+        dtype = "int64"
+
+    output.append(ColumnSchema(name=output_column, dtype=dtype, nullable=True))
+    return output
+
+
 @register_transform("union")
 def union_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[ColumnSchema]:
     """Columns from first input (both inputs must have compatible schemas)."""
@@ -199,6 +232,12 @@ def chart_output_transform(config: dict, inputs: list[list[ColumnSchema]]) -> li
 
 @register_transform("table_output")
 def table_output_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[ColumnSchema]:
+    """Terminal — no output schema."""
+    return []
+
+
+@register_transform("kpi_output")
+def kpi_output_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[ColumnSchema]:
     """Terminal — no output schema."""
     return []
 

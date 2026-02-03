@@ -29,7 +29,7 @@ export function useCreateWidget() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (params: CreateWidgetParams) =>
-      apiClient.post<WidgetResponse>("/widgets", params),
+      apiClient.post<WidgetResponse>("/api/v1/widgets", params),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
         queryKey: [...DASHBOARD_WIDGETS_KEY, variables.dashboard_id],
@@ -42,7 +42,7 @@ export function useUpdateWidget() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ widgetId, ...body }: UpdateWidgetParams) =>
-      apiClient.patch<WidgetResponse>(`/widgets/${widgetId}`, body),
+      apiClient.patch<WidgetResponse>(`/api/v1/widgets/${widgetId}`, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: DASHBOARD_WIDGETS_KEY });
     },
@@ -52,7 +52,7 @@ export function useUpdateWidget() {
 export function useDeleteWidget() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (widgetId: string) => apiClient.delete(`/widgets/${widgetId}`),
+    mutationFn: (widgetId: string) => apiClient.delete(`/api/v1/widgets/${widgetId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: DASHBOARD_WIDGETS_KEY });
     },

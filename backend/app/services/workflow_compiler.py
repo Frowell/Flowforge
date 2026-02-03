@@ -163,14 +163,14 @@ class WorkflowCompiler:
         # Track whether a node's expression has GROUP BY (prevents further merging of certain ops)
         has_group_by: dict[str, bool] = {}
 
-        mergeable_types = {"filter", "select", "sort", "rename", "formula", "unique", "sample"}
+        mergeable_types = {"filter", "select", "sort", "rename", "formula", "unique", "sample", "limit", "window"}
 
         for node_id in sorted_ids:
             node = node_map[node_id]
             node_type = node.get("type", "")
             config = node.get("data", {}).get("config", {})
 
-            if node_type in ("chart_output", "table_output"):
+            if node_type in ("chart_output", "table_output", "kpi_output"):
                 continue
 
             if node_type == "data_source":
@@ -220,6 +220,10 @@ class WorkflowCompiler:
                     expression = self._apply_unique(expression, config)
                 elif node_type == "sample":
                     expression = self._apply_sample(expression, config)
+                elif node_type == "limit":
+                    expression = self._apply_limit(expression, config)
+                elif node_type == "window":
+                    expression = self._apply_window(expression, config)
 
                 expr_map[node_id] = expression
                 source_ids_map[node_id] = parent_source_ids + [node_id]
@@ -337,29 +341,31 @@ class WorkflowCompiler:
 
         col_expr = exp.Column(this=exp.to_identifier(column))
 
+        val_expr = exp.Literal.string(str(value))
+
         if operator == "=":
-            condition = col_expr.eq(exp.Literal.string(str(value)))
+            condition = exp.EQ(this=col_expr, expression=val_expr)
         elif operator == "!=":
-            condition = col_expr.neq(exp.Literal.string(str(value)))
+            condition = exp.NEQ(this=col_expr, expression=val_expr)
         elif operator == ">":
-            condition = col_expr.gt(exp.Literal.string(str(value)))
+            condition = exp.GT(this=col_expr, expression=val_expr)
         elif operator == "<":
-            condition = col_expr.lt(exp.Literal.string(str(value)))
+            condition = exp.LT(this=col_expr, expression=val_expr)
         elif operator == ">=":
-            condition = col_expr.gte(exp.Literal.string(str(value)))
+            condition = exp.GTE(this=col_expr, expression=val_expr)
         elif operator == "<=":
-            condition = col_expr.lte(exp.Literal.string(str(value)))
+            condition = exp.LTE(this=col_expr, expression=val_expr)
         elif operator == "contains":
-            condition = col_expr.like(exp.Literal.string(f"%{value}%"))
+            condition = exp.Like(this=col_expr, expression=exp.Literal.string(f"%{value}%"))
         elif operator == "starts with":
-            condition = col_expr.like(exp.Literal.string(f"{value}%"))
+            condition = exp.Like(this=col_expr, expression=exp.Literal.string(f"{value}%"))
         elif operator == "ends with":
-            condition = col_expr.like(exp.Literal.string(f"%{value}"))
+            condition = exp.Like(this=col_expr, expression=exp.Literal.string(f"%{value}"))
         elif operator in ("before", "after"):
             if operator == "before":
-                condition = col_expr.lt(exp.Literal.string(str(value)))
+                condition = exp.LT(this=col_expr, expression=val_expr)
             else:
-                condition = col_expr.gt(exp.Literal.string(str(value)))
+                condition = exp.GT(this=col_expr, expression=val_expr)
         elif operator == "between":
             # value should be a list [low, high] or "low,high" string
             if isinstance(value, str):
@@ -377,7 +383,7 @@ class WorkflowCompiler:
             else:
                 return expression
         else:
-            condition = col_expr.eq(exp.Literal.string(str(value)))
+            condition = exp.EQ(this=col_expr, expression=val_expr)
 
         return expression.where(condition)
 
@@ -600,6 +606,85 @@ class WorkflowCompiler:
         count = config.get("count", 100)
         return expression.limit(count)
 
+    @staticmethod
+    def _apply_limit(expression: exp.Expression, config: dict) -> exp.Expression:
+        """Add LIMIT and OFFSET to the SELECT expression.
+
+        Config: {limit: N, offset: M}
+        """
+        limit = config.get("limit", 100)
+        offset = config.get("offset", 0)
+        result = expression.limit(limit)
+        if offset > 0:
+            result = result.offset(offset)
+        return result
+
+    @staticmethod
+    def _apply_window(expression: exp.Expression, config: dict) -> exp.Expression:
+        """Add a window function column to the SELECT expression.
+
+        Config: {
+            function: "ROW_NUMBER" | "RANK" | "DENSE_RANK" | "LAG" | "LEAD" | "SUM" | "AVG" | etc.,
+            source_column: "col_name" (for functions that need a column),
+            partition_by: ["col1", "col2"],
+            order_by: "col_name",
+            order_direction: "ASC" | "DESC",
+            output_column: "result_name"
+        }
+        """
+        func_name = config.get("function", "ROW_NUMBER")
+        source_column = config.get("source_column", "")
+        partition_by = config.get("partition_by", [])
+        order_by = config.get("order_by", "")
+        order_dir = config.get("order_direction", "ASC")
+        output_column = config.get("output_column", "window_result")
+
+        # Build the window function expression
+        func_requires_column = func_name in ("LAG", "LEAD", "SUM", "AVG", "MIN", "MAX", "FIRST_VALUE", "LAST_VALUE")
+
+        if func_requires_column and source_column:
+            func_expr = exp.Anonymous(
+                this=func_name,
+                expressions=[exp.Column(this=exp.to_identifier(source_column))],
+            )
+        else:
+            func_expr = exp.Anonymous(this=func_name, expressions=[])
+
+        # Build OVER clause
+        over_parts = []
+
+        # PARTITION BY
+        if partition_by:
+            partition_cols = [exp.Column(this=exp.to_identifier(col)) for col in partition_by]
+            over_parts.append(exp.PartitionedByProperty(this=exp.Tuple(expressions=partition_cols)))
+
+        # ORDER BY
+        order_expr = None
+        if order_by:
+            order_col = exp.Column(this=exp.to_identifier(order_by))
+            if order_dir.upper() == "DESC":
+                order_col = exp.Ordered(this=order_col, desc=True)
+            else:
+                order_col = exp.Ordered(this=order_col, desc=False)
+            order_expr = exp.Order(expressions=[order_col])
+
+        # Build the window expression
+        window_spec = exp.Window(
+            this=func_expr,
+            partition_by=partition_by if partition_by else None,
+            order=order_expr,
+        )
+
+        # Add as aliased column to SELECT
+        alias_expr = exp.Alias(this=window_spec, alias=exp.to_identifier(output_column))
+
+        # Clone expression and add the new column
+        new_select = expression.copy()
+        if hasattr(new_select, "expressions"):
+            new_select.args["expressions"] = list(new_select.expressions) + [alias_expr]
+
+        return new_select
+
     def _apply_limits(
         self,
         segments: list[CompiledSegment],
@@ -629,7 +714,7 @@ class WorkflowCompiler:
 
         for node in nodes:
             node_type = node.get("type", "")
-            if node_type not in ("table_output", "chart_output"):
+            if node_type not in ("table_output", "chart_output", "kpi_output"):
                 continue
 
             max_rows = (

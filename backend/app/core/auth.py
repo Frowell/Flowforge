@@ -94,10 +94,11 @@ async def get_current_user_id(request: Request) -> UUID:
     In development mode, returns a hardcoded dev user when no auth header is present.
     """
     auth_header = request.headers.get("Authorization")
+    token = auth_header.removeprefix("Bearer ") if auth_header else None
 
-    # Dev-mode bypass: no auth header and development environment
-    if settings.app_env == "development" and (not auth_header or not auth_header.startswith("Bearer ")):
-        logger.warning("dev_auth_bypass", msg="Using dev user ID — no auth header in development mode")
+    # Dev-mode bypass: development environment with no token or "dev-token"
+    if settings.app_env == "development" and (not token or token == "dev-token"):
+        logger.warning("dev_auth_bypass", msg="Using dev user ID — dev mode")
         user_id = UUID(settings.dev_user_id)
         structlog.contextvars.bind_contextvars(user_id=str(user_id))
         return user_id
@@ -109,7 +110,6 @@ async def get_current_user_id(request: Request) -> UUID:
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    token = auth_header.removeprefix("Bearer ")
     payload = await _decode_token(token)
 
     sub = payload.get("sub")
@@ -130,13 +130,14 @@ async def get_current_tenant_id(request: Request) -> UUID:
     Keycloak must be configured with a protocol mapper that includes
     a 'tenant_id' claim in the access token. This is the single source
     of truth for tenant context — never accept tenant_id from request bodies.
-    In development mode, returns a hardcoded dev tenant when no auth header is present.
+    In development mode, returns a hardcoded dev tenant when no token or "dev-token".
     """
     auth_header = request.headers.get("Authorization")
+    token = auth_header.removeprefix("Bearer ") if auth_header else None
 
-    # Dev-mode bypass: no auth header and development environment
-    if settings.app_env == "development" and (not auth_header or not auth_header.startswith("Bearer ")):
-        logger.warning("dev_auth_bypass", msg="Using dev tenant ID — no auth header in development mode")
+    # Dev-mode bypass: development environment with no token or "dev-token"
+    if settings.app_env == "development" and (not token or token == "dev-token"):
+        logger.warning("dev_auth_bypass", msg="Using dev tenant ID — dev mode")
         tid = UUID(settings.dev_tenant_id)
         structlog.contextvars.bind_contextvars(tenant_id=str(tid))
         return tid
@@ -148,7 +149,6 @@ async def get_current_tenant_id(request: Request) -> UUID:
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    token = auth_header.removeprefix("Bearer ")
     payload = await _decode_token(token)
 
     tenant_id = payload.get("tenant_id")

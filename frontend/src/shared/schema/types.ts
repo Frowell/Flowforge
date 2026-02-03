@@ -47,5 +47,8 @@ export type NodeType =
   | "formula"
   | "unique"
   | "sample"
+  | "limit"
+  | "window"
   | "chart_output"
-  | "table_output";
+  | "table_output"
+  | "kpi_output";

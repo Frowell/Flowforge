@@ -4,6 +4,9 @@
  * Canvas and dashboard routes authenticate via Keycloak SSO.
  * Supports multiple identity providers configured in the Keycloak realm.
  * Embed routes use API key auth (handled separately via URL params).
+ *
+ * In development mode (VITE_DEV_AUTH=true), authentication is bypassed
+ * and a mock user is provided.
  */
 
 import Keycloak from "keycloak-js";
@@ -15,6 +18,17 @@ export interface CurrentUser {
   name: string;
   roles: string[];
 }
+
+// Dev mode: bypass Keycloak when VITE_DEV_AUTH is set
+const DEV_AUTH = import.meta.env.VITE_DEV_AUTH === "true";
+
+const DEV_USER: CurrentUser = {
+  id: "dev-user-001",
+  tenantId: "dev-tenant-001",
+  email: "dev@flowforge.local",
+  name: "Dev User",
+  roles: ["admin", "analyst", "viewer"],
+};
 
 const keycloak = new Keycloak({
   url: import.meta.env.VITE_KEYCLOAK_URL ?? "http://localhost:8080",
@@ -29,8 +43,16 @@ let _initialized = false;
  *
  * Uses check-sso to silently check if the user has an active SSO session
  * without forcing a redirect on first load.
+ *
+ * In dev mode, this immediately returns true without contacting Keycloak.
  */
 export async function initKeycloak(): Promise<boolean> {
+  if (DEV_AUTH) {
+    _initialized = true;
+    console.log("[Auth] Dev mode enabled — using mock user");
+    return true;
+  }
+
   if (_initialized) return keycloak.authenticated ?? false;
 
   const authenticated = await keycloak.init({
@@ -58,6 +80,10 @@ export async function initKeycloak(): Promise<boolean> {
  * based on the realm configuration.
  */
 export function login(): void {
+  if (DEV_AUTH) {
+    console.log("[Auth] Dev mode — login is a no-op");
+    return;
+  }
   keycloak.login();
 }
 
@@ -65,6 +91,10 @@ export function login(): void {
  * Redirect to Keycloak logout and clear local session.
  */
 export function logout(): void {
+  if (DEV_AUTH) {
+    console.log("[Auth] Dev mode — logout is a no-op");
+    return;
+  }
   keycloak.logout({ redirectUri: window.location.origin });
 }
 
@@ -75,6 +105,10 @@ export function logout(): void {
  * Returns null if not authenticated.
  */
 export async function getAccessToken(): Promise<string | null> {
+  if (DEV_AUTH) {
+    return "dev-token";
+  }
+
   if (!keycloak.authenticated) return null;
 
   try {
@@ -91,6 +125,10 @@ export async function getAccessToken(): Promise<string | null> {
  * Get the current authenticated user's info from the token claims.
  */
 export function getCurrentUser(): CurrentUser | null {
+  if (DEV_AUTH) {
+    return DEV_USER;
+  }
+
   if (!keycloak.authenticated || !keycloak.tokenParsed) return null;
 
   const token = keycloak.tokenParsed;

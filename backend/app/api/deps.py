@@ -102,13 +102,12 @@ from app.core.auth import get_current_user_claims  # noqa: E402
 async def get_user_claims(request: Request) -> dict:
     """Wrapper around get_current_user_claims for dependency injection.
 
-    In development mode without auth header, returns dev claims with admin access.
+    In development mode without auth header or with "dev-token", returns dev claims with admin access.
     This allows Depends() override in tests.
     """
     auth_header = request.headers.get("Authorization")
-    if settings.app_env == "development" and (
-        not auth_header or not auth_header.startswith("Bearer ")
-    ):
+    token = auth_header.removeprefix("Bearer ") if auth_header else None
+    if settings.app_env == "development" and (not token or token == "dev-token"):
         return {
             "sub": settings.dev_user_id,
             "tenant_id": settings.dev_tenant_id,

@@ -12,7 +12,7 @@ export function useDashboardWidgets(dashboardId: string | undefined) {
   return useQuery({
     queryKey: [...DASHBOARD_WIDGETS_KEY, dashboardId],
     queryFn: () =>
-      apiClient.get<WidgetResponse[]>(`/dashboards/${dashboardId}/widgets`),
+      apiClient.get<WidgetResponse[]>(`/api/v1/dashboards/${dashboardId}/widgets`),
     enabled: !!dashboardId,
   });
 }

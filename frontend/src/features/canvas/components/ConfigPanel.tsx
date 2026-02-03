@@ -20,6 +20,9 @@ import PivotPanel from "../panels/PivotPanel";
 import UnionPanel from "../panels/UnionPanel";
 import UniquePanel from "../panels/UniquePanel";
 import SamplePanel from "../panels/SamplePanel";
+import LimitPanel from "../panels/LimitPanel";
+import WindowPanel from "../panels/WindowPanel";
+import KPIPanel from "../panels/KPIPanel";
 
 interface ConfigPanelProps {
   nodeId: string;
@@ -39,6 +42,9 @@ const PANEL_MAP: Record<string, React.FC<{ nodeId: string }>> = {
   union: UnionPanel,
   unique: UniquePanel,
   sample: SamplePanel,
+  limit: LimitPanel,
+  window: WindowPanel,
+  kpi_output: KPIPanel,
 };
 
 export default function ConfigPanel({ nodeId }: ConfigPanelProps) {

@@ -1,7 +1,8 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import { hasRole } from "@/shared/auth/keycloak";
 import ConnectionStatus from "@/shared/components/ConnectionStatus";
+import Navbar from "@/shared/components/Navbar";
 
 const CanvasPage = lazy(() => import("@/features/canvas/components/Canvas"));
 const DashboardPage = lazy(() => import("@/features/dashboards/components/DashboardGrid"));
@@ -16,10 +17,13 @@ function RequireEditorRole({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  const location = useLocation();
   const isViewer = !hasRole("admin") && !hasRole("analyst");
+  const isEmbed = location.pathname.startsWith("/embed");
 
   return (
     <Suspense fallback={<LoadingScreen />}>
+      {!isEmbed && <Navbar />}
       <Routes>
         <Route
           path="/canvas"

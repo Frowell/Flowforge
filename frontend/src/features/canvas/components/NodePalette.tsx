@@ -21,13 +21,16 @@ const NODE_TYPES: NodeTypeDefinition[] = [
   { type: "rename", label: "Rename", category: "transform" },
   { type: "unique", label: "Unique", category: "transform" },
   { type: "sample", label: "Sample", category: "transform" },
+  { type: "limit", label: "Limit", category: "transform" },
   { type: "pivot", label: "Pivot", category: "transform" },
   { type: "join", label: "Join", category: "combine" },
   { type: "union", label: "Union", category: "combine" },
   { type: "group_by", label: "Group By", category: "combine" },
   { type: "formula", label: "Formula", category: "calculate" },
+  { type: "window", label: "Window", category: "calculate" },
   { type: "table_output", label: "Table View", category: "output" },
   { type: "chart_output", label: "Chart", category: "output" },
+  { type: "kpi_output", label: "KPI Card", category: "output" },
 ];
 
 const CATEGORY_COLORS: Record<string, string> = {

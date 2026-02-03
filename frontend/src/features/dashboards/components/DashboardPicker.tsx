@@ -11,9 +11,8 @@ export default function DashboardPicker() {
   const navigate = useNavigate();
 
   return (
-    <div className="h-screen w-screen bg-canvas-bg flex flex-col">
-      <header className="h-12 bg-canvas-node border-b border-canvas-border flex items-center px-4 shrink-0 justify-between">
-        <h1 className="text-sm font-semibold text-white">Dashboards</h1>
+    <div className="h-[calc(100vh-3rem)] w-screen bg-canvas-bg flex flex-col">
+      <div className="h-10 bg-canvas-bg border-b border-canvas-border flex items-center px-4 shrink-0 justify-end">
         <button
           onClick={() =>
             createDashboard.mutate(
@@ -25,7 +24,7 @@ export default function DashboardPicker() {
         >
           New Dashboard
         </button>
-      </header>
+      </div>
 
       <div className="flex-1 p-4">
         {isLoading && <div className="text-white/50 text-sm">Loading...</div>}

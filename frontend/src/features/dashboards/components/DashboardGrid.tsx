@@ -67,7 +67,7 @@ export default function DashboardGrid() {
 
   if (dashLoading || widgetsLoading) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-canvas-bg">
+      <div className="h-[calc(100vh-3rem)] w-screen flex items-center justify-center bg-canvas-bg">
         <div className="text-white/50 text-sm">Loading dashboard...</div>
       </div>
     );
@@ -76,9 +76,9 @@ export default function DashboardGrid() {
   const hasWidgets = widgets && widgets.length > 0;
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-canvas-bg">
-      <header className="h-12 bg-canvas-node border-b border-canvas-border flex items-center px-4 shrink-0 justify-between">
-        <h1 className="text-sm font-semibold text-white">{dashboard?.name ?? "Dashboard"}</h1>
+    <div className="h-[calc(100vh-3rem)] w-screen flex flex-col bg-canvas-bg">
+      <div className="h-10 bg-canvas-bg border-b border-canvas-border flex items-center px-4 shrink-0 justify-between">
+        <h1 className="text-sm font-medium text-white/80">{dashboard?.name ?? "Dashboard"}</h1>
         <div className="flex items-center gap-3">
           <GlobalFilters />
           <button
@@ -92,7 +92,7 @@ export default function DashboardGrid() {
             {isEditing ? "Done Editing" : "Edit Layout"}
           </button>
         </div>
-      </header>
+      </div>
 
       <div className="flex-1 p-4 overflow-auto">
         {!hasWidgets && (

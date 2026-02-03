@@ -17,6 +17,9 @@ import UniqueNode from "./UniqueNode";
 import SampleNode from "./SampleNode";
 import UnionNode from "./UnionNode";
 import PivotNode from "./PivotNode";
+import LimitNode from "./LimitNode";
+import WindowNode from "./WindowNode";
+import KPIOutputNode from "./KPIOutputNode";
 
 export const nodeTypes: NodeTypes = {
   data_source: DataSourceNode,
@@ -31,6 +34,9 @@ export const nodeTypes: NodeTypes = {
   rename: RenameNode,
   unique: UniqueNode,
   sample: SampleNode,
+  limit: LimitNode,
+  window: WindowNode,
   chart_output: ChartOutputNode,
   table_output: TableOutputNode,
+  kpi_output: KPIOutputNode,
 };
