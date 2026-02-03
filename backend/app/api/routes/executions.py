@@ -14,13 +14,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import (
     get_current_tenant_id,
+    get_current_user_id,
     get_db,
     get_preview_service,
     get_query_router,
     get_redis,
     get_websocket_manager,
     get_workflow_compiler,
+    require_role,
 )
+from app.models.audit_log import AuditAction, AuditResourceType
+from app.services.audit_service import AuditService
 from app.models.workflow import Workflow
 from app.schemas.preview import PreviewRequest, PreviewResponse
 from app.schemas.query import ExecutionStatusResponse, NodeStatusResponse, ExecutionRequest
@@ -60,11 +64,13 @@ async def preview_node(
 async def execute_workflow(
     body: ExecutionRequest,
     tenant_id: UUID = Depends(get_current_tenant_id),
+    user_id: UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
     compiler: WorkflowCompiler = Depends(get_workflow_compiler),
     query_router: QueryRouter = Depends(get_query_router),
     ws_manager: WebSocketManager = Depends(get_websocket_manager),
     redis=Depends(get_redis),
+    _: dict = Depends(require_role("admin", "analyst")),
 ):
     """Compile and execute a workflow.
 
@@ -81,6 +87,16 @@ async def execute_workflow(
     workflow = result.scalar_one_or_none()
     if not workflow:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found")
+
+    audit = AuditService(db)
+    await audit.log(
+        tenant_id=tenant_id,
+        user_id=user_id,
+        action=AuditAction.EXECUTED,
+        resource_type=AuditResourceType.WORKFLOW,
+        resource_id=body.workflow_id,
+    )
+    await db.commit()
 
     execution_id = uuid4()
     now = datetime.now(timezone.utc).isoformat()

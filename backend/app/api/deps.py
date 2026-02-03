@@ -31,7 +31,7 @@ from app.core.auth import get_current_user_id  # noqa: E402, F401
 # Service dependency providers — import the service, inject its dependencies.
 # Each returns a configured service instance for the request lifecycle.
 
-from fastapi import Depends, Request  # noqa: E402
+from fastapi import Depends, HTTPException, Request  # noqa: E402
 
 from app.core.clickhouse import get_clickhouse_client
 from app.core.config import settings
@@ -94,3 +94,50 @@ async def get_rate_limiter(redis=Depends(get_redis)) -> RateLimiter:
 async def get_websocket_manager(request: Request) -> WebSocketManager:
     """Return the WebSocket manager from app state."""
     return request.app.state.ws_manager
+
+
+from app.core.auth import get_current_user_claims  # noqa: E402
+
+
+async def get_user_claims(request: Request) -> dict:
+    """Wrapper around get_current_user_claims for dependency injection.
+
+    In development mode without auth header, returns dev claims with admin access.
+    This allows Depends() override in tests.
+    """
+    auth_header = request.headers.get("Authorization")
+    if settings.app_env == "development" and (
+        not auth_header or not auth_header.startswith("Bearer ")
+    ):
+        return {
+            "sub": settings.dev_user_id,
+            "tenant_id": settings.dev_tenant_id,
+            "realm_access": {"roles": ["admin"]},
+            "resource_access": {},
+            "dev_bypass": True,
+        }
+    return await get_current_user_claims(request)
+
+
+def require_role(*allowed_roles: str):
+    """Dependency factory that enforces Keycloak role-based access.
+
+    Usage: `Depends(require_role("admin", "analyst"))`
+    """
+
+    async def _check(
+        claims: dict = Depends(get_user_claims),
+    ) -> dict:
+        realm_roles = claims.get("realm_access", {}).get("roles", [])
+        client_roles = []
+        for client_data in claims.get("resource_access", {}).values():
+            client_roles.extend(client_data.get("roles", []))
+        all_roles = set(realm_roles + client_roles)
+
+        if not any(r in all_roles for r in allowed_roles):
+            raise HTTPException(
+                status_code=403, detail="Insufficient permissions"
+            )
+        return claims
+
+    return _check

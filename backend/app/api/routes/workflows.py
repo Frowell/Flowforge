@@ -10,8 +10,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_tenant_id, get_current_user_id, get_db
+from app.api.deps import get_current_tenant_id, get_current_user_id, get_db, require_role
+from app.models.audit_log import AuditAction, AuditResourceType
 from app.models.workflow import Workflow, WorkflowVersion
+from app.services.audit_service import AuditService
 from app.schemas.workflow import (
     WorkflowCreate,
     WorkflowListResponse,
@@ -78,6 +80,7 @@ async def create_workflow(
     tenant_id: UUID = Depends(get_current_tenant_id),
     user_id: UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_role("admin", "analyst")),
 ):
     workflow = Workflow(
         name=body.name,
@@ -87,6 +90,18 @@ async def create_workflow(
         created_by=user_id,
     )
     db.add(workflow)
+    await db.flush()
+
+    audit = AuditService(db)
+    await audit.log(
+        tenant_id=tenant_id,
+        user_id=user_id,
+        action=AuditAction.CREATED,
+        resource_type=AuditResourceType.WORKFLOW,
+        resource_id=workflow.id,
+        metadata={"name": body.name},
+    )
+
     await db.commit()
     await db.refresh(workflow)
     return WorkflowResponse.model_validate(workflow)
@@ -99,6 +114,7 @@ async def update_workflow(
     tenant_id: UUID = Depends(get_current_tenant_id),
     user_id: UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_role("admin", "analyst")),
 ):
     result = await db.execute(
         select(Workflow).where(
@@ -132,6 +148,16 @@ async def update_workflow(
     for field, value in update_data.items():
         setattr(workflow, field, value)
 
+    audit = AuditService(db)
+    await audit.log(
+        tenant_id=tenant_id,
+        user_id=user_id,
+        action=AuditAction.UPDATED,
+        resource_type=AuditResourceType.WORKFLOW,
+        resource_id=workflow.id,
+        metadata={"fields": list(update_data.keys())},
+    )
+
     await db.commit()
     await db.refresh(workflow)
     return WorkflowResponse.model_validate(workflow)
@@ -141,7 +167,9 @@ async def update_workflow(
 async def delete_workflow(
     workflow_id: UUID,
     tenant_id: UUID = Depends(get_current_tenant_id),
+    user_id: UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_role("admin", "analyst")),
 ):
     result = await db.execute(
         select(Workflow).where(
@@ -152,6 +180,17 @@ async def delete_workflow(
     workflow = result.scalar_one_or_none()
     if not workflow:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found")
+
+    audit = AuditService(db)
+    await audit.log(
+        tenant_id=tenant_id,
+        user_id=user_id,
+        action=AuditAction.DELETED,
+        resource_type=AuditResourceType.WORKFLOW,
+        resource_id=workflow.id,
+        metadata={"name": workflow.name},
+    )
+
     await db.delete(workflow)
     await db.commit()
 
@@ -242,6 +281,7 @@ async def rollback_workflow(
     tenant_id: UUID = Depends(get_current_tenant_id),
     user_id: UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_role("admin", "analyst")),
 ):
     # Fetch workflow (tenant-scoped)
     wf_result = await db.execute(

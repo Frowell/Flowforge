@@ -12,7 +12,7 @@ from app.core.metrics import app_info
 from app.core.middleware import ObservabilityMiddleware
 from app.core.redis import get_redis
 from app.services.websocket_manager import WebSocketManager
-from app.api.routes import health, workflows, executions, dashboards, widgets, embed, schema, ws, metrics, api_keys
+from app.api.routes import health, workflows, executions, dashboards, widgets, embed, schema, ws, metrics, api_keys, templates, audit
 
 
 configure_logging()
@@ -64,5 +64,7 @@ app.include_router(widgets.router, prefix="/api/v1/widgets", tags=["widgets"])
 app.include_router(embed.router, prefix="/api/v1/embed", tags=["embed"])
 app.include_router(schema.router, prefix="/api/v1/schema", tags=["schema"])
 app.include_router(api_keys.router, prefix="/api/v1/api-keys", tags=["api-keys"])
+app.include_router(templates.router, prefix="/api/v1/templates", tags=["templates"])
+app.include_router(audit.router, prefix="/api/v1/audit-logs", tags=["audit-logs"])
 app.include_router(ws.router, tags=["websocket"])
 app.include_router(metrics.router, tags=["metrics"])

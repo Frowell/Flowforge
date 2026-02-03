@@ -2,7 +2,7 @@
  * Main canvas page — React Flow workspace with node palette and config panel.
  */
 
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -20,6 +20,7 @@ import ConfigPanel from "./ConfigPanel";
 import DataPreview from "./DataPreview";
 import ExecutionStatus from "./ExecutionStatus";
 import { nodeTypes } from "../nodes";
+import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 
 function CanvasInner() {
   const nodes = useWorkflowStore((s) => s.nodes);
@@ -31,6 +32,11 @@ function CanvasInner() {
   const addNode = useWorkflowStore((s) => s.addNode);
   const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId);
   const { screenToFlowPosition } = useReactFlow();
+  const canvasRef = useRef<HTMLDivElement>(null);
+
+  useKeyboardShortcuts({
+    containerRef: canvasRef,
+  });
 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: { id: string }) => {
@@ -75,7 +81,7 @@ function CanvasInner() {
   );
 
   return (
-    <div className="h-screen w-screen flex flex-col">
+    <div ref={canvasRef} tabIndex={-1} className="h-screen w-screen flex flex-col outline-none">
       <header className="h-12 bg-canvas-node border-b border-canvas-border flex items-center px-4 shrink-0 justify-between">
         <h1 className="text-sm font-semibold tracking-wide text-white">FlowForge</h1>
         <ExecutionStatus />

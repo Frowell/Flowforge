@@ -9,13 +9,34 @@ import ChartRenderer from "@/shared/components/charts/ChartRenderer";
 import { useWidgetData } from "../hooks/useWidgetData";
 import type { WidgetResponse } from "@/shared/query-engine/types";
 import type { ChartDataPoint } from "@/shared/components/charts/types";
+import { APIError } from "@/shared/query-engine/client";
 
 interface WidgetCardProps {
   widget: WidgetResponse;
   className?: string;
+  onUnpin?: (widgetId: string) => void;
 }
 
-export default function WidgetCard({ widget, className }: WidgetCardProps) {
+function isOrphanedError(error: unknown): boolean {
+  if (error instanceof APIError) {
+    if (error.status === 404) return true;
+    if (error.message.toLowerCase().includes("workflow_not_found")) return true;
+  }
+  return false;
+}
+
+function isTransientError(error: unknown): boolean {
+  if (error instanceof APIError) {
+    return error.status >= 500 || error.status === 0;
+  }
+  if (error instanceof TypeError) {
+    // Network errors
+    return true;
+  }
+  return false;
+}
+
+export default function WidgetCard({ widget, className, onUnpin }: WidgetCardProps) {
   const refreshInterval = widget.config_overrides?.refreshInterval as
     | number
     | "live"
@@ -62,15 +83,62 @@ export default function WidgetCard({ widget, className }: WidgetCardProps) {
 
       {/* Content */}
       <div className="flex-1 p-2 min-h-[150px]">
+        {/* Loading state */}
         {isLoading && (
           <div className="w-full h-full animate-pulse bg-white/5 rounded" />
         )}
 
-        {error && (
+        {/* Orphaned widget — source workflow deleted */}
+        {error && isOrphanedError(error) && (
+          <div className="w-full h-full flex flex-col items-center justify-center gap-3">
+            <div className="text-red-400/80 text-xs text-center">
+              Source workflow was deleted
+            </div>
+            <p className="text-white/30 text-[10px] text-center">
+              The workflow this widget references no longer exists.
+            </p>
+            {onUnpin && (
+              <button
+                onClick={() => onUnpin(widget.id)}
+                className="px-3 py-1 text-xs rounded bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-colors"
+              >
+                Unpin widget
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Transient error — retry available */}
+        {error && !isOrphanedError(error) && isTransientError(error) && (
+          <div className="w-full h-full flex flex-col items-center justify-center gap-3">
+            <div className="text-yellow-400/80 text-xs text-center">
+              Failed to load data
+            </div>
+            <p className="text-white/30 text-[10px] text-center">
+              {error instanceof Error ? error.message : "Network error"}
+            </p>
+            <button
+              onClick={() => refetch()}
+              className="px-3 py-1 text-xs rounded bg-white/10 text-white/60 hover:bg-white/20 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* Other errors */}
+        {error && !isOrphanedError(error) && !isTransientError(error) && (
           <div className="w-full h-full flex items-center justify-center">
             <div className="text-red-400 text-xs text-center">
               {error instanceof Error ? error.message : "Failed to load widget data"}
             </div>
+          </div>
+        )}
+
+        {/* Stale data indicator while refetching */}
+        {data && isFetching && !isLoading && (
+          <div className="absolute top-10 right-2 text-[10px] text-white/20">
+            Updating...
           </div>
         )}
 

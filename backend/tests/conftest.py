@@ -11,10 +11,12 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from unittest.mock import AsyncMock, MagicMock
+
 from app.core.config import settings
 from app.core.auth import get_current_tenant_id, get_current_user_id
 from app.core.database import Base
-from app.api.deps import get_db
+from app.api.deps import get_db, get_websocket_manager
 from app.main import app
 from app.models.user import User
 
@@ -71,14 +73,20 @@ async def client(db_engine) -> AsyncClient:
 
     app.dependency_overrides[get_db] = override_get_db
 
+    # Mock WebSocket manager so execution endpoint tests don't require app.state.ws_manager
+    mock_ws = MagicMock()
+    mock_ws.publish_execution_status = AsyncMock()
+    app.dependency_overrides[get_websocket_manager] = lambda: mock_ws
+
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
     ) as c:
         yield c
 
-    # Only remove the db override — don't clear all (preserves mock_auth)
+    # Only remove overrides — don't clear all (preserves mock_auth)
     app.dependency_overrides.pop(get_db, None)
+    app.dependency_overrides.pop(get_websocket_manager, None)
 
 
 @pytest.fixture
