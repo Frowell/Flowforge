@@ -17,6 +17,7 @@ import type {
   PivotTableConfig,
   AxisConfig,
 } from "./types";
+import DataGrid from "../DataGrid";
 
 const LazyBarChart = lazy(() => import("./BarChart"));
 const LazyLineChart = lazy(() => import("./LineChart"));
@@ -29,6 +30,7 @@ interface ChartRendererProps {
   chartType: string;
   config: Record<string, unknown>;
   data: ChartDataPoint[];
+  columns?: Array<{ name: string; dtype: string }>;
   interactive?: boolean;
   onDrillDown?: (filters: Record<string, unknown>) => void;
   className?: string;
@@ -126,11 +128,17 @@ export default function ChartRenderer({
   chartType,
   config,
   data,
+  columns,
   interactive = true,
   onDrillDown,
   className,
 }: ChartRendererProps) {
   const baseProps = { data, interactive, onDrillDown, className };
+
+  // For table type, derive columns from data if not provided
+  const tableColumns = columns ?? (data.length > 0
+    ? Object.keys(data[0]).map((name) => ({ name, dtype: "string" }))
+    : []);
 
   return (
     <Suspense fallback={<Loading />}>
@@ -152,7 +160,10 @@ export default function ChartRenderer({
       {chartType === "pivot" && (
         <LazyPivotTable {...baseProps} config={{ ...normalizePivotConfig(config) }} />
       )}
-      {!["bar", "line", "scatter", "candlestick", "kpi", "pivot"].includes(chartType) && (
+      {chartType === "table" && (
+        <DataGrid columns={tableColumns} rows={data as Record<string, unknown>[]} className={className} />
+      )}
+      {!["bar", "line", "scatter", "candlestick", "kpi", "pivot", "table"].includes(chartType) && (
         <div className="w-full h-full flex items-center justify-center text-white/30 text-sm">
           Unsupported chart type: {chartType}
         </div>

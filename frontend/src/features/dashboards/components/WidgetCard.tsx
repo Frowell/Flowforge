@@ -147,6 +147,7 @@ export default function WidgetCard({ widget, className, onUnpin }: WidgetCardPro
             chartType={chartType}
             config={chartConfig}
             data={data.rows as ChartDataPoint[]}
+            columns={data.columns}
             interactive
           />
         )}

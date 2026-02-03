@@ -68,12 +68,25 @@ class WidgetDataService:
 
         # Extract chart_config from the target node before overrides
         chart_config = None
+        node_type = None
         for node in nodes:
             if node["id"] == source_node_id:
+                node_type = node.get("type", "")
                 chart_config = node.get("data", {}).get("config")
                 if chart_config is not None:
                     chart_config = dict(chart_config)
+                else:
+                    chart_config = {}
                 break
+
+        # Set default chart_type based on node type if not specified
+        if chart_config is not None and "chart_type" not in chart_config:
+            if node_type == "table_output":
+                chart_config["chart_type"] = "table"
+            elif node_type == "kpi_output":
+                chart_config["chart_type"] = "kpi"
+            elif node_type == "chart_output":
+                chart_config["chart_type"] = chart_config.get("chart_type", "bar")
 
         if config_overrides:
             for node in nodes:
