@@ -7,7 +7,7 @@
 
 import { getAccessToken } from "@/shared/auth/keycloak";
 
-const BASE_URL = "/api/v1";
+const BASE_URL = "";
 
 class APIClient {
   private baseUrl: string;

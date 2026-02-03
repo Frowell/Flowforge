@@ -30,7 +30,7 @@ const TEMPLATES_KEY = ["templates"] as const;
 export function useTemplates() {
   return useQuery({
     queryKey: [...TEMPLATES_KEY],
-    queryFn: () => apiClient.get<TemplateListResponse>("/templates"),
+    queryFn: () => apiClient.get<TemplateListResponse>("/api/v1/templates"),
   });
 }
 
@@ -39,7 +39,7 @@ export function useInstantiateTemplate() {
 
   return useMutation({
     mutationFn: ({ templateId, name }: { templateId: string; name?: string }) =>
-      apiClient.post<WorkflowResponse>(`/templates/${templateId}/instantiate`, {
+      apiClient.post<WorkflowResponse>(`/api/v1/templates/${templateId}/instantiate`, {
         name: name ?? null,
       }),
     onSuccess: (data) => {
