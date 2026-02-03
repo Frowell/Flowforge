@@ -4,14 +4,20 @@
  * Handles two message types:
  * 1. Execution status: pending -> running -> complete/error per node
  * 2. Live data: streaming results from Materialize-backed sources
+ *
+ * Supports channel subscriptions: subscribe/unsubscribe to specific
+ * server-side Redis pub/sub channels for targeted message delivery.
  */
 
 type MessageHandler = (data: unknown) => void;
+type ConnectionHandler = (connected: boolean) => void;
 
 export class WebSocketManager {
   private ws: WebSocket | null = null;
   private url: string;
   private handlers = new Map<string, Set<MessageHandler>>();
+  private connectionHandlers = new Set<ConnectionHandler>();
+  private subscribedChannels = new Set<string>();
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 10;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -27,6 +33,11 @@ export class WebSocketManager {
 
     this.ws.onopen = () => {
       this.reconnectAttempts = 0;
+      this.notifyConnectionChange(true);
+      // Re-subscribe to all channels after reconnect
+      for (const channel of this.subscribedChannels) {
+        this.send({ action: "subscribe", channel });
+      }
     };
 
     this.ws.onmessage = (event) => {
@@ -44,6 +55,7 @@ export class WebSocketManager {
     };
 
     this.ws.onclose = () => {
+      this.notifyConnectionChange(false);
       this.scheduleReconnect();
     };
 
@@ -73,9 +85,42 @@ export class WebSocketManager {
     };
   }
 
+  /**
+   * Subscribe to a server-side channel (e.g., "widget:{widgetId}" or "execution:{executionId}").
+   * The server prepends the tenant prefix automatically.
+   */
+  subscribeChannel(channel: string): void {
+    this.subscribedChannels.add(channel);
+    this.send({ action: "subscribe", channel });
+  }
+
+  /**
+   * Unsubscribe from a server-side channel.
+   */
+  unsubscribeChannel(channel: string): void {
+    this.subscribedChannels.delete(channel);
+    this.send({ action: "unsubscribe", channel });
+  }
+
+  /**
+   * Register a handler for connection state changes.
+   */
+  onConnectionChange(handler: ConnectionHandler): () => void {
+    this.connectionHandlers.add(handler);
+    return () => {
+      this.connectionHandlers.delete(handler);
+    };
+  }
+
   send(data: unknown): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(data));
+    }
+  }
+
+  private notifyConnectionChange(connected: boolean): void {
+    for (const handler of this.connectionHandlers) {
+      handler(connected);
     }
   }
 

@@ -37,6 +37,13 @@ class Settings(BaseSettings):
     clickhouse_user: str = "default"
     clickhouse_password: str = ""
 
+    # Materialize — live data queries (read-only, PG wire protocol)
+    materialize_host: str = "localhost"
+    materialize_port: int = 6875
+    materialize_database: str = "materialize"
+    materialize_user: str = "materialize"
+    materialize_password: str = ""
+
     # CORS
     cors_origins: list[str] = ["http://localhost:5173"]
 

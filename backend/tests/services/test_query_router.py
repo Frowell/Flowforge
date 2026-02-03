@@ -67,7 +67,24 @@ class TestRouting:
             await router.execute(segment)
 
     async def test_materialize_target_dispatches_to_materialize(self):
-        """Live data queries route to Materialize (not yet implemented)."""
+        """Live data queries route to Materialize and return QueryResult."""
+        mock_mz = MagicMock()
+        mock_mz.execute = AsyncMock(
+            return_value=[{"symbol": "AAPL", "position": 100}]
+        )
+        router = QueryRouter(materialize=mock_mz)
+        segment = CompiledSegment(
+            sql="SELECT * FROM positions",
+            dialect="postgres",
+            target="materialize",
+            source_node_ids=["node1"],
+        )
+        result = await router.execute(segment)
+        assert result.source == "materialize"
+        assert result.total_rows == 1
+
+    async def test_materialize_not_configured_raises(self):
+        """Materialize target without client raises RuntimeError."""
         router = QueryRouter()
         segment = CompiledSegment(
             sql="SELECT * FROM positions",
@@ -75,12 +92,13 @@ class TestRouting:
             target="materialize",
             source_node_ids=["node1"],
         )
-        with pytest.raises(NotImplementedError):
+        with pytest.raises(RuntimeError, match="Materialize client not configured"):
             await router.execute(segment)
 
     async def test_redis_target_dispatches_to_redis(self):
-        """Point lookups route to Redis (not yet implemented)."""
+        """Point lookups route to Redis and return QueryResult."""
         mock_redis = MagicMock()
+        mock_redis.get = AsyncMock(return_value='{"symbol": "AAPL", "price": 150.0}')
         router = QueryRouter(redis=mock_redis)
         segment = CompiledSegment(
             sql="",
@@ -89,7 +107,22 @@ class TestRouting:
             source_node_ids=["node1"],
             params={"key": "quote:AAPL"},
         )
-        with pytest.raises(NotImplementedError):
+        result = await router.execute(segment)
+        assert result.source == "redis"
+        assert result.total_rows == 1
+        assert result.rows[0]["symbol"] == "AAPL"
+
+    async def test_redis_not_configured_raises(self):
+        """Redis target without client raises RuntimeError."""
+        router = QueryRouter()
+        segment = CompiledSegment(
+            sql="",
+            dialect="",
+            target="redis",
+            source_node_ids=["node1"],
+            params={"key": "quote:AAPL"},
+        )
+        with pytest.raises(RuntimeError, match="Redis client not configured"):
             await router.execute(segment)
 
     async def test_unknown_target_raises(self):

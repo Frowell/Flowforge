@@ -4,19 +4,34 @@ Run workflow, get execution status, cancel execution.
 All queries are scoped by tenant_id from the JWT.
 """
 
-from uuid import UUID
+import json
+from datetime import datetime, timezone
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_tenant_id, get_db, get_preview_service
+from app.api.deps import (
+    get_current_tenant_id,
+    get_db,
+    get_preview_service,
+    get_query_router,
+    get_redis,
+    get_websocket_manager,
+    get_workflow_compiler,
+)
 from app.models.workflow import Workflow
 from app.schemas.preview import PreviewRequest, PreviewResponse
-from app.schemas.query import ExecutionRequest, ExecutionStatusResponse
+from app.schemas.query import ExecutionStatusResponse, NodeStatusResponse, ExecutionRequest
 from app.services.preview_service import PreviewService
+from app.services.query_router import QueryRouter
+from app.services.websocket_manager import WebSocketManager
+from app.services.workflow_compiler import WorkflowCompiler
 
 router = APIRouter()
+
+EXECUTION_TTL = 3600  # 1 hour
 
 
 @router.post("/preview", response_model=PreviewResponse)
@@ -46,6 +61,10 @@ async def execute_workflow(
     body: ExecutionRequest,
     tenant_id: UUID = Depends(get_current_tenant_id),
     db: AsyncSession = Depends(get_db),
+    compiler: WorkflowCompiler = Depends(get_workflow_compiler),
+    query_router: QueryRouter = Depends(get_query_router),
+    ws_manager: WebSocketManager = Depends(get_websocket_manager),
+    redis=Depends(get_redis),
 ):
     """Compile and execute a workflow.
 
@@ -63,14 +82,131 @@ async def execute_workflow(
     if not workflow:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found")
 
-    # TODO: Compile workflow DAG -> SQL via workflow_compiler (pass tenant_id)
-    # TODO: Dispatch via query_router
-    # TODO: Stream status via websocket_manager (tenant-scoped channels)
-    # TODO: Return execution tracking ID
+    execution_id = uuid4()
+    now = datetime.now(timezone.utc).isoformat()
 
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Workflow execution not yet implemented",
+    graph = workflow.graph_json or {}
+    nodes = graph.get("nodes", [])
+    edges = graph.get("edges", [])
+
+    # Store initial execution record in Redis
+    execution_record = {
+        "id": str(execution_id),
+        "workflow_id": str(body.workflow_id),
+        "tenant_id": str(tenant_id),
+        "status": "pending",
+        "node_statuses": {},
+        "started_at": now,
+        "completed_at": None,
+    }
+    redis_key = f"flowforge:{tenant_id}:execution:{execution_id}"
+    await redis.set(redis_key, json.dumps(execution_record), ex=EXECUTION_TTL)
+
+    # Compile workflow
+    try:
+        segments = compiler.compile(nodes, edges)
+    except Exception as e:
+        execution_record["status"] = "failed"
+        execution_record["completed_at"] = datetime.now(timezone.utc).isoformat()
+        await redis.set(redis_key, json.dumps(execution_record), ex=EXECUTION_TTL)
+        await ws_manager.publish_execution_status(
+            tenant_id=tenant_id,
+            execution_id=execution_id,
+            node_id="__compiler__",
+            status="failed",
+            data={"error": str(e)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Compilation failed: {e}",
+        )
+
+    # Update status to running
+    execution_record["status"] = "running"
+    await redis.set(redis_key, json.dumps(execution_record), ex=EXECUTION_TTL)
+    await ws_manager.publish_execution_status(
+        tenant_id=tenant_id,
+        execution_id=execution_id,
+        node_id="__workflow__",
+        status="running",
+    )
+
+    # Execute each segment, publishing per-node status updates
+    for segment in segments:
+        for node_id in segment.source_node_ids:
+            execution_record["node_statuses"][node_id] = {
+                "status": "running",
+                "started_at": datetime.now(timezone.utc).isoformat(),
+            }
+            await ws_manager.publish_execution_status(
+                tenant_id=tenant_id,
+                execution_id=execution_id,
+                node_id=node_id,
+                status="running",
+            )
+
+        try:
+            query_result = await query_router.execute(segment)
+            for node_id in segment.source_node_ids:
+                execution_record["node_statuses"][node_id] = {
+                    "status": "completed",
+                    "started_at": execution_record["node_statuses"][node_id]["started_at"],
+                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                    "rows_processed": query_result.total_rows,
+                }
+                await ws_manager.publish_execution_status(
+                    tenant_id=tenant_id,
+                    execution_id=execution_id,
+                    node_id=node_id,
+                    status="completed",
+                    data={"rows_processed": query_result.total_rows},
+                )
+        except Exception as e:
+            for node_id in segment.source_node_ids:
+                execution_record["node_statuses"][node_id] = {
+                    "status": "failed",
+                    "error": str(e),
+                }
+                await ws_manager.publish_execution_status(
+                    tenant_id=tenant_id,
+                    execution_id=execution_id,
+                    node_id=node_id,
+                    status="failed",
+                    data={"error": str(e)},
+                )
+            execution_record["status"] = "failed"
+            execution_record["completed_at"] = datetime.now(timezone.utc).isoformat()
+            await redis.set(redis_key, json.dumps(execution_record), ex=EXECUTION_TTL)
+            await ws_manager.publish_execution_status(
+                tenant_id=tenant_id,
+                execution_id=execution_id,
+                node_id="__workflow__",
+                status="failed",
+                data={"error": str(e)},
+            )
+            break
+    else:
+        # All segments completed successfully
+        execution_record["status"] = "completed"
+        execution_record["completed_at"] = datetime.now(timezone.utc).isoformat()
+        await redis.set(redis_key, json.dumps(execution_record), ex=EXECUTION_TTL)
+        await ws_manager.publish_execution_status(
+            tenant_id=tenant_id,
+            execution_id=execution_id,
+            node_id="__workflow__",
+            status="completed",
+        )
+
+    return ExecutionStatusResponse(
+        id=execution_id,
+        workflow_id=body.workflow_id,
+        status=execution_record["status"],
+        started_at=execution_record["started_at"],
+        completed_at=execution_record.get("completed_at"),
+        node_statuses={
+            nid: NodeStatusResponse(**ns)
+            for nid, ns in execution_record["node_statuses"].items()
+        },
     )
 
 
@@ -78,12 +214,28 @@ async def execute_workflow(
 async def get_execution_status(
     execution_id: UUID,
     tenant_id: UUID = Depends(get_current_tenant_id),
+    redis=Depends(get_redis),
 ):
     """Get the current status of a workflow execution."""
-    # TODO: Look up execution status (likely from Redis for speed, scoped by tenant_id)
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Execution status tracking not yet implemented",
+    redis_key = f"flowforge:{tenant_id}:execution:{execution_id}"
+    raw = await redis.get(redis_key)
+    if not raw:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Execution not found",
+        )
+
+    record = json.loads(raw)
+    return ExecutionStatusResponse(
+        id=UUID(record["id"]),
+        workflow_id=UUID(record["workflow_id"]),
+        status=record["status"],
+        started_at=record.get("started_at"),
+        completed_at=record.get("completed_at"),
+        node_statuses={
+            nid: NodeStatusResponse(**ns)
+            for nid, ns in record.get("node_statuses", {}).items()
+        },
     )
 
 

@@ -103,3 +103,28 @@ class WidgetDataResponse(BaseModel):
     offset: int
     limit: int
     chart_config: dict | None = None
+
+
+# ── API Key ───────────────────────────────────────────────────────────
+
+class APIKeyCreate(BaseModel):
+    label: str | None = None
+    scoped_widget_ids: list[UUID] | None = None
+    rate_limit: int | None = None
+
+
+class APIKeyResponse(BaseModel):
+    id: UUID
+    label: str | None
+    scoped_widget_ids: list[UUID] | None
+    rate_limit: int | None
+    created_at: datetime
+    revoked_at: datetime | None
+
+    model_config = {"from_attributes": True}
+
+
+class APIKeyCreateResponse(APIKeyResponse):
+    """Returned only on creation — includes the raw key (shown once)."""
+
+    key: str

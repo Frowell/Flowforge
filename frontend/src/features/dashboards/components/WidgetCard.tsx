@@ -16,18 +16,42 @@ interface WidgetCardProps {
 }
 
 export default function WidgetCard({ widget, className }: WidgetCardProps) {
-  const { data, isLoading, error, refetch } = useWidgetData(widget.id);
+  const refreshInterval = widget.config_overrides?.refreshInterval as
+    | number
+    | "live"
+    | undefined;
+
+  const { data, isLoading, error, refetch, isFetching } = useWidgetData(
+    widget.id,
+    { refreshInterval },
+  );
 
   const chartType = (data?.chart_config?.chart_type as string) ?? "bar";
   const chartConfig = data?.chart_config ?? {};
+  const isLive = refreshInterval === "live" || typeof refreshInterval === "number";
 
   return (
     <div className={cn("bg-canvas-node rounded-lg border border-canvas-border flex flex-col overflow-hidden", className)}>
       {/* Title bar — also serves as drag handle in edit mode */}
       <div className="widget-drag-handle flex items-center justify-between px-3 py-2 border-b border-canvas-border cursor-move">
-        <span className="text-xs font-medium text-white truncate">
-          {widget.title ?? "Widget"}
-        </span>
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-xs font-medium text-white truncate">
+            {widget.title ?? "Widget"}
+          </span>
+          {isLive && (
+            <span className="flex items-center gap-1 shrink-0">
+              <span
+                className={cn(
+                  "inline-block w-1.5 h-1.5 rounded-full",
+                  isFetching ? "bg-yellow-400 animate-pulse" : "bg-emerald-400",
+                )}
+              />
+              <span className="text-[10px] text-white/50 uppercase tracking-wider">
+                {refreshInterval === "live" ? "Live" : "Auto"}
+              </span>
+            </span>
+          )}
+        </div>
         <button
           onClick={() => refetch()}
           className="text-white/30 hover:text-white text-xs"

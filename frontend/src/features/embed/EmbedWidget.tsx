@@ -2,6 +2,8 @@
  * Embed widget renderer — fetches data via API key auth and renders the chart.
  *
  * Uses the same chart components from shared/components/charts/.
+ * Supports auto-refresh via `refresh` URL parameter and filter overrides
+ * via additional URL query params.
  */
 
 import { useQuery } from "@tanstack/react-query";
@@ -16,10 +18,23 @@ interface EmbedWidgetProps {
 }
 
 export default function EmbedWidget({ widgetId, apiKey, filterParams }: EmbedWidgetProps) {
+  // Parse refresh interval from filter params (not sent to backend)
+  const refreshParam = filterParams.refresh;
+  const refetchInterval =
+    refreshParam && Number(refreshParam) > 0 ? Number(refreshParam) : undefined;
+
+  // Exclude reserved params from the backend request
+  const queryFilters: Record<string, string> = {};
+  for (const [key, value] of Object.entries(filterParams)) {
+    if (key !== "refresh" && key !== "api_key" && key !== "widget_id") {
+      queryFilters[key] = value;
+    }
+  }
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ["embed", widgetId, filterParams],
+    queryKey: ["embed", widgetId, queryFilters],
     queryFn: async (): Promise<WidgetDataResponse> => {
-      const params = new URLSearchParams({ api_key: apiKey, ...filterParams });
+      const params = new URLSearchParams({ api_key: apiKey, ...queryFilters });
       const response = await fetch(`/api/v1/embed/${widgetId}?${params}`, {
         headers: { Accept: "application/json" },
       });
@@ -29,6 +44,7 @@ export default function EmbedWidget({ widgetId, apiKey, filterParams }: EmbedWid
       }
       return response.json();
     },
+    refetchInterval,
   });
 
   if (isLoading) {

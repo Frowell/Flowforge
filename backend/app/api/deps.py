@@ -31,15 +31,17 @@ from app.core.auth import get_current_user_id  # noqa: E402, F401
 # Service dependency providers — import the service, inject its dependencies.
 # Each returns a configured service instance for the request lifecycle.
 
-from fastapi import Depends  # noqa: E402
+from fastapi import Depends, Request  # noqa: E402
 
 from app.core.clickhouse import get_clickhouse_client
 from app.core.config import settings
+from app.core.materialize import get_materialize_client
 from app.services.preview_service import PreviewService
 from app.services.query_router import QueryRouter
 from app.services.rate_limiter import RateLimiter
 from app.services.schema_engine import SchemaEngine
 from app.services.schema_registry import SchemaRegistry
+from app.services.websocket_manager import WebSocketManager
 from app.services.widget_data_service import WidgetDataService
 from app.services.workflow_compiler import WorkflowCompiler
 
@@ -65,7 +67,8 @@ async def get_query_router(
     redis=Depends(get_redis),
 ) -> QueryRouter:
     clickhouse = get_clickhouse_client()
-    return QueryRouter(clickhouse=clickhouse, redis=redis)
+    materialize = get_materialize_client()
+    return QueryRouter(clickhouse=clickhouse, redis=redis, materialize=materialize)
 
 
 async def get_preview_service(
@@ -86,3 +89,8 @@ async def get_widget_data_service(
 
 async def get_rate_limiter(redis=Depends(get_redis)) -> RateLimiter:
     return RateLimiter(redis=redis)
+
+
+async def get_websocket_manager(request: Request) -> WebSocketManager:
+    """Return the WebSocket manager from app state."""
+    return request.app.state.ws_manager

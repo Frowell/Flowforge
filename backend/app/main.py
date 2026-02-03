@@ -1,5 +1,6 @@
 """FlowForge FastAPI application entry point."""
 
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -9,7 +10,9 @@ from app.core.config import settings
 from app.core.logging_config import configure_logging
 from app.core.metrics import app_info
 from app.core.middleware import ObservabilityMiddleware
-from app.api.routes import health, workflows, executions, dashboards, widgets, embed, schema, ws, metrics
+from app.core.redis import get_redis
+from app.services.websocket_manager import WebSocketManager
+from app.api.routes import health, workflows, executions, dashboards, widgets, embed, schema, ws, metrics, api_keys
 
 
 configure_logging()
@@ -19,12 +22,21 @@ configure_logging()
 async def lifespan(app: FastAPI):
     """Startup/shutdown lifecycle events."""
     app_info.info({"version": "0.1.0", "env": settings.app_env})
-    # TODO: Initialize WebSocket manager subscriber
-    # TODO: Warm schema registry cache
+
+    # Initialize WebSocket manager with Redis pub/sub
+    redis = await get_redis()
+    ws_manager = WebSocketManager(redis)
+    app.state.ws_manager = ws_manager
+    subscriber_task = asyncio.create_task(ws_manager.start_subscriber())
+
     yield
-    # Shutdown: close connections
-    # TODO: Close ClickHouse client
-    # TODO: Close Redis connections
+
+    # Shutdown: cancel subscriber and close connections
+    subscriber_task.cancel()
+    try:
+        await subscriber_task
+    except asyncio.CancelledError:
+        pass
 
 
 app = FastAPI(
@@ -51,5 +63,6 @@ app.include_router(dashboards.router, prefix="/api/v1/dashboards", tags=["dashbo
 app.include_router(widgets.router, prefix="/api/v1/widgets", tags=["widgets"])
 app.include_router(embed.router, prefix="/api/v1/embed", tags=["embed"])
 app.include_router(schema.router, prefix="/api/v1/schema", tags=["schema"])
+app.include_router(api_keys.router, prefix="/api/v1/api-keys", tags=["api-keys"])
 app.include_router(ws.router, tags=["websocket"])
 app.include_router(metrics.router, tags=["metrics"])
