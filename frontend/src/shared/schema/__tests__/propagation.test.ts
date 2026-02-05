@@ -365,7 +365,11 @@ describe("error handling", () => {
 
   it("throws on unknown node type", () => {
     const nodes = [
-      { id: "x", type: "nonexistent_type" as any, data: { config: {} } },
+      {
+        id: "x",
+        type: "nonexistent_type" as unknown as WorkflowNode["type"],
+        data: { config: {} },
+      },
     ];
     expect(() => propagateSchemas(nodes, [])).toThrow("Unknown node type");
   });
