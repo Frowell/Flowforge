@@ -11,7 +11,7 @@ from uuid import UUID
 import httpx
 import structlog
 from fastapi import HTTPException, Request, status
-from jose import JWTError, jwt
+from jose import JWTError, jwt  # type: ignore[import-untyped]
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -107,6 +107,7 @@ async def get_current_user_id(request: Request) -> UUID:
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    assert token is not None
     payload = await _decode_token(token)
 
     sub = payload.get("sub")
@@ -146,6 +147,7 @@ async def get_current_tenant_id(request: Request) -> UUID:
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    assert token is not None
     payload = await _decode_token(token)
 
     tenant_id = payload.get("tenant_id")

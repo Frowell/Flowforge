@@ -4,8 +4,11 @@ Stores the React Flow graph state as JSONB. The graph_json column contains
 the full serialized canvas: nodes, edges, viewport position.
 """
 
+from __future__ import annotations
+
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     DateTime,
@@ -21,6 +24,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base, TenantMixin, TimestampMixin, UUIDPrimaryKeyMixin
 
+if TYPE_CHECKING:
+    from app.models.dashboard import Widget
+    from app.models.user import User
+
 
 class Workflow(Base, UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin):
     __tablename__ = "workflows"
@@ -33,9 +40,9 @@ class Workflow(Base, UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin):
     )
 
     # Relationships
-    created_by_user: Mapped["User"] = relationship(back_populates="workflows")  # noqa: F821
-    widgets: Mapped[list["Widget"]] = relationship(back_populates="source_workflow")  # noqa: F821
-    versions: Mapped[list["WorkflowVersion"]] = relationship(
+    created_by_user: Mapped[User] = relationship(back_populates="workflows")  # noqa: F821
+    widgets: Mapped[list[Widget]] = relationship(back_populates="source_workflow")  # noqa: F821
+    versions: Mapped[list[WorkflowVersion]] = relationship(
         back_populates="workflow",
         cascade="all, delete-orphan",
         order_by="WorkflowVersion.version_number.desc()",
@@ -61,4 +68,4 @@ class WorkflowVersion(Base, UUIDPrimaryKeyMixin):
     )
 
     # Relationships
-    workflow: Mapped["Workflow"] = relationship(back_populates="versions")
+    workflow: Mapped[Workflow] = relationship(back_populates="versions")

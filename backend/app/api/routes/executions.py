@@ -6,6 +6,7 @@ All queries are scoped by tenant_id from the JWT.
 
 import json
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -115,7 +116,7 @@ async def execute_workflow(
     edges = graph.get("edges", [])
 
     # Store initial execution record in Redis
-    execution_record = {
+    execution_record: dict[str, Any] = {
         "id": str(execution_id),
         "workflow_id": str(body.workflow_id),
         "tenant_id": str(tenant_id),

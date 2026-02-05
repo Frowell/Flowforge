@@ -54,7 +54,7 @@ async def readiness(
 
     # Redis
     try:
-        await redis.ping()
+        await redis.ping()  # type: ignore[misc]
         checks["redis"] = {"status": "ok"}
     except Exception as exc:
         checks["redis"] = {"status": "error", "detail": str(exc)}

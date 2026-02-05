@@ -9,7 +9,7 @@ client must be mockable for testing.
 
 from dataclasses import dataclass
 
-import asyncpg
+import asyncpg  # type: ignore[import-untyped]
 
 from app.core.config import settings
 

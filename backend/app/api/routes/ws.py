@@ -42,6 +42,7 @@ async def websocket_endpoint(websocket: WebSocket):
     token = websocket.query_params.get("token")
 
     # Dev-mode bypass
+    tenant_id: str | None
     if settings.app_env == "development" and not token:
         tenant_id = settings.dev_tenant_id
     elif not token:

@@ -59,6 +59,21 @@ line-length = 88
 select = ["E", "W", "F", "I", "N", "UP", "B", "SIM"]
 ignore = ["B008"]  # Depends() in FastAPI default args is by design
 
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = false
+warn_unused_configs = true
+disallow_untyped_defs = false
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = [
+    "clickhouse_connect.*",
+    "jose.*",
+    "asyncpg.*",
+]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]

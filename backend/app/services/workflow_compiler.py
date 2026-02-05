@@ -187,10 +187,13 @@ class WorkflowCompiler:
             if node_type in ("chart_output", "table_output", "kpi_output"):
                 continue
 
+            expression: exp.Expression
+
             if node_type == "data_source":
                 table_name = config.get("table", "unknown")
                 columns = config.get("columns", [])
 
+                select_cols: list[exp.Expression]
                 if columns:
                     col_names = [
                         c["name"] if isinstance(c, dict) else c for c in columns
@@ -361,6 +364,7 @@ class WorkflowCompiler:
 
         val_expr = exp.Literal.string(str(value))
 
+        condition: exp.Expression
         if operator == "=":
             condition = exp.EQ(this=col_expr, expression=val_expr)
         elif operator == "!=":
@@ -409,7 +413,7 @@ class WorkflowCompiler:
         else:
             condition = exp.EQ(this=col_expr, expression=val_expr)
 
-        return expression.where(condition)
+        return expression.where(condition)  # type: ignore[attr-defined, no-any-return]
 
     @staticmethod
     def _apply_select(expression: exp.Expression, config: dict) -> exp.Expression:
@@ -442,7 +446,7 @@ class WorkflowCompiler:
             order_exprs.append(exp.Ordered(this=col_expr, desc=(direction == "desc")))
 
         if order_exprs:
-            return expression.order_by(*order_exprs)
+            return expression.order_by(*order_exprs)  # type: ignore[attr-defined, no-any-return]
         return expression
 
     @staticmethod
@@ -453,7 +457,7 @@ class WorkflowCompiler:
             return expression
 
         new_select = expression.copy()
-        new_exprs = []
+        new_exprs: list[exp.Expression] = []
         for expr in new_select.args.get("expressions", []):
             if isinstance(expr, exp.Column):
                 col_name = expr.name
@@ -502,7 +506,7 @@ class WorkflowCompiler:
             return parent_expr
 
         # Wrap parent as subquery
-        subquery = parent_expr.subquery(alias="_sub")
+        subquery = parent_expr.subquery(alias="_sub")  # type: ignore[attr-defined]
 
         # Build SELECT: group columns + aggregations
         select_exprs: list[exp.Expression] = []
@@ -518,6 +522,7 @@ class WorkflowCompiler:
             col_ref = exp.Column(this=exp.to_identifier(agg_col))
 
             agg_class = AGG_FUNC_MAP.get(agg_func)
+            agg_expr: exp.Expression
             if agg_class:
                 agg_expr = agg_class(this=col_ref)
             else:
@@ -550,8 +555,8 @@ class WorkflowCompiler:
         left_key = config.get("left_key", "id")
         right_key = config.get("right_key", "id")
 
-        left_sub = left_expr.subquery(alias="_left")
-        right_sub = right_expr.subquery(alias="_right")
+        left_sub = left_expr.subquery(alias="_left")  # type: ignore[attr-defined]
+        right_sub = right_expr.subquery(alias="_right")  # type: ignore[attr-defined]
 
         # Build ON condition
         on_condition = exp.EQ(
@@ -622,7 +627,7 @@ class WorkflowCompiler:
         Config: {count: N}
         """
         count = config.get("count", 100)
-        return expression.limit(count)
+        return expression.limit(count)  # type: ignore[attr-defined, no-any-return]
 
     @staticmethod
     def _apply_limit(expression: exp.Expression, config: dict) -> exp.Expression:
@@ -632,9 +637,9 @@ class WorkflowCompiler:
         """
         limit = config.get("limit", 100)
         offset = config.get("offset", 0)
-        result = expression.limit(limit)
+        result: exp.Expression = expression.limit(limit)  # type: ignore[attr-defined]
         if offset > 0:
-            result = result.offset(offset)
+            result = result.offset(offset)  # type: ignore[attr-defined]
         return result
 
     @staticmethod
@@ -693,7 +698,7 @@ class WorkflowCompiler:
         # ORDER BY
         order_expr = None
         if order_by:
-            order_col = exp.Column(this=exp.to_identifier(order_by))
+            order_col: exp.Expression = exp.Column(this=exp.to_identifier(order_by))
             if order_dir.upper() == "DESC":
                 order_col = exp.Ordered(this=order_col, desc=True)
             else:
@@ -776,7 +781,7 @@ class WorkflowCompiler:
             limit_val = segments_with_limit.get(idx)
             if limit_val is not None:
                 parsed = sqlglot.parse_one(seg.sql, read=seg.dialect)
-                parsed = parsed.limit(limit_val, dialect=seg.dialect)
+                parsed = parsed.limit(limit_val, dialect=seg.dialect)  # type: ignore[attr-defined]
                 new_sql = parsed.sql(dialect=seg.dialect)
                 result.append(
                     CompiledSegment(
