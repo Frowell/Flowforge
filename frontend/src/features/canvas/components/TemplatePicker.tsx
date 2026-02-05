@@ -43,10 +43,7 @@ export default function TemplatePicker({ open, onClose, onBlank }: TemplatePicke
               Start from a template or create a blank canvas
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="text-white/40 hover:text-white text-xl leading-none"
-          >
+          <button onClick={onClose} className="text-white/40 hover:text-white text-xl leading-none">
             &times;
           </button>
         </div>
@@ -66,9 +63,7 @@ export default function TemplatePicker({ open, onClose, onBlank }: TemplatePicke
 
           {/* Template grid */}
           {isLoading && (
-            <div className="text-white/30 text-sm text-center py-8">
-              Loading templates...
-            </div>
+            <div className="text-white/30 text-sm text-center py-8">Loading templates...</div>
           )}
 
           <div className="grid grid-cols-2 gap-3">

@@ -33,7 +33,7 @@ async def test_get_nonexistent_template_returns_404(client: AsyncClient, mock_au
 async def test_instantiate_template_creates_workflow(
     client: AsyncClient, mock_auth, seed_user_a
 ):
-    """POST /api/v1/templates/{id}/instantiate creates a workflow with fresh node IDs."""
+    """POST /templates/{id}/instantiate creates workflow with fresh IDs."""
     response = await client.post(
         "/api/v1/templates/trade-blotter/instantiate",
         json={"name": "My Blotter"},

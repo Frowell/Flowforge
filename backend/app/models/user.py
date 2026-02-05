@@ -25,5 +25,7 @@ class User(Base, UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin):
 
     # Relationships
     workflows: Mapped[list["Workflow"]] = relationship(back_populates="created_by_user")  # noqa: F821
-    dashboards: Mapped[list["Dashboard"]] = relationship(back_populates="created_by_user")  # noqa: F821
+    dashboards: Mapped[list["Dashboard"]] = relationship(  # noqa: F821
+        back_populates="created_by_user"
+    )
     api_keys: Mapped[list["APIKey"]] = relationship(back_populates="user")  # noqa: F821

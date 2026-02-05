@@ -56,7 +56,11 @@ function toAxisArray(value: unknown): AxisConfig[] {
 
 function toStringArray(value: unknown): string[] {
   if (Array.isArray(value)) return value.map(String);
-  if (typeof value === "string") return value.split(",").map((s) => s.trim()).filter(Boolean);
+  if (typeof value === "string")
+    return value
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
   return [];
 }
 
@@ -102,7 +106,9 @@ function normalizeCandlestickConfig(config: Record<string, unknown>): Candlestic
 function normalizeKPIConfig(config: Record<string, unknown>): KPICardConfig {
   return {
     metricColumn: (config.metricColumn ?? config.metric_column ?? "") as string,
-    aggregation: ((config.aggregation ?? "SUM") as string).toUpperCase() as KPICardConfig["aggregation"],
+    aggregation: (
+      (config.aggregation ?? "SUM") as string
+    ).toUpperCase() as KPICardConfig["aggregation"],
     comparisonValue: config.comparisonValue as number | undefined,
     thresholds: config.thresholds as KPICardConfig["thresholds"],
     format: config.format as string | undefined,
@@ -137,9 +143,8 @@ export default function ChartRenderer({
 
   // For table type, derive columns from data if not provided
   const firstRow = data.length > 0 ? data[0] : undefined;
-  const tableColumns = columns ?? (firstRow
-    ? Object.keys(firstRow).map((name) => ({ name, dtype: "string" }))
-    : []);
+  const tableColumns =
+    columns ?? (firstRow ? Object.keys(firstRow).map((name) => ({ name, dtype: "string" })) : []);
 
   return (
     <Suspense fallback={<Loading />}>
@@ -162,7 +167,11 @@ export default function ChartRenderer({
         <LazyPivotTable {...baseProps} config={{ ...normalizePivotConfig(config) }} />
       )}
       {chartType === "table" && (
-        <DataGrid columns={tableColumns} rows={data as Record<string, unknown>[]} className={className} />
+        <DataGrid
+          columns={tableColumns}
+          rows={data as Record<string, unknown>[]}
+          className={className}
+        />
       )}
       {!["bar", "line", "scatter", "candlestick", "kpi", "pivot", "table"].includes(chartType) && (
         <div className="w-full h-full flex items-center justify-center text-white/30 text-sm">

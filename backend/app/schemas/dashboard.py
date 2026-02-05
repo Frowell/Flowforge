@@ -7,8 +7,8 @@ from pydantic import BaseModel
 
 from app.schemas.query import ColumnInfo
 
-
 # ── Dashboard ────────────────────────────────────────────────────────────
+
 
 class DashboardCreate(BaseModel):
     name: str
@@ -40,6 +40,7 @@ class DashboardListResponse(BaseModel):
 
 
 # ── Widget ───────────────────────────────────────────────────────────────
+
 
 class WidgetCreate(BaseModel):
     """Pin a workflow output node to a dashboard."""
@@ -74,6 +75,7 @@ class WidgetResponse(BaseModel):
 
 # ── Dashboard Filter ─────────────────────────────────────────────────────
 
+
 class DashboardFilterCreate(BaseModel):
     filter_type: str
     target_column: str
@@ -94,6 +96,7 @@ class DashboardFilterResponse(BaseModel):
 
 # ── Widget Data ─────────────────────────────────────────────────────────
 
+
 class WidgetDataResponse(BaseModel):
     columns: list[ColumnInfo]
     rows: list[dict]
@@ -106,6 +109,7 @@ class WidgetDataResponse(BaseModel):
 
 
 # ── API Key ───────────────────────────────────────────────────────────
+
 
 class APIKeyCreate(BaseModel):
     label: str | None = None

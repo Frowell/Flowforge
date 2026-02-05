@@ -21,8 +21,20 @@ class TestFilterTransform:
     def test_filter_passthrough_preserves_all_columns(self):
         engine = SchemaEngine()
         nodes = [
-            {"id": "src", "type": "data_source", "data": {"config": {"columns": [c.model_dump() for c in SAMPLE_COLUMNS]}}},
-            {"id": "f1", "type": "filter", "data": {"config": {"column": "symbol", "operator": "=", "value": "AAPL"}}},
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {"columns": [c.model_dump() for c in SAMPLE_COLUMNS]}
+                },
+            },
+            {
+                "id": "f1",
+                "type": "filter",
+                "data": {
+                    "config": {"column": "symbol", "operator": "=", "value": "AAPL"}
+                },
+            },
         ]
         edges = [{"source": "src", "target": "f1"}]
         result = engine.validate_dag(nodes, edges)
@@ -33,8 +45,18 @@ class TestSelectTransform:
     def test_select_returns_subset_of_columns(self):
         engine = SchemaEngine()
         nodes = [
-            {"id": "src", "type": "data_source", "data": {"config": {"columns": [c.model_dump() for c in SAMPLE_COLUMNS]}}},
-            {"id": "s1", "type": "select", "data": {"config": {"columns": ["symbol", "price"]}}},
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {"columns": [c.model_dump() for c in SAMPLE_COLUMNS]}
+                },
+            },
+            {
+                "id": "s1",
+                "type": "select",
+                "data": {"config": {"columns": ["symbol", "price"]}},
+            },
         ]
         edges = [{"source": "src", "target": "s1"}]
         result = engine.validate_dag(nodes, edges)
@@ -47,7 +69,13 @@ class TestGroupByTransform:
     def test_group_by_produces_group_keys_and_aggregates(self):
         engine = SchemaEngine()
         nodes = [
-            {"id": "src", "type": "data_source", "data": {"config": {"columns": [c.model_dump() for c in SAMPLE_COLUMNS]}}},
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {"columns": [c.model_dump() for c in SAMPLE_COLUMNS]}
+                },
+            },
             {
                 "id": "g1",
                 "type": "group_by",
@@ -55,7 +83,12 @@ class TestGroupByTransform:
                     "config": {
                         "group_columns": ["symbol"],
                         "aggregations": [
-                            {"column": "price", "function": "AVG", "alias": "avg_price", "output_dtype": "float64"},
+                            {
+                                "column": "price",
+                                "function": "AVG",
+                                "alias": "avg_price",
+                                "output_dtype": "float64",
+                            },
                         ],
                     }
                 },
@@ -72,7 +105,13 @@ class TestPivotTransform:
     def test_pivot_preserves_row_columns(self):
         engine = SchemaEngine()
         nodes = [
-            {"id": "src", "type": "data_source", "data": {"config": {"columns": [c.model_dump() for c in SAMPLE_COLUMNS]}}},
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {"columns": [c.model_dump() for c in SAMPLE_COLUMNS]}
+                },
+            },
             {
                 "id": "p1",
                 "type": "pivot",
@@ -93,7 +132,13 @@ class TestPivotTransform:
     def test_pivot_produces_value_column_with_aggregation(self):
         engine = SchemaEngine()
         nodes = [
-            {"id": "src", "type": "data_source", "data": {"config": {"columns": [c.model_dump() for c in SAMPLE_COLUMNS]}}},
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {"columns": [c.model_dump() for c in SAMPLE_COLUMNS]}
+                },
+            },
             {
                 "id": "p1",
                 "type": "pivot",
@@ -116,7 +161,13 @@ class TestPivotTransform:
     def test_pivot_empty_config_returns_empty(self):
         engine = SchemaEngine()
         nodes = [
-            {"id": "src", "type": "data_source", "data": {"config": {"columns": [c.model_dump() for c in SAMPLE_COLUMNS]}}},
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {"columns": [c.model_dump() for c in SAMPLE_COLUMNS]}
+                },
+            },
             {"id": "p1", "type": "pivot", "data": {"config": {}}},
         ]
         edges = [{"source": "src", "target": "p1"}]

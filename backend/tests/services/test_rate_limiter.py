@@ -11,10 +11,10 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from app.services.rate_limiter import RateLimitExceeded, RateLimiter
-
+from app.services.rate_limiter import RateLimiter, RateLimitExceededError
 
 # ── Helpers ───────────────────────────────────────────────────────────────
+
 
 def _make_limiter(incr_return=1, redis_fail=False):
     """Build a RateLimiter with a mocked Redis client."""
@@ -29,6 +29,7 @@ def _make_limiter(incr_return=1, redis_fail=False):
 
 # ── Tests ─────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_under_limit_passes():
     """Requests under the limit should not raise."""
@@ -39,10 +40,10 @@ async def test_under_limit_passes():
 
 @pytest.mark.asyncio
 async def test_over_limit_raises_rate_limit_exceeded():
-    """Requests over the limit should raise RateLimitExceeded with retry_after."""
+    """Requests over the limit should raise RateLimitExceededError with retry_after."""
     limiter = _make_limiter(incr_return=101)
 
-    with pytest.raises(RateLimitExceeded) as exc_info:
+    with pytest.raises(RateLimitExceededError) as exc_info:
         await limiter.check("test_key_hash", limit=100)
 
     assert exc_info.value.retry_after > 0
@@ -62,7 +63,7 @@ async def test_custom_limit_override():
     limiter = _make_limiter(incr_return=6)
 
     # With custom limit of 5, count=6 should exceed
-    with pytest.raises(RateLimitExceeded):
+    with pytest.raises(RateLimitExceededError):
         await limiter.check("test_key_hash", limit=5)
 
     # With custom limit of 10, count=6 should pass

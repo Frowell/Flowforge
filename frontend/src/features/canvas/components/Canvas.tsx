@@ -112,7 +112,11 @@ function CanvasInner({ workflowId }: { workflowId: string }) {
   }
 
   return (
-    <div ref={canvasRef} tabIndex={-1} className="h-[calc(100vh-3rem)] w-screen flex flex-col outline-none">
+    <div
+      ref={canvasRef}
+      tabIndex={-1}
+      className="h-[calc(100vh-3rem)] w-screen flex flex-col outline-none"
+    >
       <div className="h-10 bg-canvas-bg border-b border-canvas-border flex items-center px-4 shrink-0 justify-between">
         <span className="text-sm text-white/80">{workflow?.name ?? "Workflow"}</span>
         <div className="flex items-center gap-3">

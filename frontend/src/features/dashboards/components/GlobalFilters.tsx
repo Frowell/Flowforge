@@ -49,7 +49,10 @@ export default function GlobalFilters() {
     <div className="flex items-center gap-2">
       {/* Active filter chips */}
       {activeFilters.map((filter) => (
-        <div key={filter.column} className="flex items-center gap-1 bg-canvas-bg border border-white/10 rounded px-2 py-0.5">
+        <div
+          key={filter.column}
+          className="flex items-center gap-1 bg-canvas-bg border border-white/10 rounded px-2 py-0.5"
+        >
           <span className="text-xs text-white/60">{filter.column}:</span>
           {filter.type === "date_range" && (
             <div className="flex items-center gap-1">
@@ -122,7 +125,9 @@ export default function GlobalFilters() {
                 <label className="text-xs text-white/50 block mb-1">Type</label>
                 <select
                   value={newFilter.type}
-                  onChange={(e) => setNewFilter({ ...newFilter, type: e.target.value as "date_range" | "text" })}
+                  onChange={(e) =>
+                    setNewFilter({ ...newFilter, type: e.target.value as "date_range" | "text" })
+                  }
                   className="w-full bg-canvas-bg border border-white/10 rounded px-2 py-1 text-xs text-white"
                 >
                   <option value="date_range">Date Range</option>
@@ -142,10 +147,7 @@ export default function GlobalFilters() {
       </div>
 
       {activeFilters.length > 0 && (
-        <button
-          onClick={clearFilters}
-          className="text-xs text-white/40 hover:text-white"
-        >
+        <button onClick={clearFilters} className="text-xs text-white/40 hover:text-white">
           Clear all
         </button>
       )}

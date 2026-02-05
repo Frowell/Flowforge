@@ -51,12 +51,8 @@ export default function DataPreview() {
               >
                 Next
               </button>
-              <span className="text-xs text-white/30">
-                {data.execution_ms}ms
-              </span>
-              {data.cache_hit && (
-                <span className="text-xs text-green-400/60">cached</span>
-              )}
+              <span className="text-xs text-white/30">{data.execution_ms}ms</span>
+              {data.cache_hit && <span className="text-xs text-green-400/60">cached</span>}
             </div>
           </>
         )}
@@ -64,9 +60,7 @@ export default function DataPreview() {
           <span className="ml-auto text-xs text-white/30 animate-pulse">Loading...</span>
         )}
       </div>
-      {error && (
-        <div className="px-4 py-2 text-xs text-red-400">{error.message}</div>
-      )}
+      {error && <div className="px-4 py-2 text-xs text-red-400">{error.message}</div>}
       <div className="h-[calc(100%-36px)] overflow-auto">
         <DataGrid columns={data?.columns ?? []} rows={data?.rows ?? []} />
       </div>

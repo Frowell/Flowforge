@@ -29,7 +29,9 @@ export default function JoinPanel({ nodeId }: Props) {
           className="w-full bg-canvas-bg border border-white/10 rounded px-2 py-1.5 text-sm text-white"
         >
           {JOIN_TYPES.map((jt) => (
-            <option key={jt} value={jt}>{jt.toUpperCase()}</option>
+            <option key={jt} value={jt}>
+              {jt.toUpperCase()}
+            </option>
           ))}
         </select>
       </div>

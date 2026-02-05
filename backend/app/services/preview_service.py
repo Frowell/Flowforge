@@ -97,9 +97,7 @@ class PreviewService:
 
         # Use the last result (the target node's output)
         last_result = results[-1]
-        columns = [
-            {"name": col, "dtype": "String"} for col in last_result.columns
-        ]
+        columns = [{"name": col, "dtype": "String"} for col in last_result.columns]
         response = {
             "columns": columns,
             "rows": last_result.rows[:limit],
@@ -172,7 +170,7 @@ class PreviewService:
         limit: int = PREVIEW_LIMIT,
         offset: int = 0,
     ) -> CompiledSegment:
-        """Wrap a compiled segment's SQL with LIMIT, OFFSET, and SETTINGS for preview."""
+        """Wrap a segment's SQL with LIMIT, OFFSET, and SETTINGS."""
         constrained_sql = (
             f"SELECT * FROM ({segment.sql}) AS preview "
             f"LIMIT {limit} OFFSET {offset} "
@@ -195,11 +193,17 @@ class PreviewService:
         try:
             raw = await self._redis.get(key)
             if raw is not None:
-                cache_operations_total.labels(cache_type="preview", operation="get", status="hit").inc()
+                cache_operations_total.labels(
+                    cache_type="preview", operation="get", status="hit"
+                ).inc()
                 return json.loads(raw)
-            cache_operations_total.labels(cache_type="preview", operation="get", status="miss").inc()
+            cache_operations_total.labels(
+                cache_type="preview", operation="get", status="miss"
+            ).inc()
         except Exception:
-            cache_operations_total.labels(cache_type="preview", operation="get", status="error").inc()
+            cache_operations_total.labels(
+                cache_type="preview", operation="get", status="error"
+            ).inc()
             logger.warning("Preview cache read failed for key %s", key, exc_info=True)
         return None
 
@@ -207,7 +211,11 @@ class PreviewService:
         """Write to Redis cache with TTL. Errors are logged, never raised."""
         try:
             await self._redis.set(key, json.dumps(value), ex=CACHE_TTL)
-            cache_operations_total.labels(cache_type="preview", operation="set", status="hit").inc()
+            cache_operations_total.labels(
+                cache_type="preview", operation="set", status="hit"
+            ).inc()
         except Exception:
-            cache_operations_total.labels(cache_type="preview", operation="set", status="error").inc()
+            cache_operations_total.labels(
+                cache_type="preview", operation="set", status="error"
+            ).inc()
             logger.warning("Preview cache write failed for key %s", key, exc_info=True)

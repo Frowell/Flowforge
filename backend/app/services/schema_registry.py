@@ -8,7 +8,6 @@ Reads from:
 Caches in Redis. Strictly read-only — never creates tables or views.
 """
 
-import json
 import logging
 
 from redis.asyncio import Redis
@@ -38,9 +37,13 @@ class SchemaRegistry:
         if not force_refresh:
             cached = await self._redis.get(CACHE_KEY)
             if cached:
-                cache_operations_total.labels(cache_type="schema", operation="get", status="hit").inc()
+                cache_operations_total.labels(
+                    cache_type="schema", operation="get", status="hit"
+                ).inc()
                 return CatalogResponse.model_validate_json(cached)
-            cache_operations_total.labels(cache_type="schema", operation="get", status="miss").inc()
+            cache_operations_total.labels(
+                cache_type="schema", operation="get", status="miss"
+            ).inc()
 
         catalog = await self._discover()
         await self._redis.setex(
@@ -71,7 +74,9 @@ class SchemaRegistry:
 
         # Dev-mode fallback: if no tables discovered, use mock catalog
         if not tables:
-            logger.warning("Using mock catalog — no tables discovered from backing stores")
+            logger.warning(
+                "Using mock catalog — no tables discovered from backing stores"
+            )
             tables = self._mock_catalog()
 
         return CatalogResponse(tables=tables)
@@ -118,7 +123,9 @@ class SchemaRegistry:
                     ColumnSchema(name="quantity", dtype="int64", nullable=False),
                     ColumnSchema(name="avg_price", dtype="float64", nullable=False),
                     ColumnSchema(name="market_value", dtype="float64", nullable=False),
-                    ColumnSchema(name="unrealized_pnl", dtype="float64", nullable=False),
+                    ColumnSchema(
+                        name="unrealized_pnl", dtype="float64", nullable=False
+                    ),
                     ColumnSchema(name="updated_at", dtype="datetime", nullable=False),
                 ],
             ),

@@ -5,23 +5,30 @@ The raw key is returned only once on creation; only the SHA-256 hash is stored.
 """
 
 import hashlib
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_tenant_id, get_current_user_id, get_db, require_role
+from app.api.deps import (
+    get_current_tenant_id,
+    get_current_user_id,
+    get_db,
+    require_role,
+)
 from app.models.audit_log import AuditAction, AuditResourceType
 from app.models.dashboard import APIKey
-from app.services.audit_service import AuditService
 from app.schemas.dashboard import APIKeyCreate, APIKeyCreateResponse, APIKeyResponse
+from app.services.audit_service import AuditService
 
 router = APIRouter()
 
 
-@router.post("", response_model=APIKeyCreateResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "", response_model=APIKeyCreateResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_api_key(
     body: APIKeyCreate,
     tenant_id: UUID = Depends(get_current_tenant_id),
@@ -107,9 +114,11 @@ async def revoke_api_key(
     )
     api_key = result.scalar_one_or_none()
     if not api_key:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API key not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="API key not found"
+        )
 
-    api_key.revoked_at = datetime.now(timezone.utc)
+    api_key.revoked_at = datetime.now(UTC)
 
     audit = AuditService(db)
     await audit.log(
@@ -141,7 +150,9 @@ async def update_api_key(
     )
     api_key = result.scalar_one_or_none()
     if not api_key:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API key not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="API key not found"
+        )
 
     if body.label is not None:
         api_key.label = body.label

@@ -16,7 +16,8 @@ interface Props {
 const CHART_TYPES = ["bar", "line", "scatter", "candlestick", "kpi", "pivot"] as const;
 const AGGREGATIONS = ["SUM", "AVG", "COUNT", "MIN", "MAX", "LAST"] as const;
 
-const selectClass = "w-full bg-canvas-bg border border-white/10 rounded px-2 py-1.5 text-sm text-white";
+const selectClass =
+  "w-full bg-canvas-bg border border-white/10 rounded px-2 py-1.5 text-sm text-white";
 const labelClass = "text-xs text-white/50 block mb-1";
 const checkboxClass = "mr-2 accent-canvas-accent";
 
@@ -39,7 +40,9 @@ function ColumnSelect({
       <select value={value} onChange={(e) => onChange(e.target.value)} className={selectClass}>
         <option value="">{placeholder}</option>
         {columns.map((col) => (
-          <option key={col.name} value={col.name}>{col.name}</option>
+          <option key={col.name} value={col.name}>
+            {col.name}
+          </option>
         ))}
       </select>
     </div>
@@ -73,7 +76,10 @@ function MultiColumnSelect({
           <span className="text-xs text-white/30">No columns available</span>
         )}
         {columns.map((col) => (
-          <label key={col.name} className="flex items-center text-xs text-white cursor-pointer hover:bg-white/5 px-1 rounded">
+          <label
+            key={col.name}
+            className="flex items-center text-xs text-white cursor-pointer hover:bg-white/5 px-1 rounded"
+          >
             <input
               type="checkbox"
               checked={selected.includes(col.name)}
@@ -101,7 +107,11 @@ export default function ChartConfigPanel({ nodeId }: Props) {
 
   const toStringArray = (val: unknown): string[] => {
     if (Array.isArray(val)) return val.map(String);
-    if (typeof val === "string" && val) return val.split(",").map((s) => s.trim()).filter(Boolean);
+    if (typeof val === "string" && val)
+      return val
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
     return [];
   };
 
@@ -236,12 +246,42 @@ export default function ChartConfigPanel({ nodeId }: Props) {
       {/* Candlestick config */}
       {chartType === "candlestick" && (
         <>
-          <ColumnSelect label="Time Column" value={(config.timeColumn as string) ?? ""} columns={inputSchema} onChange={(v) => set({ timeColumn: v })} />
-          <ColumnSelect label="Open" value={(config.openColumn as string) ?? ""} columns={inputSchema} onChange={(v) => set({ openColumn: v })} />
-          <ColumnSelect label="High" value={(config.highColumn as string) ?? ""} columns={inputSchema} onChange={(v) => set({ highColumn: v })} />
-          <ColumnSelect label="Low" value={(config.lowColumn as string) ?? ""} columns={inputSchema} onChange={(v) => set({ lowColumn: v })} />
-          <ColumnSelect label="Close" value={(config.closeColumn as string) ?? ""} columns={inputSchema} onChange={(v) => set({ closeColumn: v })} />
-          <ColumnSelect label="Volume (optional)" value={(config.volumeColumn as string) ?? ""} columns={inputSchema} onChange={(v) => set({ volumeColumn: v })} />
+          <ColumnSelect
+            label="Time Column"
+            value={(config.timeColumn as string) ?? ""}
+            columns={inputSchema}
+            onChange={(v) => set({ timeColumn: v })}
+          />
+          <ColumnSelect
+            label="Open"
+            value={(config.openColumn as string) ?? ""}
+            columns={inputSchema}
+            onChange={(v) => set({ openColumn: v })}
+          />
+          <ColumnSelect
+            label="High"
+            value={(config.highColumn as string) ?? ""}
+            columns={inputSchema}
+            onChange={(v) => set({ highColumn: v })}
+          />
+          <ColumnSelect
+            label="Low"
+            value={(config.lowColumn as string) ?? ""}
+            columns={inputSchema}
+            onChange={(v) => set({ lowColumn: v })}
+          />
+          <ColumnSelect
+            label="Close"
+            value={(config.closeColumn as string) ?? ""}
+            columns={inputSchema}
+            onChange={(v) => set({ closeColumn: v })}
+          />
+          <ColumnSelect
+            label="Volume (optional)"
+            value={(config.volumeColumn as string) ?? ""}
+            columns={inputSchema}
+            onChange={(v) => set({ volumeColumn: v })}
+          />
         </>
       )}
 
@@ -262,7 +302,9 @@ export default function ChartConfigPanel({ nodeId }: Props) {
               className={selectClass}
             >
               {AGGREGATIONS.map((agg) => (
-                <option key={agg} value={agg}>{agg}</option>
+                <option key={agg} value={agg}>
+                  {agg}
+                </option>
               ))}
             </select>
           </div>
@@ -271,7 +313,9 @@ export default function ChartConfigPanel({ nodeId }: Props) {
             <input
               type="number"
               value={(config.comparisonValue as number) ?? ""}
-              onChange={(e) => set({ comparisonValue: e.target.value ? Number(e.target.value) : undefined })}
+              onChange={(e) =>
+                set({ comparisonValue: e.target.value ? Number(e.target.value) : undefined })
+              }
               placeholder="Optional"
               className={selectClass}
             />
@@ -283,21 +327,27 @@ export default function ChartConfigPanel({ nodeId }: Props) {
                 type="number"
                 placeholder="Red below"
                 value={(config.threshold_red as number) ?? ""}
-                onChange={(e) => set({ threshold_red: e.target.value ? Number(e.target.value) : undefined })}
+                onChange={(e) =>
+                  set({ threshold_red: e.target.value ? Number(e.target.value) : undefined })
+                }
                 className="bg-canvas-bg border border-red-500/30 rounded px-2 py-1 text-xs text-white"
               />
               <input
                 type="number"
                 placeholder="Yellow below"
                 value={(config.threshold_yellow as number) ?? ""}
-                onChange={(e) => set({ threshold_yellow: e.target.value ? Number(e.target.value) : undefined })}
+                onChange={(e) =>
+                  set({ threshold_yellow: e.target.value ? Number(e.target.value) : undefined })
+                }
                 className="bg-canvas-bg border border-yellow-500/30 rounded px-2 py-1 text-xs text-white"
               />
               <input
                 type="number"
                 placeholder="Green above"
                 value={(config.threshold_green as number) ?? ""}
-                onChange={(e) => set({ threshold_green: e.target.value ? Number(e.target.value) : undefined })}
+                onChange={(e) =>
+                  set({ threshold_green: e.target.value ? Number(e.target.value) : undefined })
+                }
                 className="bg-canvas-bg border border-green-500/30 rounded px-2 py-1 text-xs text-white"
               />
             </div>
@@ -334,7 +384,9 @@ export default function ChartConfigPanel({ nodeId }: Props) {
               className={selectClass}
             >
               {AGGREGATIONS.filter((a) => a !== "LAST").map((agg) => (
-                <option key={agg} value={agg}>{agg}</option>
+                <option key={agg} value={agg}>
+                  {agg}
+                </option>
               ))}
             </select>
           </div>

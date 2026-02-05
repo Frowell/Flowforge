@@ -132,13 +132,12 @@ export function getCurrentUser(): CurrentUser | null {
   if (!keycloak.authenticated || !keycloak.tokenParsed) return null;
 
   const token = keycloak.tokenParsed;
-  const clientRoles =
-    token.resource_access?.[keycloak.clientId ?? ""]?.roles ?? [];
+  const clientRoles = token.resource_access?.[keycloak.clientId ?? ""]?.roles ?? [];
   const realmRoles = token.realm_access?.roles ?? [];
 
   return {
     id: token.sub ?? "",
-    tenantId: (token as Record<string, unknown>).tenant_id as string ?? "",
+    tenantId: ((token as Record<string, unknown>).tenant_id as string) ?? "",
     email: token.email ?? "",
     name: token.name ?? token.preferred_username ?? "",
     roles: [...new Set([...realmRoles, ...clientRoles])],

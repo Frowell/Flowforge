@@ -52,10 +52,7 @@ export default function SelectPanel({ nodeId }: Props) {
           >
             All
           </button>
-          <button
-            onClick={selectNone}
-            className="text-xs text-white/40 hover:text-white/60"
-          >
+          <button onClick={selectNone} className="text-xs text-white/40 hover:text-white/60">
             None
           </button>
         </div>

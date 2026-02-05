@@ -12,11 +12,11 @@
 
 ## Schema (`schema/`)
 
-| File | Purpose |
-|---|---|
-| `registry.ts` | Schema catalog cache — wraps TanStack Query, fetches from `/api/v1/schema` |
+| File             | Purpose                                                                        |
+| ---------------- | ------------------------------------------------------------------------------ |
+| `registry.ts`    | Schema catalog cache — wraps TanStack Query, fetches from `/api/v1/schema`     |
 | `propagation.ts` | Synchronous schema propagation engine — computes output schemas for entire DAG |
-| `types.ts` | `ColumnSchema`, `TableSchema`, `NodeSchemaTransform` type definitions |
+| `types.ts`       | `ColumnSchema`, `TableSchema`, `NodeSchemaTransform` type definitions          |
 
 - `propagation.ts` must be synchronous and fast (< 10ms for 50 nodes).
 - Must produce identical results to `backend/app/services/schema_engine.py`.
@@ -24,10 +24,10 @@
 
 ## Query Engine (`query-engine/`)
 
-| File | Purpose |
-|---|---|
+| File        | Purpose                                                                  |
+| ----------- | ------------------------------------------------------------------------ |
 | `client.ts` | Single HTTP fetch wrapper with auth injection (session token or API key) |
-| `types.ts` | Request/response type definitions matching backend Pydantic schemas |
+| `types.ts`  | Request/response type definitions matching backend Pydantic schemas      |
 
 - All API calls flow through this client.
 - Components never call `fetch()` directly — they use TanStack Query hooks that use this client.

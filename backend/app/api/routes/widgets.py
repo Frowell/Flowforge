@@ -14,7 +14,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_tenant_id, get_db, get_widget_data_service
 from app.models.dashboard import Dashboard, Widget
 from app.models.workflow import Workflow
-from app.schemas.dashboard import WidgetCreate, WidgetDataResponse, WidgetResponse, WidgetUpdate
+from app.schemas.dashboard import (
+    WidgetCreate,
+    WidgetDataResponse,
+    WidgetResponse,
+    WidgetUpdate,
+)
 from app.services.widget_data_service import WidgetDataService
 
 router = APIRouter()
@@ -38,7 +43,9 @@ async def pin_widget(
         )
     )
     if not dash_result.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dashboard not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Dashboard not found"
+        )
 
     # Verify source workflow belongs to same tenant
     wf_result = await db.execute(
@@ -48,7 +55,9 @@ async def pin_widget(
         )
     )
     if not wf_result.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found"
+        )
 
     widget = Widget(
         dashboard_id=body.dashboard_id,
@@ -82,7 +91,9 @@ async def update_widget(
     )
     widget = result.scalar_one_or_none()
     if not widget:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Widget not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Widget not found"
+        )
 
     update_data = body.model_dump(exclude_unset=True)
     for field, value in update_data.items():
@@ -103,7 +114,7 @@ async def get_widget_data(
     db: AsyncSession = Depends(get_db),
     widget_data_service: WidgetDataService = Depends(get_widget_data_service),
 ):
-    """Fetch data for a widget by compiling and executing its source workflow subgraph."""
+    """Fetch data for a widget by compiling its source workflow."""
     # Load widget with tenant check through dashboard
     result = await db.execute(
         select(Widget)
@@ -115,7 +126,9 @@ async def get_widget_data(
     )
     widget = result.scalar_one_or_none()
     if not widget:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Widget not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Widget not found"
+        )
 
     # Load source workflow with tenant check
     wf_result = await db.execute(
@@ -126,18 +139,20 @@ async def get_widget_data(
     )
     workflow = wf_result.scalar_one_or_none()
     if not workflow:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Source workflow not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Source workflow not found"
+        )
 
     # Parse optional JSON filter params
     filter_params: dict | None = None
     if filters:
         try:
             filter_params = json.loads(filters)
-        except (json.JSONDecodeError, TypeError):
+        except (json.JSONDecodeError, TypeError) as exc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid filters JSON",
-            )
+            ) from exc
 
     data = await widget_data_service.fetch_widget_data(
         tenant_id=tenant_id,
@@ -168,6 +183,8 @@ async def unpin_widget(
     )
     widget = result.scalar_one_or_none()
     if not widget:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Widget not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Widget not found"
+        )
     await db.delete(widget)
     await db.commit()

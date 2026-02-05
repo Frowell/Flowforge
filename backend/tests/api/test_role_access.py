@@ -4,8 +4,6 @@ Verifies that require_role() guards enforce correct permissions.
 Uses dependency overrides to simulate different roles.
 """
 
-from uuid import UUID
-
 import pytest
 from httpx import AsyncClient
 
@@ -16,6 +14,7 @@ from app.main import app
 @pytest.fixture
 def mock_viewer_claims():
     """Simulate a user with only the viewer role."""
+
     async def _claims():
         return {
             "sub": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
@@ -32,6 +31,7 @@ def mock_viewer_claims():
 @pytest.fixture
 def mock_analyst_claims():
     """Simulate a user with the analyst role."""
+
     async def _claims():
         return {
             "sub": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
@@ -48,6 +48,7 @@ def mock_analyst_claims():
 @pytest.fixture
 def mock_admin_claims():
     """Simulate a user with the admin role."""
+
     async def _claims():
         return {
             "sub": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
@@ -62,6 +63,7 @@ def mock_admin_claims():
 
 
 # --- Workflow access ---
+
 
 async def test_viewer_cannot_create_workflow(
     client: AsyncClient, mock_auth, mock_viewer_claims
@@ -95,6 +97,7 @@ async def test_analyst_can_create_workflow(
 
 # --- Execution access ---
 
+
 async def test_viewer_cannot_execute_workflow(
     client: AsyncClient, mock_auth, mock_viewer_claims
 ):
@@ -107,6 +110,7 @@ async def test_viewer_cannot_execute_workflow(
 
 
 # --- API key access ---
+
 
 async def test_admin_can_manage_api_keys(
     client: AsyncClient, mock_auth, mock_admin_claims
@@ -133,6 +137,7 @@ async def test_analyst_cannot_manage_api_keys(
 
 
 # --- Audit log access ---
+
 
 async def test_viewer_cannot_access_audit_logs(
     client: AsyncClient, mock_auth, mock_viewer_claims

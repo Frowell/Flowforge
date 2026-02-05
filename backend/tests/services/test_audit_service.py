@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.audit_log import AuditAction, AuditLog, AuditResourceType
 from app.services.audit_service import AuditService
 
-
 TENANT_A = UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
 TENANT_B = UUID("cccccccc-cccc-cccc-cccc-cccccccccccc")
 USER_A = UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")

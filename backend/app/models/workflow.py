@@ -7,7 +7,15 @@ the full serialized canvas: nodes, edges, viewport position.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -37,7 +45,9 @@ class Workflow(Base, UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin):
 class WorkflowVersion(Base, UUIDPrimaryKeyMixin):
     __tablename__ = "workflow_versions"
     __table_args__ = (
-        UniqueConstraint("workflow_id", "version_number", name="uq_workflow_version_number"),
+        UniqueConstraint(
+            "workflow_id", "version_number", name="uq_workflow_version_number"
+        ),
     )
 
     workflow_id: Mapped[uuid.UUID] = mapped_column(

@@ -13,8 +13,8 @@ All SQL is built via SQLGlot — never string concatenation.
 import time
 from dataclasses import dataclass, field
 
-import structlog
 import sqlglot
+import structlog
 from sqlglot import exp
 
 from app.core.metrics import query_compilation_duration_seconds
@@ -103,7 +103,9 @@ class WorkflowCompiler:
         ancestors.add(target_node_id)
 
         sub_nodes = [n for n in nodes if n["id"] in ancestors]
-        sub_edges = [e for e in edges if e["source"] in ancestors and e["target"] in ancestors]
+        sub_edges = [
+            e for e in edges if e["source"] in ancestors and e["target"] in ancestors
+        ]
 
         return self.compile(sub_nodes, sub_edges)
 
@@ -141,7 +143,8 @@ class WorkflowCompiler:
         """Build SQLGlot expression trees and merge adjacent compatible nodes.
 
         Merging rules:
-        - Filter, Select, Sort, Rename, Formula, Unique, Sample on the same source -> single SELECT
+        - Filter, Select, Sort, Rename, Formula, Unique, Sample
+          on the same source -> single SELECT
         - Group By creates a new expression layer (wraps parent as subquery)
         - Join creates a new segment combining two upstream segments
         - Union creates a new segment combining two upstream segments
@@ -160,10 +163,21 @@ class WorkflowCompiler:
         # Track which node_id owns the "root" segment (for merging)
         # node_id -> root_node_id (the data_source that started this chain)
         root_map: dict[str, str] = {}
-        # Track whether a node's expression has GROUP BY (prevents further merging of certain ops)
+        # Track whether a node's expression has GROUP BY
+        # (prevents further merging of certain ops)
         has_group_by: dict[str, bool] = {}
 
-        mergeable_types = {"filter", "select", "sort", "rename", "formula", "unique", "sample", "limit", "window"}
+        mergeable_types = {
+            "filter",
+            "select",
+            "sort",
+            "rename",
+            "formula",
+            "unique",
+            "sample",
+            "limit",
+            "window",
+        }
 
         for node_id in sorted_ids:
             node = node_map[node_id]
@@ -179,15 +193,18 @@ class WorkflowCompiler:
 
                 if columns:
                     col_names = [
-                        c["name"] if isinstance(c, dict) else c
-                        for c in columns
+                        c["name"] if isinstance(c, dict) else c for c in columns
                     ]
-                    select_cols = [exp.Column(this=exp.to_identifier(name)) for name in col_names]
+                    select_cols = [
+                        exp.Column(this=exp.to_identifier(name)) for name in col_names
+                    ]
                 else:
                     select_cols = [exp.Star()]
 
-                expression = exp.Select().select(*select_cols).from_(
-                    exp.Table(this=exp.to_identifier(table_name))
+                expression = (
+                    exp.Select()
+                    .select(*select_cols)
+                    .from_(exp.Table(this=exp.to_identifier(table_name)))
                 )
                 expr_map[node_id] = expression
                 source_ids_map[node_id] = [node_id]
@@ -281,7 +298,8 @@ class WorkflowCompiler:
                 root_map[node_id] = node_id  # new segment root
                 has_group_by[node_id] = False
 
-        # Collect final segments: find terminal expressions (nodes with no downstream merge)
+        # Collect final segments: find terminal expressions
+        # (nodes with no downstream merge)
         # A node's expression is terminal if no other node merged into it
         merged_into: set[str] = set()
         for node_id in sorted_ids:
@@ -356,11 +374,17 @@ class WorkflowCompiler:
         elif operator == "<=":
             condition = exp.LTE(this=col_expr, expression=val_expr)
         elif operator == "contains":
-            condition = exp.Like(this=col_expr, expression=exp.Literal.string(f"%{value}%"))
+            condition = exp.Like(
+                this=col_expr, expression=exp.Literal.string(f"%{value}%")
+            )
         elif operator == "starts with":
-            condition = exp.Like(this=col_expr, expression=exp.Literal.string(f"{value}%"))
+            condition = exp.Like(
+                this=col_expr, expression=exp.Literal.string(f"{value}%")
+            )
         elif operator == "ends with":
-            condition = exp.Like(this=col_expr, expression=exp.Literal.string(f"%{value}"))
+            condition = exp.Like(
+                this=col_expr, expression=exp.Literal.string(f"%{value}")
+            )
         elif operator in ("before", "after"):
             if operator == "before":
                 condition = exp.LT(this=col_expr, expression=val_expr)
@@ -415,9 +439,7 @@ class WorkflowCompiler:
             if not col_name:
                 continue
             col_expr = exp.Column(this=exp.to_identifier(col_name))
-            order_exprs.append(
-                exp.Ordered(this=col_expr, desc=(direction == "desc"))
-            )
+            order_exprs.append(exp.Ordered(this=col_expr, desc=(direction == "desc")))
 
         if order_exprs:
             return expression.order_by(*order_exprs)
@@ -437,7 +459,9 @@ class WorkflowCompiler:
                 col_name = expr.name
                 if col_name in rename_map:
                     new_exprs.append(
-                        exp.Alias(this=expr, alias=exp.to_identifier(rename_map[col_name]))
+                        exp.Alias(
+                            this=expr, alias=exp.to_identifier(rename_map[col_name])
+                        )
                     )
                 else:
                     new_exprs.append(expr)
@@ -466,7 +490,13 @@ class WorkflowCompiler:
             agg_col = config.get("agg_column")
             agg_func = config.get("agg_function", "SUM")
             if agg_col:
-                aggregations = [{"column": agg_col, "function": agg_func, "alias": f"{agg_func.lower()}_{agg_col}"}]
+                aggregations = [
+                    {
+                        "column": agg_col,
+                        "function": agg_func,
+                        "alias": f"{agg_func.lower()}_{agg_col}",
+                    }
+                ]
 
         if not aggregations:
             return parent_expr
@@ -501,10 +531,7 @@ class WorkflowCompiler:
         group_exprs = [exp.Column(this=exp.to_identifier(c)) for c in group_columns]
 
         query = (
-            exp.Select()
-            .select(*select_exprs)
-            .from_(subquery)
-            .group_by(*group_exprs)
+            exp.Select().select(*select_exprs).from_(subquery).group_by(*group_exprs)
         )
 
         return query
@@ -528,24 +555,15 @@ class WorkflowCompiler:
 
         # Build ON condition
         on_condition = exp.EQ(
-            this=exp.Column(this=exp.to_identifier(left_key), table=exp.to_identifier("_left")),
-            expression=exp.Column(this=exp.to_identifier(right_key), table=exp.to_identifier("_right")),
+            this=exp.Column(
+                this=exp.to_identifier(left_key), table=exp.to_identifier("_left")
+            ),
+            expression=exp.Column(
+                this=exp.to_identifier(right_key), table=exp.to_identifier("_right")
+            ),
         )
 
-        # Map join type string to SQLGlot join kind
-        join_kind_map = {
-            "INNER": "JOIN",
-            "LEFT": "LEFT JOIN",
-            "RIGHT": "RIGHT JOIN",
-            "FULL": "FULL JOIN",
-        }
-        join_kind = join_kind_map.get(join_type, "JOIN")
-
-        query = (
-            exp.Select()
-            .select(exp.Star())
-            .from_(left_sub)
-        )
+        query = exp.Select().select(exp.Star()).from_(left_sub)
 
         # Use the join method with appropriate kind
         query = query.join(
@@ -624,7 +642,8 @@ class WorkflowCompiler:
         """Add a window function column to the SELECT expression.
 
         Config: {
-            function: "ROW_NUMBER" | "RANK" | "DENSE_RANK" | "LAG" | "LEAD" | "SUM" | "AVG" | etc.,
+            function: "ROW_NUMBER" | "RANK" | "DENSE_RANK"
+                | "LAG" | "LEAD" | "SUM" | "AVG" | etc.,
             source_column: "col_name" (for functions that need a column),
             partition_by: ["col1", "col2"],
             order_by: "col_name",
@@ -640,7 +659,16 @@ class WorkflowCompiler:
         output_column = config.get("output_column", "window_result")
 
         # Build the window function expression
-        func_requires_column = func_name in ("LAG", "LEAD", "SUM", "AVG", "MIN", "MAX", "FIRST_VALUE", "LAST_VALUE")
+        func_requires_column = func_name in (
+            "LAG",
+            "LEAD",
+            "SUM",
+            "AVG",
+            "MIN",
+            "MAX",
+            "FIRST_VALUE",
+            "LAST_VALUE",
+        )
 
         if func_requires_column and source_column:
             func_expr = exp.Anonymous(
@@ -655,8 +683,12 @@ class WorkflowCompiler:
 
         # PARTITION BY
         if partition_by:
-            partition_cols = [exp.Column(this=exp.to_identifier(col)) for col in partition_by]
-            over_parts.append(exp.PartitionedByProperty(this=exp.Tuple(expressions=partition_cols)))
+            partition_cols = [
+                exp.Column(this=exp.to_identifier(col)) for col in partition_by
+            ]
+            over_parts.append(
+                exp.PartitionedByProperty(this=exp.Tuple(expressions=partition_cols))
+            )
 
         # ORDER BY
         order_expr = None
@@ -696,8 +728,6 @@ class WorkflowCompiler:
         - Output nodes (table_output) read max_rows from their config.
         - Non-output terminal segments get DEFAULT_HARD_CAP.
         """
-        node_map = {n["id"]: n for n in nodes}
-
         # Build mapping: source_node_id -> segment index
         node_to_segment: dict[str, int] = {}
         for idx, seg in enumerate(segments):

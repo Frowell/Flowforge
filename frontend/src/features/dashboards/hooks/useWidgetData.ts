@@ -50,10 +50,8 @@ export function useWidgetData(widgetId: string, options?: UseWidgetDataOptions) 
 
   return useQuery({
     queryKey: ["widgetData", widgetId, activeFilters],
-    queryFn: () =>
-      apiClient.get<WidgetDataResponse>(`/api/v1/widgets/${widgetId}/data`, params),
+    queryFn: () => apiClient.get<WidgetDataResponse>(`/api/v1/widgets/${widgetId}/data`, params),
     staleTime: 30_000,
-    refetchInterval:
-      typeof refreshInterval === "number" ? refreshInterval : undefined,
+    refetchInterval: typeof refreshInterval === "number" ? refreshInterval : undefined,
   });
 }

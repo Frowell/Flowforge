@@ -51,24 +51,23 @@ export default function CandlestickChart({ data, config, interactive = true, cla
 
   const candles: CandleData[] = useMemo(
     () =>
-      data
-        .reduce<CandleData[]>((acc, row) => {
-          const open = Number(row[openColumn]);
-          const high = Number(row[highColumn]);
-          const low = Number(row[lowColumn]);
-          const close = Number(row[closeColumn]);
-          if (isNaN(open) || isNaN(high) || isNaN(low) || isNaN(close)) return acc;
-          acc.push({
-            time: String(row[timeColumn] ?? ""),
-            open,
-            high,
-            low,
-            close,
-            volume: volumeColumn ? Number(row[volumeColumn]) || 0 : undefined,
-            bullish: close >= open,
-          });
-          return acc;
-        }, []),
+      data.reduce<CandleData[]>((acc, row) => {
+        const open = Number(row[openColumn]);
+        const high = Number(row[highColumn]);
+        const low = Number(row[lowColumn]);
+        const close = Number(row[closeColumn]);
+        if (isNaN(open) || isNaN(high) || isNaN(low) || isNaN(close)) return acc;
+        acc.push({
+          time: String(row[timeColumn] ?? ""),
+          open,
+          high,
+          low,
+          close,
+          volume: volumeColumn ? Number(row[volumeColumn]) || 0 : undefined,
+          bullish: close >= open,
+        });
+        return acc;
+      }, []),
     [data, timeColumn, openColumn, highColumn, lowColumn, closeColumn, volumeColumn],
   );
 
@@ -102,10 +101,9 @@ export default function CandlestickChart({ data, config, interactive = true, cla
   const priceHeight = hasVolume
     ? (dimensions.height - PADDING.top - PADDING.bottom) * 0.75
     : dimensions.height - PADDING.top - PADDING.bottom;
-  const volumeHeight = hasVolume
-    ? (dimensions.height - PADDING.top - PADDING.bottom) * 0.2
-    : 0;
-  const volumeTop = PADDING.top + priceHeight + (dimensions.height - PADDING.top - PADDING.bottom) * 0.05;
+  const volumeHeight = hasVolume ? (dimensions.height - PADDING.top - PADDING.bottom) * 0.2 : 0;
+  const volumeTop =
+    PADDING.top + priceHeight + (dimensions.height - PADDING.top - PADDING.bottom) * 0.05;
 
   const priceMin = Math.min(...candles.map((c) => c.low));
   const priceMax = Math.max(...candles.map((c) => c.high));
@@ -119,13 +117,13 @@ export default function CandlestickChart({ data, config, interactive = true, cla
   const scaleY = (price: number) =>
     PADDING.top + priceHeight - ((price - priceMin) / priceRange) * priceHeight;
 
-  const scaleVolumeY = (vol: number) =>
-    volumeTop + volumeHeight - (vol / volumeMax) * volumeHeight;
+  const scaleVolumeY = (vol: number) => volumeTop + volumeHeight - (vol / volumeMax) * volumeHeight;
 
   // Y-axis ticks
   const tickCount = 5;
-  const ticks = Array.from({ length: tickCount }, (_, i) =>
-    priceMin + (priceRange * i) / (tickCount - 1),
+  const ticks = Array.from(
+    { length: tickCount },
+    (_, i) => priceMin + (priceRange * i) / (tickCount - 1),
   );
 
   // X-axis labels — show ~6 evenly spaced
@@ -241,8 +239,12 @@ export default function CandlestickChart({ data, config, interactive = true, cla
       {interactive && hovered && (
         <div className="absolute top-2 left-2 bg-[#0f3460] border border-white/20 rounded px-2 py-1 text-xs text-white pointer-events-none">
           <div className="text-white/60">{hovered.time}</div>
-          <div>O: {hovered.open.toFixed(2)} H: {hovered.high.toFixed(2)}</div>
-          <div>L: {hovered.low.toFixed(2)} C: {hovered.close.toFixed(2)}</div>
+          <div>
+            O: {hovered.open.toFixed(2)} H: {hovered.high.toFixed(2)}
+          </div>
+          <div>
+            L: {hovered.low.toFixed(2)} C: {hovered.close.toFixed(2)}
+          </div>
           {hovered.volume !== undefined && <div>Vol: {hovered.volume.toLocaleString()}</div>}
         </div>
       )}

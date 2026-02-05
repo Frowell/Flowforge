@@ -7,7 +7,12 @@ export default function DataSourceNode({ data, selected }: NodeProps) {
   const table = (nodeData.config?.table as string) ?? "No table selected";
 
   return (
-    <BaseNode label={nodeData.label || "Data Source"} color="bg-blue-400" selected={selected} inputPorts={0}>
+    <BaseNode
+      label={nodeData.label || "Data Source"}
+      color="bg-blue-400"
+      selected={selected}
+      inputPorts={0}
+    >
       {table}
     </BaseNode>
   );

@@ -1,6 +1,5 @@
 """Workflow compiler tests — verify query merging and SQL generation."""
 
-import pytest
 import sqlglot
 
 from app.services.schema_engine import SchemaEngine
@@ -20,7 +19,11 @@ class TestTopologicalSort:
     def test_linear_chain_sorted_correctly(self):
         compiler = get_compiler()
         nodes = [
-            {"id": "a", "type": "data_source", "data": {"config": {"table": "trades", "columns": []}}},
+            {
+                "id": "a",
+                "type": "data_source",
+                "data": {"config": {"table": "trades", "columns": []}},
+            },
             {"id": "b", "type": "filter", "data": {"config": {}}},
             {"id": "c", "type": "table_output", "data": {"config": {}}},
         ]
@@ -46,13 +49,30 @@ class TestQueryMerging:
         """A filter node generates a WHERE clause merged into the parent SELECT."""
         compiler = get_compiler()
         nodes = [
-            {"id": "src", "type": "data_source", "data": {"config": {
-                "table": "fct_trades",
-                "columns": [{"name": "symbol", "dtype": "string"}, {"name": "price", "dtype": "float64"}],
-            }}},
-            {"id": "flt", "type": "filter", "data": {"config": {
-                "column": "symbol", "operator": "=", "value": "AAPL",
-            }}},
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "price", "dtype": "float64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "flt",
+                "type": "filter",
+                "data": {
+                    "config": {
+                        "column": "symbol",
+                        "operator": "=",
+                        "value": "AAPL",
+                    }
+                },
+            },
             {"id": "out", "type": "table_output", "data": {"config": {}}},
         ]
         edges = [{"source": "src", "target": "flt"}, {"source": "flt", "target": "out"}]
@@ -69,17 +89,29 @@ class TestQueryMerging:
         """A select node limits the columns in the SELECT clause."""
         compiler = get_compiler()
         nodes = [
-            {"id": "src", "type": "data_source", "data": {"config": {
-                "table": "fct_trades",
-                "columns": [
-                    {"name": "symbol", "dtype": "string"},
-                    {"name": "price", "dtype": "float64"},
-                    {"name": "quantity", "dtype": "int64"},
-                ],
-            }}},
-            {"id": "sel", "type": "select", "data": {"config": {
-                "columns": ["symbol", "price"],
-            }}},
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "price", "dtype": "float64"},
+                            {"name": "quantity", "dtype": "int64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "sel",
+                "type": "select",
+                "data": {
+                    "config": {
+                        "columns": ["symbol", "price"],
+                    }
+                },
+            },
             {"id": "out", "type": "table_output", "data": {"config": {}}},
         ]
         edges = [{"source": "src", "target": "sel"}, {"source": "sel", "target": "out"}]
@@ -97,13 +129,25 @@ class TestQueryMerging:
         """A sort node generates an ORDER BY clause."""
         compiler = get_compiler()
         nodes = [
-            {"id": "src", "type": "data_source", "data": {"config": {
-                "table": "fct_trades",
-                "columns": [{"name": "price", "dtype": "float64"}],
-            }}},
-            {"id": "srt", "type": "sort", "data": {"config": {
-                "sort_by": [{"column": "price", "direction": "desc"}],
-            }}},
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [{"name": "price", "dtype": "float64"}],
+                    }
+                },
+            },
+            {
+                "id": "srt",
+                "type": "sort",
+                "data": {
+                    "config": {
+                        "sort_by": [{"column": "price", "direction": "desc"}],
+                    }
+                },
+            },
             {"id": "out", "type": "table_output", "data": {"config": {}}},
         ]
         edges = [{"source": "src", "target": "srt"}, {"source": "srt", "target": "out"}]
@@ -119,16 +163,28 @@ class TestQueryMerging:
         """A rename node generates AS aliases."""
         compiler = get_compiler()
         nodes = [
-            {"id": "src", "type": "data_source", "data": {"config": {
-                "table": "fct_trades",
-                "columns": [
-                    {"name": "symbol", "dtype": "string"},
-                    {"name": "price", "dtype": "float64"},
-                ],
-            }}},
-            {"id": "ren", "type": "rename", "data": {"config": {
-                "rename_map": {"price": "trade_price"},
-            }}},
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "price", "dtype": "float64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "ren",
+                "type": "rename",
+                "data": {
+                    "config": {
+                        "rename_map": {"price": "trade_price"},
+                    }
+                },
+            },
             {"id": "out", "type": "table_output", "data": {"config": {}}},
         ]
         edges = [{"source": "src", "target": "ren"}, {"source": "ren", "target": "out"}]
@@ -145,25 +201,51 @@ class TestQueryMerging:
         """Source -> Filter -> Select -> Sort -> Table produces ONE merged query."""
         compiler = get_compiler()
         nodes = [
-            {"id": "src", "type": "data_source", "data": {"config": {
-                "table": "fct_trades",
-                "columns": [
-                    {"name": "trade_id", "dtype": "string"},
-                    {"name": "symbol", "dtype": "string"},
-                    {"name": "side", "dtype": "string"},
-                    {"name": "price", "dtype": "float64"},
-                    {"name": "quantity", "dtype": "int64"},
-                ],
-            }}},
-            {"id": "flt", "type": "filter", "data": {"config": {
-                "column": "side", "operator": "=", "value": "BUY",
-            }}},
-            {"id": "sel", "type": "select", "data": {"config": {
-                "columns": ["symbol", "price", "quantity"],
-            }}},
-            {"id": "srt", "type": "sort", "data": {"config": {
-                "sort_by": [{"column": "price", "direction": "desc"}],
-            }}},
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [
+                            {"name": "trade_id", "dtype": "string"},
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "side", "dtype": "string"},
+                            {"name": "price", "dtype": "float64"},
+                            {"name": "quantity", "dtype": "int64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "flt",
+                "type": "filter",
+                "data": {
+                    "config": {
+                        "column": "side",
+                        "operator": "=",
+                        "value": "BUY",
+                    }
+                },
+            },
+            {
+                "id": "sel",
+                "type": "select",
+                "data": {
+                    "config": {
+                        "columns": ["symbol", "price", "quantity"],
+                    }
+                },
+            },
+            {
+                "id": "srt",
+                "type": "sort",
+                "data": {
+                    "config": {
+                        "sort_by": [{"column": "price", "direction": "desc"}],
+                    }
+                },
+            },
             {"id": "out", "type": "table_output", "data": {"config": {}}},
         ]
         edges = [
@@ -192,13 +274,27 @@ class TestQueryMerging:
         """The 'contains' operator maps to LIKE '%val%'."""
         compiler = get_compiler()
         nodes = [
-            {"id": "src", "type": "data_source", "data": {"config": {
-                "table": "fct_trades",
-                "columns": [{"name": "symbol", "dtype": "string"}],
-            }}},
-            {"id": "flt", "type": "filter", "data": {"config": {
-                "column": "symbol", "operator": "contains", "value": "AA",
-            }}},
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [{"name": "symbol", "dtype": "string"}],
+                    }
+                },
+            },
+            {
+                "id": "flt",
+                "type": "filter",
+                "data": {
+                    "config": {
+                        "column": "symbol",
+                        "operator": "contains",
+                        "value": "AA",
+                    }
+                },
+            },
             {"id": "out", "type": "table_output", "data": {"config": {}}},
         ]
         edges = [{"source": "src", "target": "flt"}, {"source": "flt", "target": "out"}]
@@ -214,19 +310,31 @@ class TestQueryMerging:
         """Multiple sort columns produce multi-column ORDER BY."""
         compiler = get_compiler()
         nodes = [
-            {"id": "src", "type": "data_source", "data": {"config": {
-                "table": "fct_trades",
-                "columns": [
-                    {"name": "symbol", "dtype": "string"},
-                    {"name": "price", "dtype": "float64"},
-                ],
-            }}},
-            {"id": "srt", "type": "sort", "data": {"config": {
-                "sort_by": [
-                    {"column": "symbol", "direction": "asc"},
-                    {"column": "price", "direction": "desc"},
-                ],
-            }}},
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "price", "dtype": "float64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "srt",
+                "type": "sort",
+                "data": {
+                    "config": {
+                        "sort_by": [
+                            {"column": "symbol", "direction": "asc"},
+                            {"column": "price", "direction": "desc"},
+                        ],
+                    }
+                },
+            },
             {"id": "out", "type": "table_output", "data": {"config": {}}},
         ]
         edges = [{"source": "src", "target": "srt"}, {"source": "srt", "target": "out"}]
@@ -242,24 +350,36 @@ class TestQueryMerging:
 
 
 class TestPhase2NodeTypes:
-    """Tests for Phase 2 analytical nodes: group_by, join, union, formula, unique, sample."""
+    """Tests for Phase 2 analytical nodes: group_by, join, etc."""
 
     def test_compile_group_by_produces_group_by_clause(self):
         """Group By node wraps parent as subquery with GROUP BY + SUM."""
         compiler = get_compiler()
         nodes = [
-            {"id": "src", "type": "data_source", "data": {"config": {
-                "table": "fct_trades",
-                "columns": [
-                    {"name": "sector", "dtype": "string"},
-                    {"name": "notional", "dtype": "float64"},
-                ],
-            }}},
-            {"id": "grp", "type": "group_by", "data": {"config": {
-                "group_columns": ["sector"],
-                "agg_column": "notional",
-                "agg_function": "SUM",
-            }}},
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [
+                            {"name": "sector", "dtype": "string"},
+                            {"name": "notional", "dtype": "float64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "grp",
+                "type": "group_by",
+                "data": {
+                    "config": {
+                        "group_columns": ["sector"],
+                        "agg_column": "notional",
+                        "agg_function": "SUM",
+                    }
+                },
+            },
             {"id": "out", "type": "table_output", "data": {"config": {}}},
         ]
         edges = [{"source": "src", "target": "grp"}, {"source": "grp", "target": "out"}]
@@ -276,21 +396,41 @@ class TestPhase2NodeTypes:
         """Group By with multiple aggregations."""
         compiler = get_compiler()
         nodes = [
-            {"id": "src", "type": "data_source", "data": {"config": {
-                "table": "fct_trades",
-                "columns": [
-                    {"name": "sector", "dtype": "string"},
-                    {"name": "notional", "dtype": "float64"},
-                    {"name": "price", "dtype": "float64"},
-                ],
-            }}},
-            {"id": "grp", "type": "group_by", "data": {"config": {
-                "group_columns": ["sector"],
-                "aggregations": [
-                    {"column": "notional", "function": "SUM", "alias": "total_notional"},
-                    {"column": "price", "function": "AVG", "alias": "avg_price"},
-                ],
-            }}},
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [
+                            {"name": "sector", "dtype": "string"},
+                            {"name": "notional", "dtype": "float64"},
+                            {"name": "price", "dtype": "float64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "grp",
+                "type": "group_by",
+                "data": {
+                    "config": {
+                        "group_columns": ["sector"],
+                        "aggregations": [
+                            {
+                                "column": "notional",
+                                "function": "SUM",
+                                "alias": "total_notional",
+                            },
+                            {
+                                "column": "price",
+                                "function": "AVG",
+                                "alias": "avg_price",
+                            },
+                        ],
+                    }
+                },
+            },
             {"id": "out", "type": "table_output", "data": {"config": {}}},
         ]
         edges = [{"source": "src", "target": "grp"}, {"source": "grp", "target": "out"}]
@@ -310,19 +450,43 @@ class TestPhase2NodeTypes:
         """Join node combines two data sources with INNER JOIN."""
         compiler = get_compiler()
         nodes = [
-            {"id": "left", "type": "data_source", "data": {"config": {
-                "table": "fct_trades",
-                "columns": [{"name": "symbol", "dtype": "string"}, {"name": "price", "dtype": "float64"}],
-            }}},
-            {"id": "right", "type": "data_source", "data": {"config": {
-                "table": "dim_instruments",
-                "columns": [{"name": "symbol", "dtype": "string"}, {"name": "sector", "dtype": "string"}],
-            }}},
-            {"id": "jn", "type": "join", "data": {"config": {
-                "join_type": "inner",
-                "left_key": "symbol",
-                "right_key": "symbol",
-            }}},
+            {
+                "id": "left",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "price", "dtype": "float64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "right",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "dim_instruments",
+                        "columns": [
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "sector", "dtype": "string"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "jn",
+                "type": "join",
+                "data": {
+                    "config": {
+                        "join_type": "inner",
+                        "left_key": "symbol",
+                        "right_key": "symbol",
+                    }
+                },
+            },
             {"id": "out", "type": "table_output", "data": {"config": {}}},
         ]
         edges = [
@@ -344,19 +508,37 @@ class TestPhase2NodeTypes:
         """LEFT JOIN variant."""
         compiler = get_compiler()
         nodes = [
-            {"id": "left", "type": "data_source", "data": {"config": {
-                "table": "fct_trades",
-                "columns": [{"name": "id", "dtype": "string"}],
-            }}},
-            {"id": "right", "type": "data_source", "data": {"config": {
-                "table": "dim_instruments",
-                "columns": [{"name": "id", "dtype": "string"}],
-            }}},
-            {"id": "jn", "type": "join", "data": {"config": {
-                "join_type": "left",
-                "left_key": "id",
-                "right_key": "id",
-            }}},
+            {
+                "id": "left",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [{"name": "id", "dtype": "string"}],
+                    }
+                },
+            },
+            {
+                "id": "right",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "dim_instruments",
+                        "columns": [{"name": "id", "dtype": "string"}],
+                    }
+                },
+            },
+            {
+                "id": "jn",
+                "type": "join",
+                "data": {
+                    "config": {
+                        "join_type": "left",
+                        "left_key": "id",
+                        "right_key": "id",
+                    }
+                },
+            },
             {"id": "out", "type": "table_output", "data": {"config": {}}},
         ]
         edges = [
@@ -376,14 +558,26 @@ class TestPhase2NodeTypes:
         """Union node combines two data sources with UNION ALL."""
         compiler = get_compiler()
         nodes = [
-            {"id": "a", "type": "data_source", "data": {"config": {
-                "table": "trades_us",
-                "columns": [{"name": "symbol", "dtype": "string"}],
-            }}},
-            {"id": "b", "type": "data_source", "data": {"config": {
-                "table": "trades_eu",
-                "columns": [{"name": "symbol", "dtype": "string"}],
-            }}},
+            {
+                "id": "a",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "trades_us",
+                        "columns": [{"name": "symbol", "dtype": "string"}],
+                    }
+                },
+            },
+            {
+                "id": "b",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "trades_eu",
+                        "columns": [{"name": "symbol", "dtype": "string"}],
+                    }
+                },
+            },
             {"id": "un", "type": "union", "data": {"config": {}}},
             {"id": "out", "type": "table_output", "data": {"config": {}}},
         ]
@@ -403,17 +597,29 @@ class TestPhase2NodeTypes:
         """Formula node adds an aliased expression to the SELECT list."""
         compiler = get_compiler()
         nodes = [
-            {"id": "src", "type": "data_source", "data": {"config": {
-                "table": "fct_trades",
-                "columns": [
-                    {"name": "price", "dtype": "float64"},
-                    {"name": "qty", "dtype": "int64"},
-                ],
-            }}},
-            {"id": "frm", "type": "formula", "data": {"config": {
-                "expression": "[price] * [qty]",
-                "output_column": "notional",
-            }}},
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [
+                            {"name": "price", "dtype": "float64"},
+                            {"name": "qty", "dtype": "int64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "frm",
+                "type": "formula",
+                "data": {
+                    "config": {
+                        "expression": "[price] * [qty]",
+                        "output_column": "notional",
+                    }
+                },
+            },
             {"id": "out", "type": "table_output", "data": {"config": {}}},
         ]
         edges = [{"source": "src", "target": "frm"}, {"source": "frm", "target": "out"}]
@@ -431,10 +637,16 @@ class TestPhase2NodeTypes:
         """Unique node adds DISTINCT keyword."""
         compiler = get_compiler()
         nodes = [
-            {"id": "src", "type": "data_source", "data": {"config": {
-                "table": "fct_trades",
-                "columns": [{"name": "symbol", "dtype": "string"}],
-            }}},
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [{"name": "symbol", "dtype": "string"}],
+                    }
+                },
+            },
             {"id": "unq", "type": "unique", "data": {"config": {}}},
             {"id": "out", "type": "table_output", "data": {"config": {}}},
         ]
@@ -450,10 +662,16 @@ class TestPhase2NodeTypes:
         """Sample node adds LIMIT clause."""
         compiler = get_compiler()
         nodes = [
-            {"id": "src", "type": "data_source", "data": {"config": {
-                "table": "fct_trades",
-                "columns": [{"name": "symbol", "dtype": "string"}],
-            }}},
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [{"name": "symbol", "dtype": "string"}],
+                    }
+                },
+            },
             {"id": "smp", "type": "sample", "data": {"config": {"count": 50}}},
             {"id": "out", "type": "table_output", "data": {"config": {}}},
         ]
@@ -470,31 +688,59 @@ class TestPhase2NodeTypes:
         """Full pipeline: join two tables, then group by."""
         compiler = get_compiler()
         nodes = [
-            {"id": "left", "type": "data_source", "data": {"config": {
-                "table": "fct_trades",
-                "columns": [
-                    {"name": "symbol", "dtype": "string"},
-                    {"name": "notional", "dtype": "float64"},
-                ],
-            }}},
-            {"id": "right", "type": "data_source", "data": {"config": {
-                "table": "dim_instruments",
-                "columns": [
-                    {"name": "symbol", "dtype": "string"},
-                    {"name": "sector", "dtype": "string"},
-                ],
-            }}},
-            {"id": "jn", "type": "join", "data": {"config": {
-                "join_type": "inner",
-                "left_key": "symbol",
-                "right_key": "symbol",
-            }}},
-            {"id": "grp", "type": "group_by", "data": {"config": {
-                "group_columns": ["sector"],
-                "aggregations": [
-                    {"column": "notional", "function": "SUM", "alias": "total_notional"},
-                ],
-            }}},
+            {
+                "id": "left",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "notional", "dtype": "float64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "right",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "dim_instruments",
+                        "columns": [
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "sector", "dtype": "string"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "jn",
+                "type": "join",
+                "data": {
+                    "config": {
+                        "join_type": "inner",
+                        "left_key": "symbol",
+                        "right_key": "symbol",
+                    }
+                },
+            },
+            {
+                "id": "grp",
+                "type": "group_by",
+                "data": {
+                    "config": {
+                        "group_columns": ["sector"],
+                        "aggregations": [
+                            {
+                                "column": "notional",
+                                "function": "SUM",
+                                "alias": "total_notional",
+                            },
+                        ],
+                    }
+                },
+            },
             {"id": "out", "type": "table_output", "data": {"config": {}}},
         ]
         edges = [

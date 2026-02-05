@@ -16,6 +16,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from uuid import UUID
+
 from sqlalchemy import select
 
 from app.core.config import settings

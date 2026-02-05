@@ -90,7 +90,12 @@ export default function PivotTable({ data, config, className }: Props) {
 
   if (data.length === 0) {
     return (
-      <div className={cn("w-full h-full flex items-center justify-center text-white/30 text-sm", className)}>
+      <div
+        className={cn(
+          "w-full h-full flex items-center justify-center text-white/30 text-sm",
+          className,
+        )}
+      >
         No data
       </div>
     );
@@ -125,10 +130,7 @@ export default function PivotTable({ data, config, className }: Props) {
             return (
               <tr key={rKey} className="hover:bg-white/5">
                 {rk.map((val, i) => (
-                  <td
-                    key={i}
-                    className="px-3 py-1.5 border-b border-canvas-border text-white/80"
-                  >
+                  <td key={i} className="px-3 py-1.5 border-b border-canvas-border text-white/80">
                     {val}
                   </td>
                 ))}

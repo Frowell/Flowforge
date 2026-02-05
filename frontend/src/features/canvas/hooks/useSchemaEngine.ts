@@ -73,7 +73,5 @@ export function useNodeInputSchemas(nodeId: string | null): ColumnSchema[][] {
 
   if (!nodeId) return [];
 
-  return edges
-    .filter((e) => e.target === nodeId)
-    .map((e) => schemas.get(e.source) ?? []);
+  return edges.filter((e) => e.target === nodeId).map((e) => schemas.get(e.source) ?? []);
 }

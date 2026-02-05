@@ -100,7 +100,9 @@ class QueryRouter:
         if not self._materialize:
             raise RuntimeError("Materialize client not configured")
         start = time.perf_counter()
-        rows = await self._materialize.execute(segment.sql, list(segment.params.values()) if segment.params else None)
+        rows = await self._materialize.execute(
+            segment.sql, list(segment.params.values()) if segment.params else None
+        )
         duration = time.perf_counter() - start
         columns = list(rows[0].keys()) if rows else []
         row_count = len(rows)
@@ -136,7 +138,7 @@ class QueryRouter:
 
         if lookup_type == "MGET" and keys:
             values = await self._redis.mget(keys)
-            for k, v in zip(keys, values):
+            for k, v in zip(keys, values, strict=False):
                 if v is not None:
                     try:
                         row = json.loads(v) if isinstance(v, str) else v

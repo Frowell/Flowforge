@@ -5,7 +5,7 @@ All queries are scoped by tenant_id from the JWT.
 """
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -24,10 +24,14 @@ from app.api.deps import (
     require_role,
 )
 from app.models.audit_log import AuditAction, AuditResourceType
-from app.services.audit_service import AuditService
 from app.models.workflow import Workflow
 from app.schemas.preview import PreviewRequest, PreviewResponse
-from app.schemas.query import ExecutionStatusResponse, NodeStatusResponse, ExecutionRequest
+from app.schemas.query import (
+    ExecutionRequest,
+    ExecutionStatusResponse,
+    NodeStatusResponse,
+)
+from app.services.audit_service import AuditService
 from app.services.preview_service import PreviewService
 from app.services.query_router import QueryRouter
 from app.services.websocket_manager import WebSocketManager
@@ -47,7 +51,8 @@ async def preview_node(
     """Execute a constrained preview query for a single node.
 
     Returns paginated rows with resource limits enforced.
-    Results are cached by content-addressed key (tenant_id + node config + offset/limit).
+    Results are cached by content-addressed key
+    (tenant_id + node config + offset/limit).
     """
     result = await preview_service.execute_preview(
         tenant_id=tenant_id,
@@ -60,7 +65,9 @@ async def preview_node(
     return PreviewResponse(**result)
 
 
-@router.post("", response_model=ExecutionStatusResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "", response_model=ExecutionStatusResponse, status_code=status.HTTP_202_ACCEPTED
+)
 async def execute_workflow(
     body: ExecutionRequest,
     tenant_id: UUID = Depends(get_current_tenant_id),
@@ -86,7 +93,9 @@ async def execute_workflow(
     )
     workflow = result.scalar_one_or_none()
     if not workflow:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found"
+        )
 
     audit = AuditService(db)
     await audit.log(
@@ -99,7 +108,7 @@ async def execute_workflow(
     await db.commit()
 
     execution_id = uuid4()
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
 
     graph = workflow.graph_json or {}
     nodes = graph.get("nodes", [])
@@ -123,7 +132,7 @@ async def execute_workflow(
         segments = compiler.compile(nodes, edges)
     except Exception as e:
         execution_record["status"] = "failed"
-        execution_record["completed_at"] = datetime.now(timezone.utc).isoformat()
+        execution_record["completed_at"] = datetime.now(UTC).isoformat()
         await redis.set(redis_key, json.dumps(execution_record), ex=EXECUTION_TTL)
         await ws_manager.publish_execution_status(
             tenant_id=tenant_id,
@@ -135,7 +144,7 @@ async def execute_workflow(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Compilation failed: {e}",
-        )
+        ) from e
 
     # Update status to running
     execution_record["status"] = "running"
@@ -152,7 +161,7 @@ async def execute_workflow(
         for node_id in segment.source_node_ids:
             execution_record["node_statuses"][node_id] = {
                 "status": "running",
-                "started_at": datetime.now(timezone.utc).isoformat(),
+                "started_at": datetime.now(UTC).isoformat(),
             }
             await ws_manager.publish_execution_status(
                 tenant_id=tenant_id,
@@ -166,8 +175,10 @@ async def execute_workflow(
             for node_id in segment.source_node_ids:
                 execution_record["node_statuses"][node_id] = {
                     "status": "completed",
-                    "started_at": execution_record["node_statuses"][node_id]["started_at"],
-                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                    "started_at": execution_record["node_statuses"][node_id][
+                        "started_at"
+                    ],
+                    "completed_at": datetime.now(UTC).isoformat(),
                     "rows_processed": query_result.total_rows,
                 }
                 await ws_manager.publish_execution_status(
@@ -191,7 +202,7 @@ async def execute_workflow(
                     data={"error": str(e)},
                 )
             execution_record["status"] = "failed"
-            execution_record["completed_at"] = datetime.now(timezone.utc).isoformat()
+            execution_record["completed_at"] = datetime.now(UTC).isoformat()
             await redis.set(redis_key, json.dumps(execution_record), ex=EXECUTION_TTL)
             await ws_manager.publish_execution_status(
                 tenant_id=tenant_id,
@@ -204,7 +215,7 @@ async def execute_workflow(
     else:
         # All segments completed successfully
         execution_record["status"] = "completed"
-        execution_record["completed_at"] = datetime.now(timezone.utc).isoformat()
+        execution_record["completed_at"] = datetime.now(UTC).isoformat()
         await redis.set(redis_key, json.dumps(execution_record), ex=EXECUTION_TTL)
         await ws_manager.publish_execution_status(
             tenant_id=tenant_id,

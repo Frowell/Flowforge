@@ -6,22 +6,19 @@ Two auth modes:
 """
 
 import hashlib
-
-import structlog
-from functools import lru_cache
 from uuid import UUID
 
-logger = structlog.stdlib.get_logger(__name__)
-
 import httpx
-from fastapi import Depends, HTTPException, Request, status
+import structlog
+from fastapi import HTTPException, Request, status
 from jose import JWTError, jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.database import get_db
 from app.models.dashboard import APIKey
+
+logger = structlog.stdlib.get_logger(__name__)
 
 # Keycloak OIDC discovery endpoint
 _KEYCLOAK_REALM_URL = f"{settings.keycloak_url}/realms/{settings.keycloak_realm}"
@@ -84,7 +81,7 @@ async def _decode_token(token: str) -> dict:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=f"Invalid or expired token: {e}",
                 headers={"WWW-Authenticate": "Bearer"},
-            )
+            ) from e
 
 
 async def get_current_user_id(request: Request) -> UUID:

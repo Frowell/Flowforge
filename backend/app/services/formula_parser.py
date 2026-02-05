@@ -57,18 +57,52 @@ class FormulaParser:
     # Available functions by category
     FUNCTIONS = {
         # Math
-        "ABS", "ROUND", "CEIL", "FLOOR", "MOD", "POWER", "SQRT", "LOG",
+        "ABS",
+        "ROUND",
+        "CEIL",
+        "FLOOR",
+        "MOD",
+        "POWER",
+        "SQRT",
+        "LOG",
         # Text
-        "UPPER", "LOWER", "TRIM", "LEFT", "RIGHT", "LENGTH", "CONCAT",
-        "REPLACE", "CONTAINS",
+        "UPPER",
+        "LOWER",
+        "TRIM",
+        "LEFT",
+        "RIGHT",
+        "LENGTH",
+        "CONCAT",
+        "REPLACE",
+        "CONTAINS",
         # Date
-        "YEAR", "MONTH", "DAY", "HOUR", "MINUTE", "DATE_DIFF", "DATE_ADD", "NOW",
+        "YEAR",
+        "MONTH",
+        "DAY",
+        "HOUR",
+        "MINUTE",
+        "DATE_DIFF",
+        "DATE_ADD",
+        "NOW",
         # Logic
-        "IF", "CASE", "COALESCE", "NULLIF",
+        "IF",
+        "CASE",
+        "COALESCE",
+        "NULLIF",
         # Aggregate (only inside Group By context)
-        "SUM", "AVG", "COUNT", "MIN", "MAX", "MEDIAN", "STDDEV",
+        "SUM",
+        "AVG",
+        "COUNT",
+        "MIN",
+        "MAX",
+        "MEDIAN",
+        "STDDEV",
         # Window (only with Sort defined)
-        "LAG", "LEAD", "ROW_NUMBER", "RANK", "RUNNING_TOTAL",
+        "LAG",
+        "LEAD",
+        "ROW_NUMBER",
+        "RANK",
+        "RUNNING_TOTAL",
     }
 
     COMPARISON_OPS = {">=", "<=", "!=", ">", "<", "="}
@@ -93,9 +127,13 @@ class FormulaParser:
                 col_name = expression[i + 1 : end]
                 tokens.append(Token(TokenType.COLUMN_REF, col_name, i))
                 i = end + 1
-            elif ch.isdigit() or (ch == "." and i + 1 < len(expression) and expression[i + 1].isdigit()):
+            elif ch.isdigit() or (
+                ch == "." and i + 1 < len(expression) and expression[i + 1].isdigit()
+            ):
                 j = i
-                while j < len(expression) and (expression[j].isdigit() or expression[j] == "."):
+                while j < len(expression) and (
+                    expression[j].isdigit() or expression[j] == "."
+                ):
                     j += 1
                 tokens.append(Token(TokenType.NUMBER, expression[i:j], i))
                 i = j
@@ -133,7 +171,9 @@ class FormulaParser:
                 i = j + 1
             elif ch.isalpha() or ch == "_":
                 j = i
-                while j < len(expression) and (expression[j].isalnum() or expression[j] == "_"):
+                while j < len(expression) and (
+                    expression[j].isalnum() or expression[j] == "_"
+                ):
                     j += 1
                 word = expression[i:j]
                 if word.upper() in self.FUNCTIONS:
@@ -163,7 +203,10 @@ class FormulaParser:
             return errors
 
         for token in tokens:
-            if token.type == TokenType.COLUMN_REF and token.value not in available_names:
+            if (
+                token.type == TokenType.COLUMN_REF
+                and token.value not in available_names
+            ):
                 errors.append(
                     ParseError(
                         message=f"Unknown column: [{token.value}]",
@@ -210,11 +253,13 @@ class FormulaParser:
         token = self._current()
         if token.type != token_type:
             raise ValueError(
-                f"Expected {token_type.name} but got {token.type.name} at position {token.position}"
+                f"Expected {token_type.name} but got "
+                f"{token.type.name} at position {token.position}"
             )
         if value is not None and token.value != value:
             raise ValueError(
-                f"Expected '{value}' but got '{token.value}' at position {token.position}"
+                f"Expected '{value}' but got '{token.value}' "
+                f"at position {token.position}"
             )
         return self._advance()
 
@@ -247,9 +292,9 @@ class FormulaParser:
         """term = factor (('+' | '-') factor)*"""
         left = self._parse_factor()
 
-        while (
-            self._current().type == TokenType.OPERATOR
-            and self._current().value in ("+", "-")
+        while self._current().type == TokenType.OPERATOR and self._current().value in (
+            "+",
+            "-",
         ):
             op_token = self._advance()
             right = self._parse_factor()
@@ -264,9 +309,9 @@ class FormulaParser:
         """factor = unary (('*' | '/') unary)*"""
         left = self._parse_unary()
 
-        while (
-            self._current().type == TokenType.OPERATOR
-            and self._current().value in ("*", "/")
+        while self._current().type == TokenType.OPERATOR and self._current().value in (
+            "*",
+            "/",
         ):
             op_token = self._advance()
             right = self._parse_unary()
@@ -279,10 +324,7 @@ class FormulaParser:
 
     def _parse_unary(self) -> exp.Expression:
         """unary = '-' unary | atom"""
-        if (
-            self._current().type == TokenType.OPERATOR
-            and self._current().value == "-"
-        ):
+        if self._current().type == TokenType.OPERATOR and self._current().value == "-":
             self._advance()
             operand = self._parse_unary()
             return exp.Neg(this=operand)
@@ -315,7 +357,8 @@ class FormulaParser:
             return exp.Paren(this=inner)
 
         raise ValueError(
-            f"Unexpected token {token.type.name} '{token.value}' at position {token.position}"
+            f"Unexpected token {token.type.name} "
+            f"'{token.value}' at position {token.position}"
         )
 
     def _parse_function_call(self) -> exp.Expression:
@@ -337,7 +380,10 @@ class FormulaParser:
         # Special handling for IF -> exp.If (compiles to CASE WHEN)
         if func_name == "IF":
             if len(args) < 2:
-                raise ValueError(f"IF requires at least 2 arguments at position {func_token.position}")
+                raise ValueError(
+                    "IF requires at least 2 arguments "
+                    f"at position {func_token.position}"
+                )
             return exp.If(
                 this=args[0],
                 true=args[1],

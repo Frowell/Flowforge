@@ -34,11 +34,13 @@ All three must exist for a node type to be complete. The backend also requires i
 The `workflowStore.ts` manages canvas UI state:
 
 **Belongs in store:**
+
 - `nodes` and `edges` (React Flow state)
 - `selectedNodeId`
 - Canvas actions (addNode, removeNode, updateNodeConfig, connect, etc.)
 
 **Does NOT belong in store:**
+
 - Fetched workflow data (use TanStack Query)
 - Schema catalog data (use TanStack Query via `useSchemaEngine`)
 - Execution status (use WebSocket via `useExecution`)
@@ -46,36 +48,39 @@ The `workflowStore.ts` manages canvas UI state:
 
 ## Canvas Hooks
 
-| Hook | Purpose |
-|---|---|
-| `useWorkflow` | Workflow CRUD — save, load, list, delete via TanStack Query |
-| `useSchemaEngine` | Client-side schema propagation — runs on every connection change |
-| `useDataPreview` | Fetches first 100 rows of a selected node's output |
-| `useExecution` | Runs workflow, tracks status via WebSocket (pending → running → complete/error) |
+| Hook              | Purpose                                                                         |
+| ----------------- | ------------------------------------------------------------------------------- |
+| `useWorkflow`     | Workflow CRUD — save, load, list, delete via TanStack Query                     |
+| `useSchemaEngine` | Client-side schema propagation — runs on every connection change                |
+| `useDataPreview`  | Fetches first 100 rows of a selected node's output                              |
+| `useExecution`    | Runs workflow, tracks status via WebSocket (pending → running → complete/error) |
 
 ## Node Type Catalog
 
 ### Phase 1 (Core) — 5 nodes
-| Node | Inputs | Outputs | Schema Effect |
-|------|--------|---------|---------------|
-| DataSource | 0 | 1 | Sets initial schema from table catalog |
-| Filter | 1 | 1 | Pass-through (only row count changes) |
-| Select | 1 | 1 | Narrows to selected columns |
-| Sort | 1 | 1 | Pass-through (only row order changes) |
-| TableView | 1 | 0 (terminal) | Pass-through + pagination (LIMIT/OFFSET) |
+
+| Node       | Inputs | Outputs      | Schema Effect                            |
+| ---------- | ------ | ------------ | ---------------------------------------- |
+| DataSource | 0      | 1            | Sets initial schema from table catalog   |
+| Filter     | 1      | 1            | Pass-through (only row count changes)    |
+| Select     | 1      | 1            | Narrows to selected columns              |
+| Sort       | 1      | 1            | Pass-through (only row order changes)    |
+| TableView  | 1      | 0 (terminal) | Pass-through + pagination (LIMIT/OFFSET) |
 
 ### Phase 2 (Analytical) — 7 nodes
-| Node | Inputs | Outputs | Schema Effect |
-|------|--------|---------|---------------|
-| GroupBy | 1 | 1 | Group keys + aggregated columns |
-| Join | 2 | 1 | Merged columns from both inputs |
-| Union | 2 | 1 | Schema must match between inputs |
-| Formula | 1 | 1 | Adds computed columns |
-| Rename | 1 | 1 | Changes column names |
-| Unique | 1 | 1 | Pass-through (DISTINCT) |
-| Sample | 1 | 1 | Pass-through (random subset) |
+
+| Node    | Inputs | Outputs | Schema Effect                    |
+| ------- | ------ | ------- | -------------------------------- |
+| GroupBy | 1      | 1       | Group keys + aggregated columns  |
+| Join    | 2      | 1       | Merged columns from both inputs  |
+| Union   | 2      | 1       | Schema must match between inputs |
+| Formula | 1      | 1       | Adds computed columns            |
+| Rename  | 1      | 1       | Changes column names             |
+| Unique  | 1      | 1       | Pass-through (DISTINCT)          |
+| Sample  | 1      | 1       | Pass-through (random subset)     |
 
 ### Phase 3 (Visualization) — 6 nodes
+
 Bar Chart, Line Chart, Candlestick, Scatter Plot, KPI Card, Pivot Table — all terminal nodes (0 output ports). All render using shared chart components from `shared/components/charts/`.
 
 ## Preview Debounce Pattern

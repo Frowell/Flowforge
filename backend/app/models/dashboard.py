@@ -4,10 +4,10 @@ Dashboards are projections of workflows. Widgets point to workflow output
 nodes — they do NOT store their own queries.
 """
 
-import uuid
 import enum
+import uuid
 
-from sqlalchemy import ForeignKey, Integer, String, Text, DateTime
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 

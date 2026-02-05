@@ -5,12 +5,28 @@ Route handlers never instantiate services directly.
 """
 
 from collections.abc import AsyncGenerator
-from uuid import UUID
 
+from fastapi import Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.auth import (
+    get_current_tenant_id,  # noqa: F401
+    get_current_user_claims,
+    get_current_user_id,  # noqa: F401
+)
+from app.core.clickhouse import get_clickhouse_client
+from app.core.config import settings
 from app.core.database import get_db as _get_db
+from app.core.materialize import get_materialize_client
 from app.core.redis import get_redis as _get_redis
+from app.services.preview_service import PreviewService
+from app.services.query_router import QueryRouter
+from app.services.rate_limiter import RateLimiter
+from app.services.schema_engine import SchemaEngine
+from app.services.schema_registry import SchemaRegistry
+from app.services.websocket_manager import WebSocketManager
+from app.services.widget_data_service import WidgetDataService
+from app.services.workflow_compiler import WorkflowCompiler
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -24,33 +40,15 @@ async def get_redis():
     return await _get_redis()
 
 
-# Auth dependency re-exports — canonical way to get user/tenant context in routes.
-from app.core.auth import get_current_tenant_id  # noqa: E402, F401
-from app.core.auth import get_current_user_id  # noqa: E402, F401
-
-# Service dependency providers — import the service, inject its dependencies.
-# Each returns a configured service instance for the request lifecycle.
-
-from fastapi import Depends, HTTPException, Request  # noqa: E402
-
-from app.core.clickhouse import get_clickhouse_client
-from app.core.config import settings
-from app.core.materialize import get_materialize_client
-from app.services.preview_service import PreviewService
-from app.services.query_router import QueryRouter
-from app.services.rate_limiter import RateLimiter
-from app.services.schema_engine import SchemaEngine
-from app.services.schema_registry import SchemaRegistry
-from app.services.websocket_manager import WebSocketManager
-from app.services.widget_data_service import WidgetDataService
-from app.services.workflow_compiler import WorkflowCompiler
-
-
 async def get_schema_registry(
     redis=Depends(get_redis),
 ) -> SchemaRegistry:
     clickhouse = get_clickhouse_client()
-    return SchemaRegistry(redis=redis, clickhouse=clickhouse, cache_ttl=settings.schema_cache_ttl)
+    return SchemaRegistry(
+        redis=redis,
+        clickhouse=clickhouse,
+        cache_ttl=settings.schema_cache_ttl,
+    )
 
 
 async def get_schema_engine() -> SchemaEngine:
@@ -68,7 +66,11 @@ async def get_query_router(
 ) -> QueryRouter:
     clickhouse = get_clickhouse_client()
     materialize = get_materialize_client()
-    return QueryRouter(clickhouse=clickhouse, redis=redis, materialize=materialize)
+    return QueryRouter(
+        clickhouse=clickhouse,
+        redis=redis,
+        materialize=materialize,
+    )
 
 
 async def get_preview_service(
@@ -96,13 +98,11 @@ async def get_websocket_manager(request: Request) -> WebSocketManager:
     return request.app.state.ws_manager
 
 
-from app.core.auth import get_current_user_claims  # noqa: E402
-
-
 async def get_user_claims(request: Request) -> dict:
-    """Wrapper around get_current_user_claims for dependency injection.
+    """Wrapper around get_current_user_claims for DI.
 
-    In development mode without auth header or with "dev-token", returns dev claims with admin access.
+    In development mode without auth header or with "dev-token",
+    returns dev claims with admin access.
     This allows Depends() override in tests.
     """
     auth_header = request.headers.get("Authorization")
@@ -134,9 +134,7 @@ def require_role(*allowed_roles: str):
         all_roles = set(realm_roles + client_roles)
 
         if not any(r in all_roles for r in allowed_roles):
-            raise HTTPException(
-                status_code=403, detail="Insufficient permissions"
-            )
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
         return claims
 
     return _check
