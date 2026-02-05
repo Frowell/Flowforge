@@ -31,9 +31,17 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# Claude Code local state
-.claude/
-CLAUDE.local.md
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
 
 # Claude Code local state
 .claude/
