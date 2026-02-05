@@ -42,7 +42,7 @@ Compiles workflows to SQL against a **read-only** serving layer (ClickHouse, Mat
 | Server state | TanStack Query |
 | Styling | Tailwind CSS only |
 | Canvas | `@xyflow/react` v12+ (NOT `reactflow`) |
-| Charts | Apache ECharts via `echarts-for-react` in `shared/components/charts/` |
+| Charts | Recharts in `shared/components/charts/` |
 | Dashboard layout | `react-grid-layout` |
 
 ---

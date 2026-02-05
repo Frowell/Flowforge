@@ -99,7 +99,7 @@ Never store server-fetched data in Zustand. Never use TanStack Query for purely 
 
 ## Chart Library
 
-All charts use **Apache ECharts** via `echarts-for-react`. Available chart types:
+All charts use **Recharts**. Available chart types:
 
 - `BarChart.tsx` — standard bar/column charts
 - `LineChart.tsx` — time-series line charts
@@ -131,7 +131,7 @@ Canvas and Dashboards use Keycloak OIDC authentication. Embed uses API key authe
 | `@xyflow/react` (v12+) | Canvas node graph (NEVER import from `reactflow`) |
 | `zustand` | Client-side UI state |
 | `@tanstack/react-query` (v5) | Server state + caching |
-| `echarts` + `echarts-for-react` | Chart rendering |
+| `recharts` | Chart rendering |
 | `react-grid-layout` | Dashboard widget grid |
 | `keycloak-js` | OIDC authentication adapter |
 | `tailwindcss` | Styling (utility-first, no CSS modules) |

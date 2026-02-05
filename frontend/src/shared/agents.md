@@ -50,13 +50,13 @@
 - Redis pub/sub on the backend ensures messages reach the correct client regardless of which backend instance handles the WebSocket.
 - WebSocket channels are tenant-scoped on the backend. The frontend does not need to pass tenant context explicitly — the backend derives it from the connection's auth token.
 
-## ECharts Integration
+## Recharts Integration
 
-Charts use **Apache ECharts** via `echarts-for-react` wrapper:
+Charts use **Recharts**:
 
-- Each chart component wraps `ReactECharts` with a typed config interface
+- Each chart component accepts `data` + `config` props with a typed config interface
 - Chart types available: Bar, Line, Candlestick, Scatter, KPI Card, Pivot Table
 - Candlestick chart is fintech-specific — supports OHLC data with volume overlay
-- All charts are responsive — they fill their container using `style={{ height: '100%', width: '100%' }}`
+- All charts are responsive — they fill their container
 - Dark theme is the default (matches app theme)
 - Shared type definitions in `charts/types.ts` define `ChartConfig`, `ChartData`, and per-chart config interfaces
