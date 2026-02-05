@@ -125,7 +125,7 @@ When creating a `Widget`, verify that BOTH the target `Dashboard` AND the source
 
 Services that interact with external stores or caching must receive `tenant_id`:
 - **PreviewService**: Cache keys MUST include `tenant_id` to prevent cross-tenant cache leaks
-- **WorkflowCompiler**: Compiled SQL MUST inject `WHERE tenant_id = :tid` for multi-tenant serving-layer tables
+- **WorkflowCompiler**: Compiled SQL MUST inject `WHERE symbol IN (:allowed_symbols)` for serving-layer market data tables (these tables have no `tenant_id` column — isolation is via symbol-based ACL)
 - **SchemaRegistry**: Catalog is cached per tenant (different tenants may see different tables)
 - **WebSocketManager**: Pub/sub channels are prefixed with `tenant_id`
 

@@ -67,6 +67,86 @@ FlowForge compiles workflows to SQL against a **read-only** serving layer (Click
 
 ---
 
+## Git Branching Strategy
+
+FlowForge uses **trunk-based development** with short-lived feature branches. `main` is always deployable.
+
+### Branch Naming
+
+All branches follow the pattern `<type>/<short-description>`:
+
+| Prefix | Purpose | Example |
+|--------|---------|---------|
+| `feat/` | New feature or capability | `feat/groupby-node` |
+| `fix/` | Bug fix | `fix/preview-cache-tenant-leak` |
+| `refactor/` | Code restructuring (no behavior change) | `refactor/compiler-merge-logic` |
+| `docs/` | Documentation only | `docs/gcp-terraform-requirements` |
+| `chore/` | Tooling, CI, dependencies | `chore/upgrade-sqlalchemy` |
+| `infra/` | Infrastructure / Terraform changes | `infra/gke-cluster-module` |
+
+### Branch Rules
+
+1. **Branch from `main`, merge to `main`.** No long-lived develop, staging, or release branches. Environment promotion is handled by CI/CD workflows, not branches.
+
+2. **One concern per branch.** A branch implements one feature, fixes one bug, or completes one task. If a change spans multiple concerns, split it into sequential PRs.
+
+3. **Keep branches short-lived.** Target < 3 days. If a feature is large, break it into incremental PRs that each leave `main` in a working state (feature flags or incremental implementation over dead-code paths).
+
+4. **Rebase before merging.** Keep a clean linear history. Before opening a PR, rebase onto the latest `main`:
+   ```
+   git fetch origin
+   git rebase origin/main
+   ```
+
+5. **Squash-merge for feature branches.** Each PR becomes one commit on `main` with a descriptive message. This keeps the main branch history readable.
+
+6. **Never commit directly to `main`.** All changes go through pull requests with CI checks passing.
+
+7. **Delete branches after merge.** Remote branches are deleted automatically by GitHub after PR merge. Clean up local branches periodically.
+
+### Commit Messages
+
+Follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+<type>(<scope>): <description>
+
+[optional body]
+```
+
+| Type | When to use |
+|------|------------|
+| `feat` | New feature (triggers minor version bump) |
+| `fix` | Bug fix (triggers patch version bump) |
+| `refactor` | Code change that neither fixes a bug nor adds a feature |
+| `docs` | Documentation only |
+| `chore` | Build, CI, tooling changes |
+| `test` | Adding or updating tests |
+
+**Scope** is optional but encouraged: `feat(compiler): add query merging for GroupBy nodes`
+
+### Large Feature Workflow
+
+For features that span multiple PRs (e.g., "Add GroupBy node" requires backend + frontend + tests):
+
+1. Create a tracking issue describing the full feature
+2. Implement in sequential PRs, each building on the last:
+   - `feat/groupby-backend-schema` — schema transform + compiler rule
+   - `feat/groupby-frontend-node` — React Flow node + config panel
+   - `feat/groupby-tests` — integration tests
+3. Each PR is independently reviewable and leaves `main` working
+4. No feature branch that lives for weeks — break it down
+
+### Alembic Migration Branches
+
+Database migrations require extra care:
+
+- **Never branch from a branch that has an uncommitted migration.** Parallel migration branches cause Alembic head conflicts.
+- If two branches both need migrations, merge the first before creating the second's migration.
+- Migration files include a `down_revision` pointer — rebasing a branch with a migration means re-generating the migration after rebase if the head has changed.
+
+---
+
 ## New Node Type Checklist
 
 Adding a new canvas node type requires touching ALL 6 of these files:
@@ -123,7 +203,7 @@ FlowForge is **multi-tenant from day one**. Every tenant-scoped resource is isol
 
 5. **Cache keys include tenant.** The preview cache key (`preview_service.py`) MUST include `tenant_id` in its hash. Without it, tenant A could see tenant B's cached preview results.
 
-6. **Compiled SQL includes tenant filter.** When the workflow compiler generates SQL against the serving layer (ClickHouse/Materialize), it MUST inject a tenant filter (`WHERE tenant_id = :tid`) if the serving-layer tables contain multi-tenant data. This is enforced at the compiler level, not at the route level.
+6. **Compiled SQL includes tenant isolation.** Serving-layer tables contain shared market data (no `tenant_id` column). Tenant isolation is enforced via **symbol-based access control**: the workflow compiler injects `WHERE symbol IN (:allowed_symbols)` using the tenant's symbol ACL from the schema registry. This is enforced at the compiler level, not at the route level. PostgreSQL app metadata uses standard `tenant_id` column filtering.
 
 7. **WebSocket channels are tenant-scoped.** Redis pub/sub channel names MUST include `tenant_id` so execution status updates and live data pushes never leak across tenants.
 
