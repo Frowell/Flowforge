@@ -27,7 +27,13 @@ const PADDING = { top: 20, right: 60, bottom: 40, left: 10 };
 const BULLISH_COLOR = "#22c55e";
 const BEARISH_COLOR = "#ef4444";
 
-export default function CandlestickChart({ data, config, interactive = true, className }: Props) {
+export default function CandlestickChart({
+  data,
+  config,
+  interactive = true,
+  onDrillDown,
+  className,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
@@ -82,6 +88,22 @@ export default function CandlestickChart({ data, config, interactive = true, cla
       setHoveredIndex(index >= 0 && index < candles.length ? index : null);
     },
     [interactive, candles.length, dimensions.width],
+  );
+
+  const handleClick = useCallback(
+    (e: React.MouseEvent<SVGSVGElement>) => {
+      if (!interactive || !onDrillDown || candles.length === 0) return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = e.clientX - rect.left - PADDING.left;
+      const chartWidth = dimensions.width - PADDING.left - PADDING.right;
+      const candleWidth = chartWidth / candles.length;
+      const index = Math.floor(x / candleWidth);
+      const candle = candles[index];
+      if (index >= 0 && index < candles.length && candle) {
+        onDrillDown({ [timeColumn]: candle.time });
+      }
+    },
+    [interactive, onDrillDown, candles, dimensions.width, timeColumn],
   );
 
   if (candles.length === 0 || dimensions.width === 0 || dimensions.height === 0) {
@@ -139,6 +161,7 @@ export default function CandlestickChart({ data, config, interactive = true, cla
         height={dimensions.height}
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setHoveredIndex(null)}
+        onClick={handleClick}
       >
         {/* Y-axis labels + grid lines */}
         {ticks.map((tick) => (

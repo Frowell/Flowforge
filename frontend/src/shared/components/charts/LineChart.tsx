@@ -29,7 +29,7 @@ export default function LineChart({
   data,
   config,
   interactive = true,
-  onDrillDown: _onDrillDown,
+  onDrillDown,
   className,
 }: Props) {
   const { xAxis, yAxis, areaFill } = config;
@@ -38,7 +38,18 @@ export default function LineChart({
   return (
     <div className={cn("w-full h-full min-h-[200px]", className)}>
       <ResponsiveContainer width="100%" height="100%">
-        <ChartComponent data={data}>
+        <ChartComponent
+          data={data}
+          onClick={
+            interactive && onDrillDown
+              ? (e: { activeLabel?: string }) => {
+                  if (e?.activeLabel) {
+                    onDrillDown({ [xAxis.column]: e.activeLabel });
+                  }
+                }
+              : undefined
+          }
+        >
           <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
           <XAxis dataKey={xAxis.column} stroke="#ffffff50" fontSize={12} />
           <YAxis stroke="#ffffff50" fontSize={12} />
