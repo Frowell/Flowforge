@@ -53,8 +53,7 @@ export default function AuditLogPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["auditLogs", offset, resourceType, action],
-    queryFn: () =>
-      apiClient.get<AuditLogListResponse>("/api/v1/audit-logs", params),
+    queryFn: () => apiClient.get<AuditLogListResponse>("/api/v1/audit-logs", params),
   });
 
   const hasPrev = offset > 0;
@@ -101,9 +100,7 @@ export default function AuditLogPage() {
       <div className="flex-1 overflow-auto">
         {isLoading && (
           <div className="flex items-center justify-center h-32">
-            <span className="text-white/30 text-sm animate-pulse">
-              Loading...
-            </span>
+            <span className="text-white/30 text-sm animate-pulse">Loading...</span>
           </div>
         )}
 
@@ -134,10 +131,7 @@ export default function AuditLogPage() {
             </thead>
             <tbody>
               {data.items.map((entry) => (
-                <tr
-                  key={entry.id}
-                  className="border-b border-canvas-border/50 hover:bg-white/5"
-                >
+                <tr key={entry.id} className="border-b border-canvas-border/50 hover:bg-white/5">
                   <td className="px-4 py-2 text-white/60 whitespace-nowrap">
                     {new Date(entry.created_at).toLocaleString()}
                   </td>
@@ -166,9 +160,7 @@ export default function AuditLogPage() {
 
       {data && (
         <div className="h-10 border-t border-canvas-border flex items-center justify-between px-4 shrink-0">
-          <span className="text-xs text-white/30">
-            {data.total} total events
-          </span>
+          <span className="text-xs text-white/30">{data.total} total events</span>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}

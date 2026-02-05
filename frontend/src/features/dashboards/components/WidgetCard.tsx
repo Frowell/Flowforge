@@ -92,10 +92,7 @@ export default function WidgetCard({ widget, className, onUnpin }: WidgetCardPro
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <WidgetSettingsMenu
-            widgetId={widget.id}
-            currentInterval={widget.auto_refresh_interval}
-          />
+          <WidgetSettingsMenu widgetId={widget.id} currentInterval={widget.auto_refresh_interval} />
           <button onClick={() => refetch()} className="text-white/30 hover:text-white text-xs">
             Refresh
           </button>

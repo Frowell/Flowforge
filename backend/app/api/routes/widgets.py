@@ -7,11 +7,16 @@ Cross-tenant references (dashboard in tenant A, workflow in tenant B) are reject
 import json
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_tenant_id, get_db, get_widget_data_service, require_role
+from app.api.deps import (
+    get_current_tenant_id,
+    get_db,
+    get_widget_data_service,
+    require_role,
+)
 from app.models.dashboard import Dashboard, Widget
 from app.models.workflow import Workflow
 from app.schemas.dashboard import (
