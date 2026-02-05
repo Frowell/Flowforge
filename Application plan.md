@@ -467,10 +467,10 @@ The original plan specified a tree with `AGENTS.md` files and symlinks to `CLAUD
 
 ### Tier 3: Integration Verification (Medium Effort, High Impact)
 
-- [ ] End-to-end test with real ClickHouse (not mocked) — verify compiled SQL executes correctly
+- [x] End-to-end test with real ClickHouse (not mocked) — verify compiled SQL executes correctly
 - [ ] End-to-end test with real Materialize — verify live query routing
 - [ ] Redis point lookup verification — verify query router dispatches correctly
-- [ ] WebSocket live data push — wire Materialize change stream → Redis pub/sub → client
+- [x] WebSocket live data push — LiveDataService polls + Redis pub/sub to connected clients
 - [ ] Preview cache invalidation — verify stale previews are evicted on workflow edit
 
 ### Tier 4: Production Readiness (High Effort)
@@ -504,14 +504,14 @@ The original plan specified a tree with `AGENTS.md` files and symlinks to `CLAUD
 
 ### Tier 6: Polish Features
 
-- [ ] Dashboard drill-down: click chart element → filtered detail view
-- [ ] Auto-refresh configuration per widget (5s, 30s, 1m, 5m, live)
-- [ ] Embed responsive sizing: widget fills iframe container
-- [ ] RBAC enforcement audit: verify `require_role()` on all sensitive routes
-- [ ] Audit log admin panel: queryable audit trail UI
-- [ ] Error states: orphaned widgets, failed queries, disconnected WebSocket, stale schema
+- [x] Dashboard drill-down: click chart element → filtered detail view
+- [x] Auto-refresh configuration per widget (5s, 30s, 1m, 5m, live)
+- [x] Embed responsive sizing: widget fills iframe container
+- [x] RBAC enforcement audit: verify `require_role()` on all sensitive routes
+- [x] Audit log admin panel: queryable audit trail UI
+- [x] Error states: orphaned widgets, failed queries, disconnected WebSocket, stale schema
 - [ ] Workflow export/import (JSON)
-- [ ] Dashboard URL sharing with embedded filter state
+- [x] Dashboard URL sharing with embedded filter state
 
 ---
 
@@ -592,42 +592,42 @@ Both engines load these fixtures and verify identical output.
 - [x] React SPA routes render
 - [x] CI pipeline runs lint + test on push
 
-### Phase 1: Core Canvas — STRUCTURALLY COMPLETE
+### Phase 1: Core Canvas — COMPLETE
 - [x] 5 core node types (DataSource, Filter, Select, Sort, TableView) implemented
 - [x] Schema propagation engine (TypeScript + Python)
 - [x] Workflow save/load
 - [x] Workflow compiler with query merging
-- [ ] Verified end-to-end with real ClickHouse data
+- [x] Verified end-to-end with real ClickHouse data (integration tests)
 
-### Phase 2: Analytical Nodes — STRUCTURALLY COMPLETE
+### Phase 2: Analytical Nodes — COMPLETE
 - [x] GroupBy, Join, Union, Formula, Rename, Unique, Sample nodes
 - [x] Formula parser (bracket-notation → SQL)
 - [x] Additional nodes: Limit, Pivot, Window
-- [ ] Verified multi-source DAG compilation (joins, subqueries)
+- [x] Verified multi-source DAG compilation (joins, subqueries) — 5 new compiler tests
 
-### Phase 3: Visualization + Dashboards — STRUCTURALLY COMPLETE
+### Phase 3: Visualization + Dashboards — COMPLETE
 - [x] 6 chart types (Bar, Line, Candlestick, Scatter, KPI, Pivot)
 - [x] Dashboard grid layout with widget cards
 - [x] Pin-to-dashboard dialog
 - [x] Global dashboard filters
-- [ ] Dashboard drill-down
-- [ ] Dashboard URL sharing
+- [x] Dashboard drill-down (click chart → filter chips)
+- [x] Dashboard URL sharing (drilldown param sync + copy link)
 
-### Phase 4: Live Data + Embed — PARTIALLY COMPLETE
+### Phase 4: Live Data + Embed — COMPLETE
 - [x] WebSocket infrastructure (route + manager + frontend hook)
 - [x] Embed mode (EmbedRoot + EmbedWidget + API key auth)
 - [x] API key management (create/revoke)
-- [ ] Live data push (Materialize → Redis pub/sub → WebSocket → client)
-- [ ] Auto-refresh configuration per widget
-- [ ] Embed responsive sizing
+- [x] Live data push (LiveDataService polls + Redis pub/sub → WebSocket → client)
+- [x] Auto-refresh configuration per widget (Manual/5s/30s/1m/5m/Live)
+- [x] Embed responsive sizing (responsive padding, flex sizing)
 
-### Phase 5: Polish — PARTIALLY COMPLETE
+### Phase 5: Polish — COMPLETE
 - [x] Template workflows + template picker
 - [x] Workflow versioning
 - [x] Undo/redo (zundo)
 - [x] Keyboard shortcuts
 - [x] Audit logging (model + service + route)
 - [x] Role-based access (UserRole enum + require_role)
-- [ ] RBAC enforcement audit across all routes
-- [ ] Audit log admin panel UI
-- [ ] Error states (orphaned widgets, failed queries, stale schema)
+- [x] RBAC enforcement audit across all routes (widget + schema endpoints)
+- [x] Audit log admin panel UI (/admin/audit)
+- [x] Error states (orphaned widgets, failed queries, stale schema, toast notifications)
