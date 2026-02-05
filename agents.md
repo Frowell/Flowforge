@@ -1,11 +1,22 @@
 # FlowForge — Global Agent Rules
 
 > Authoritative source: [`/workspace/planning.md`](./planning.md)
+> Implementation specification: [`/workspace/Application plan.md`](./Application%20plan.md)
 > Every agent working in this repository MUST follow these rules without exception.
 
 ## Project Identity
 
-FlowForge is a visual analytics canvas + BI layer that compiles workflows to SQL against a **read-only** serving layer (ClickHouse, Materialize, Redis). It has three modes — Canvas (author), Dashboards (viewer), Embed (headless) — backed by a single FastAPI backend.
+FlowForge is a visual analytics platform for **fintech trading markets**. It combines an Alteryx-style no-code canvas with embedded BI capabilities. Users build data transformation workflows by dragging nodes on a canvas, then pin outputs to dashboards or embed them in external applications.
+
+FlowForge compiles workflows to SQL against a **read-only** serving layer (ClickHouse, Materialize, Redis). It has three modes — Canvas (author), Dashboards (viewer), Embed (headless) — backed by a single FastAPI backend.
+
+### Single Application, Three Modes
+
+| Mode | URL | Auth | Purpose |
+|------|-----|------|---------|
+| Canvas | `/canvas` | OIDC (Keycloak) | Author mode — React Flow workspace for building workflows |
+| Dashboards | `/dashboards` | OIDC (Keycloak) | Viewer mode — widget grid from pinned canvas outputs |
+| Embed | `/embed/:widget_id` | API key (stateless) | Headless mode — chromeless iframe |
 
 ---
 
@@ -163,3 +174,106 @@ async def list_workflows(
 - **No query results in PostgreSQL**: PostgreSQL stores app metadata (workflows, dashboards, widgets). Query results go to the client, not to PostgreSQL.
 - **No CSS-in-JS or CSS modules**: Tailwind only.
 - **No `os.getenv()`**: Use `pydantic-settings` `Settings`.
+
+---
+
+## Serving Layer Table Catalog
+
+The application reads from these tables/views — it does NOT create or write to them. The data pipeline populates them independently.
+
+| Table | Store | Freshness | Content |
+|-------|-------|-----------|---------|
+| `flowforge.raw_trades` | ClickHouse | Warm (seconds) | Raw trade events |
+| `flowforge.raw_quotes` | ClickHouse | Warm (seconds) | Raw quote events |
+| `metrics.vwap_5min` | ClickHouse | Warm (seconds) | 5-min VWAP windows (Bytewax) |
+| `metrics.rolling_volatility` | ClickHouse | Warm (seconds) | Rolling volatility (Bytewax) |
+| `metrics.hourly_rollup` | ClickHouse | Cool (minutes) | OHLCV per symbol per hour (MV) |
+| `metrics.daily_rollup` | ClickHouse | Cool (minutes) | OHLCV per symbol per day (MV) |
+| `marts.fct_trades` | ClickHouse | Cold (hours) | Enriched trade facts (dbt) |
+| `marts.dim_instruments` | ClickHouse | Cold (hours) | Instrument reference data (dbt) |
+| `marts.rpt_daily_pnl` | ClickHouse | Cold (hours) | Daily P&L report (dbt) |
+| `live_positions` | Materialize | Hot (< 100ms) | Real-time net position per symbol |
+| `live_quotes` | Materialize | Hot (< 100ms) | Latest bid/ask per symbol |
+| `live_pnl` | Materialize | Hot (< 100ms) | Unrealized P&L per symbol |
+| `latest:vwap:*` | Redis | Warm (seconds) | Point lookup for latest VWAP |
+| `latest:position:*` | Redis | Warm (seconds) | Point lookup for latest position |
+
+---
+
+## Infrastructure & Development
+
+### Local Development Stack
+
+Development uses **k3d** (k3s-in-Docker on WSL2) orchestrated by **Tilt** for live-reload. All services run in the `flowforge` K8s namespace.
+
+**K8s DNS naming**: All inter-service communication uses `<service>.flowforge.svc.cluster.local`.
+
+### Core Dev Commands
+
+```
+tilt up                          # Start all services (Tilt UI: http://localhost:10350)
+tilt down                        # Stop all services
+kubectl exec deploy/backend -n flowforge -- pytest       # Run backend tests
+kubectl exec deploy/frontend -n flowforge -- npm test    # Run frontend tests
+```
+
+### Port Mappings
+
+| Service | Port | Protocol |
+|---------|------|----------|
+| Backend (FastAPI) | 8000 | HTTP |
+| Frontend (Vite) | 5173 | HTTP |
+| ClickHouse | 8123 | HTTP |
+| Materialize | 6875 | PG wire |
+| Redis | 6379 | Redis |
+| PostgreSQL | 5432 | PG wire |
+| Redpanda (Kafka) | 9092 | Kafka |
+| Redpanda Admin | 9644 | HTTP |
+| Redpanda Console | 8180 | HTTP |
+| Airflow | 8280 | HTTP |
+
+### Dev Mode Authentication
+
+For development without Keycloak, the backend accepts a `X-Dev-Tenant` header to set tenant context directly. Controlled by `APP_ENV=development` — MUST be disabled in production.
+
+---
+
+## Chart Library
+
+All charts use **Apache ECharts** via `echarts-for-react`. Chart types: Bar, Line, Candlestick, Scatter, KPI Card, Pivot Table. All live in `frontend/src/shared/components/charts/`.
+
+---
+
+## Canvas Node Types
+
+### Phase 1 (Core)
+- **DataSource** — Select a table from the schema catalog
+- **Filter** — Add WHERE conditions (schema passes through unchanged)
+- **Select** — Choose columns to keep (schema narrows)
+- **Sort** — Add ORDER BY clauses (schema passes through unchanged)
+- **TableView** — Terminal node — paginated table output
+
+### Phase 2 (Analytical)
+- **GroupBy** — GROUP BY + aggregate functions (schema changes to group keys + aggregated columns)
+- **Join** — Two-input JOIN (INNER, LEFT, RIGHT, FULL)
+- **Union** — Two-input UNION
+- **Formula** — Computed columns via `[column]` bracket-notation expressions
+- **Rename** — Rename columns
+- **Unique** — DISTINCT
+- **Sample** — Random sample (LIMIT with ORDER BY RAND())
+
+### Phase 3 (Visualization)
+- Bar Chart, Line Chart, Candlestick, Scatter Plot, KPI Card, Pivot Table
+
+---
+
+## Implementation Phases
+
+| Phase | Focus | Key Deliverable |
+|-------|-------|-----------------|
+| 0 | Scaffolding | All services start, health checks pass |
+| 1 | Core Canvas | 5 nodes (DataSource, Filter, Select, Sort, TableView) + preview + save/load |
+| 2 | Analytical Nodes | GroupBy, Join, Union, Formula + query merging optimization |
+| 3 | Visualization + Dashboards | Chart nodes + dashboard CRUD + widget pinning + global filters |
+| 4 | Live Data + Embed | WebSocket push + Materialize/Redis integration + embed mode |
+| 5 | Polish | Templates, undo/redo, RBAC, audit logging, versioning |

@@ -70,3 +70,20 @@ class TenantMixin:
 ### Cross-Tenant Reference Prevention
 
 When creating a `Widget`, the application layer MUST verify that both `dashboard_id` and `source_workflow_id` resolve to the same tenant. This is checked in the route handler, not via database constraints (since `Widget` doesn't have its own `tenant_id` column).
+
+## AuditLog Model
+
+The `AuditLog` model tracks user actions for compliance:
+
+| Column | Type | Purpose |
+|--------|------|---------|
+| `id` | UUID | Primary key |
+| `tenant_id` | UUID | Tenant scope (has `tenant_id` — it's a tenant-scoped model) |
+| `user_id` | UUID | Who performed the action |
+| `action` | String | Action type (create, update, delete, execute, pin, unpin) |
+| `resource_type` | String | What was acted on (workflow, dashboard, widget, api_key) |
+| `resource_id` | UUID | ID of the affected resource |
+| `details` | JSONB | Additional context (old values, new values, etc.) |
+| `created_at` | DateTime | When the action occurred |
+
+AuditLog is append-only — never update or delete audit records.

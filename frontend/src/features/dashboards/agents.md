@@ -52,3 +52,25 @@ Widget = {
 - The dashboard list only shows dashboards belonging to the authenticated user's tenant. The backend filters by `tenant_id` — the frontend simply renders the result set.
 - When pinning a widget (selecting a source workflow), the workflow picker only shows workflows from the same tenant. Again, the backend enforces this — the frontend just renders the options.
 - The frontend never needs to pass `tenant_id` explicitly. Tenant isolation is fully backend-enforced via the JWT bearer token.
+
+## Live Data Updates
+
+For dashboards with Materialize-backed sources, live data flows via WebSocket:
+
+1. Dashboard opens WebSocket: `ws://localhost:8000/ws/dashboard/{dashboard_id}`
+2. Backend subscribes to tenant-scoped Redis pub/sub channel
+3. When Materialize data changes, backend publishes to the channel
+4. WebSocket handler pushes update notification to connected clients
+5. Frontend receives notification and re-fetches the affected widget's data via TanStack Query invalidation
+
+Auto-refresh also available on a configurable interval for non-live sources.
+
+## Global Filter Schema Awareness
+
+The filter UI auto-populates based on column types from the schema registry:
+
+- **Temporal columns** (DateTime types) → date range picker
+- **Categorical columns** (String/Enum types) → dropdown with distinct values
+- **Numeric columns** → range slider or min/max input
+
+Filters only show columns present in ALL widget schemas (intersection), ensuring every filter applies to every widget.

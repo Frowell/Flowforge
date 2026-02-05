@@ -72,3 +72,58 @@ All services that access data or produce queries must be tenant-aware:
 - Uses Redis pub/sub for multi-instance support — any backend instance can publish, all instances with connected clients receive.
 - **Pub/sub channels are tenant-scoped** — channel names include `tenant_id` to prevent cross-tenant message leakage. Format: `flowforge:{tenant_id}:execution:{execution_id}`.
 - Handles connection lifecycle: connect, disconnect, reconnect, heartbeat.
+
+## Schema Discovery SQL
+
+The SchemaRegistry discovers tables/columns by querying:
+
+**ClickHouse** (databases: `flowforge`, `metrics`, `marts`):
+```sql
+SELECT database, table, name, type
+FROM system.columns
+WHERE database IN ('flowforge', 'metrics', 'marts')
+ORDER BY database, table, name;
+```
+
+**Materialize** (excludes internal schemas):
+```sql
+SELECT s.name AS schema_name, o.name AS object_name, c.name AS column_name, c.type_oid::regtype::text AS data_type
+FROM mz_columns c
+JOIN mz_objects o ON c.id = o.id
+JOIN mz_schemas s ON o.schema_id = s.id
+WHERE s.name NOT IN ('mz_internal', 'mz_catalog', 'pg_catalog', 'information_schema');
+```
+
+Discovery runs on startup and every 60 seconds. Results are cached in the `SchemaRegistry` singleton and in Redis (tenant-scoped cache keys).
+
+## Serving Layer Routing Rules
+
+| Table | Backing Store | Reason |
+|-------|---------------|--------|
+| `materialize.live_positions` | Materialize | Live data, < 10ms |
+| `materialize.live_quotes` | Materialize | Live data, < 10ms |
+| `materialize.live_pnl` | Materialize | Live data, < 10ms |
+| `flowforge.raw_trades` | ClickHouse | Historical, ad-hoc analytical |
+| `flowforge.raw_quotes` | ClickHouse | Historical, ad-hoc analytical |
+| `metrics.vwap_5min` | ClickHouse | Windowed metrics |
+| `metrics.rolling_volatility` | ClickHouse | Windowed metrics |
+| `metrics.hourly_rollup` | ClickHouse | Pre-aggregated rollups |
+| `metrics.daily_rollup` | ClickHouse | Pre-aggregated rollups |
+| `marts.fct_trades` | ClickHouse | Enriched mart (dbt) |
+| `marts.dim_instruments` | ClickHouse | Reference data (dbt) |
+| `marts.rpt_daily_pnl` | ClickHouse | Reporting (dbt) |
+| `latest:vwap:*` | Redis | Point lookup, < 1ms |
+| `latest:position:*` | Redis | Point lookup, < 1ms |
+
+## Workflow Compilation Steps
+
+The compiler follows these steps when compiling a subgraph:
+
+1. Receive full graph JSON + `target_node_id`
+2. Walk backward from target node through edges to extract the relevant subgraph
+3. Topologically sort the subgraph
+4. For each node, generate a SQLGlot expression tree based on `node_type` + `config`
+5. Merge adjacent compatible nodes into single queries (query merging — mandatory)
+6. Determine backing store from the source node's table via the query router
+7. Inject tenant filter (`WHERE tenant_id = :tid`) into compiled SQL
+8. Return `(compiled_sql, backing_store)`

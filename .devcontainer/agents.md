@@ -39,3 +39,18 @@ When adding a new backing service (e.g., ClickHouse):
 4. Create an async client wrapper in `backend/app/core/` (e.g., `clickhouse.py`).
 5. Add seed data or initialization to `post-create.sh` if needed.
 6. Update this file to document the new service.
+
+## K3d/Tilt Alternative
+
+The primary development environment uses **k3d** (k3s-in-Docker) orchestrated by **Tilt**:
+
+- k3d cluster: `flowforge` with 1 server + 2 agents
+- All services in `flowforge` K8s namespace
+- Tilt provides live-sync (code changes sync to containers without rebuild)
+- Tilt UI at `http://localhost:10350` shows all service status
+
+The devcontainer setup is a lighter alternative for working on backend/frontend code without the full infrastructure stack. When using the devcontainer, ClickHouse and Materialize must be mocked.
+
+## Production Target
+
+Production deploys to managed K8s (EKS/GKE/AKS). The k3d manifests in `k8s/base/` are compatible — same K8s API, different overlays (`k8s/overlays/prod/` adds HPA, PDB, ingress, resource limits).

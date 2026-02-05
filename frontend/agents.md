@@ -96,3 +96,54 @@ Never store server-fetched data in Zustand. Never use TanStack Query for purely 
 - Use `@/` import alias for all project imports.
 - Prefer `interface` for object shapes, `type` for unions and intersections.
 - No untyped `any` — use `unknown` and narrow with type guards when needed.
+
+## Chart Library
+
+All charts use **Apache ECharts** via `echarts-for-react`. Available chart types:
+
+- `BarChart.tsx` — standard bar/column charts
+- `LineChart.tsx` — time-series line charts
+- `CandlestickChart.tsx` — OHLC candlestick charts (fintech-specific)
+- `ScatterPlot.tsx` — scatter/bubble plots
+- `KPICard.tsx` — single-value KPI display
+- `PivotTable.tsx` — pivot/crosstab tables
+
+All chart components accept `data` + `config` props and are responsive (fill container). Never set fixed pixel dimensions.
+
+## Route Structure
+
+```
+/canvas                     → Canvas.tsx (React Flow workspace)
+/canvas/:workflow_id        → Canvas.tsx (load specific workflow)
+/dashboards                 → Dashboard list
+/dashboards/:dashboard_id   → Dashboard.tsx (widget grid)
+/embed/:widget_id           → EmbedView.tsx (chromeless single widget)
+```
+
+Canvas and Dashboards use Keycloak OIDC authentication. Embed uses API key authentication.
+
+## Key Dependencies
+
+| Package | Purpose |
+|---------|---------|
+| `react`, `react-dom` | UI framework |
+| `react-router-dom` | Client-side routing |
+| `@xyflow/react` (v12+) | Canvas node graph (NEVER import from `reactflow`) |
+| `zustand` | Client-side UI state |
+| `@tanstack/react-query` (v5) | Server state + caching |
+| `echarts` + `echarts-for-react` | Chart rendering |
+| `react-grid-layout` | Dashboard widget grid |
+| `keycloak-js` | OIDC authentication adapter |
+| `tailwindcss` | Styling (utility-first, no CSS modules) |
+| `vite` | Build tooling + HMR dev server |
+| `vitest` | Unit testing |
+
+## Widget Lifecycle
+
+1. User builds workflow on canvas: DataSource → Filter → Sort → TableView
+2. User pins an output node to a dashboard (creates a `Widget` record)
+3. Widget record stores: `{ workflow_id, output_node_id, dashboard_id, layout, config_overrides }`
+4. Dashboard renders widget by executing the workflow subgraph up to the pinned node
+5. Widget auto-refreshes on interval or via WebSocket for live data
+
+Widgets are references to canvas output nodes — NOT copies. If the workflow changes, the widget output changes.

@@ -36,3 +36,16 @@ The embed widget renders using the exact same chart components from `shared/comp
 - Embed mode authenticates via API key, not Keycloak. The API key is stored in the `api_keys` table with a `tenant_id` column.
 - The backend validates that the API key's `tenant_id` matches the widget's dashboard's `tenant_id`. A key from tenant A cannot access widgets from tenant B.
 - The frontend embed route does not handle tenant logic — it passes the `api_key` to the backend and renders whatever is returned or shows an error state.
+
+## Filter Override URL Parameters
+
+Embed URLs support query parameters for filter overrides:
+
+```
+/embed/:widget_id?api_key=sk_live_...&symbol=AAPL&range=1d
+```
+
+- Filter parameters are extracted from the URL and sent to the backend
+- Backend applies them as additional WHERE clauses on the widget's compiled query
+- Only columns present in the widget's output schema are valid filter targets
+- Invalid filter columns are silently ignored (no error — external embedders may pass extra params)

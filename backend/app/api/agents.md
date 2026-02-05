@@ -83,3 +83,26 @@ class PaginatedResponse(BaseModel, Generic[T]):
 ```
 
 All list endpoints return paginated responses.
+
+## Preview Endpoint
+
+`POST /api/v1/preview` — Returns first 100 rows of a node's output.
+
+- Request: `{ graph: {...}, target_node_id: "node-3" }`
+- Response: `{ columns, rows, row_count, execution_ms, cache_hit, truncated }`
+- Uses content-addressed Redis cache (tenant-scoped cache keys)
+- Query constraints: `LIMIT 100`, `max_execution_time = 3s`, `max_memory_usage = 100MB`
+
+## Dev Mode Auth Bypass
+
+When `APP_ENV == "development"` and `X-Dev-Tenant` header is present:
+- JWT validation is skipped
+- Tenant context is set from the header value
+- A dev user is returned: `sub="dev-user"`, `email="dev@flowforge.local"`, `roles=["admin"]`
+- MUST be disabled in production
+
+## WebSocket Endpoints
+
+- `ws://localhost:8000/ws/dashboard/{dashboard_id}` — Live data push for dashboard widgets
+- Backend subscribes to Redis pub/sub channel: `flowforge:{tenant_id}:execution:{execution_id}`
+- Pushes execution status updates (pending → running → complete/error) and live data from Materialize

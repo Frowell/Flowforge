@@ -185,3 +185,48 @@ Authentication and tenant context are provided by two FastAPI dependencies in `a
 | `get_current_user_claims` | `dict` — full JWT payload | Role checks (`admin`, `analyst`, `viewer`) |
 
 All authenticated routes (everything except `/health` and `/embed`) MUST inject at minimum `get_current_tenant_id`. The embed route uses API key auth, which resolves to a tenant via the `api_keys` table.
+
+## Application Factory
+
+The FastAPI app is created via `create_app()` in `app/main.py` with an async `lifespan` context manager:
+
+- **Startup**: Initialize PostgreSQL, ClickHouse, Materialize, Redis clients; refresh SchemaRegistry
+- **Shutdown**: Close all client connections gracefully
+- The `SchemaRegistry` singleton is stored on `app.state.schema_registry`
+
+## Dev Mode Authentication
+
+For development without Keycloak, the backend accepts a `X-Dev-Tenant` header that sets tenant context directly:
+
+- Controlled by `APP_ENV == "development"` in Settings
+- MUST be disabled in production — never accept `X-Dev-Tenant` when `APP_ENV != "development"`
+- Returns a dev user with `sub="dev-user"`, `email="dev@flowforge.local"`, `roles=["admin"]`
+- The `X-Dev-Tenant` check runs BEFORE JWT validation in the auth dependency
+
+## Preview System (3-Layer Execution Model)
+
+Data preview ("click a node, see first 100 rows") uses three layers:
+
+1. **Frontend debounce + cancellation**: 300ms debounce after last click; cancel in-flight requests on node switch
+2. **Content-addressed Redis cache**: Cache key = hash of `(tenant_id, target_node_id, subgraph_configs, offset, limit)`. TTL: 5 minutes. Cache hit = instant response
+3. **Query constraints (server-side safety)**: `LIMIT 100`, `max_execution_time = 3s`, `max_memory_usage = 100MB`, `max_rows_to_read = 10M`
+
+Preview endpoint: `POST /api/v1/preview` — accepts `{ graph, target_node_id }`, returns `{ columns, rows, row_count, execution_ms, cache_hit, truncated }`.
+
+## Settings Overview
+
+All configuration via `pydantic-settings` `Settings` class in `app/core/config.py`. Key groups:
+
+| Group | Variables |
+|-------|-----------|
+| App | `APP_ENV` |
+| PostgreSQL | `DATABASE_URL` |
+| ClickHouse | `CLICKHOUSE_HOST`, `CLICKHOUSE_PORT` |
+| Materialize | `MATERIALIZE_HOST`, `MATERIALIZE_PORT` |
+| Redis | `REDIS_URL` |
+| Auth | `KEYCLOAK_URL`, `KEYCLOAK_REALM`, `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_PUBLIC_KEY` |
+| CORS | `CORS_ORIGINS` |
+| Preview | `PREVIEW_CACHE_TTL`, `PREVIEW_ROW_LIMIT`, `PREVIEW_MAX_EXECUTION_TIME`, `PREVIEW_MAX_MEMORY` |
+| Pagination | `MAX_PAGE_OFFSET` (10,000 hard cap), `DEFAULT_PAGE_SIZE` (50) |
+
+ClickHouse uses **HTTP protocol** (port 8123) via `clickhouse-connect`, not the native protocol.
