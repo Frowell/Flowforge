@@ -5,6 +5,7 @@
  * and executes via the query router. Frontend does NOT compile queries.
  *
  * Supports auto-refresh via interval or live data via WebSocket.
+ * Includes drill-down filters in query params for cache invalidation.
  */
 
 import { useEffect } from "react";
@@ -20,12 +21,24 @@ interface UseWidgetDataOptions {
 
 export function useWidgetData(widgetId: string, options?: UseWidgetDataOptions) {
   const activeFilters = useDashboardStore((s) => s.activeFilters);
+  const drillDownFilters = useDashboardStore((s) => s.drillDownFilters);
   const queryClient = useQueryClient();
   const refreshInterval = options?.refreshInterval;
 
   const params: Record<string, string> = {};
-  if (activeFilters.length > 0) {
-    params.filters = JSON.stringify(activeFilters);
+
+  // Combine active filters and drill-down filters
+  const allFilters = [
+    ...activeFilters,
+    ...drillDownFilters.map((f) => ({
+      column: f.column,
+      type: "drilldown",
+      value: f.value,
+    })),
+  ];
+
+  if (allFilters.length > 0) {
+    params.filters = JSON.stringify(allFilters);
   }
 
   // Subscribe to live data channel when refreshInterval is "live"
@@ -49,7 +62,7 @@ export function useWidgetData(widgetId: string, options?: UseWidgetDataOptions) 
   }, [widgetId, refreshInterval, queryClient]);
 
   return useQuery({
-    queryKey: ["widgetData", widgetId, activeFilters],
+    queryKey: ["widgetData", widgetId, activeFilters, drillDownFilters],
     queryFn: () => apiClient.get<WidgetDataResponse>(`/api/v1/widgets/${widgetId}/data`, params),
     staleTime: 30_000,
     refetchInterval: typeof refreshInterval === "number" ? refreshInterval : undefined,

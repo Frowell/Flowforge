@@ -48,7 +48,13 @@ function linearRegression(
   return { slope, intercept };
 }
 
-export default function ScatterPlot({ data, config, interactive = true, className }: Props) {
+export default function ScatterPlot({
+  data,
+  config,
+  interactive = true,
+  onDrillDown,
+  className,
+}: Props) {
   const { xAxis, yAxis, sizeColumn, colorColumn, trendLine } = config;
 
   const { groups, xMin, xMax } = useMemo(() => {
@@ -117,6 +123,16 @@ export default function ScatterPlot({ data, config, interactive = true, classNam
               name={key === "__all__" ? undefined : key}
               data={rows}
               fill={COLORS[i % COLORS.length]}
+              onClick={
+                interactive && onDrillDown
+                  ? (entry: Record<string, unknown>) => {
+                      onDrillDown({
+                        [xAxis.column]: entry[xAxis.column],
+                        [yAxis.column]: entry[yAxis.column],
+                      });
+                    }
+                  : undefined
+              }
             />
           ))}
           {regression && isFinite(xMin) && isFinite(xMax) && (

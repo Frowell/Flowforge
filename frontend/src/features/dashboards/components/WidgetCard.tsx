@@ -18,6 +18,7 @@ interface WidgetCardProps {
   widget: WidgetResponse;
   className?: string;
   onUnpin?: (widgetId: string) => void;
+  onDrillDown?: (filters: Record<string, unknown>) => void;
 }
 
 function isOrphanedError(error: unknown): boolean {
@@ -39,7 +40,7 @@ function isTransientError(error: unknown): boolean {
   return false;
 }
 
-export default function WidgetCard({ widget, className, onUnpin }: WidgetCardProps) {
+export default function WidgetCard({ widget, className, onUnpin, onDrillDown }: WidgetCardProps) {
   // auto_refresh_interval: null=manual, -1=live (WebSocket), >0=polling interval in ms
   const ari = widget.auto_refresh_interval;
   const refreshInterval: number | "live" | undefined =
@@ -159,6 +160,7 @@ export default function WidgetCard({ widget, className, onUnpin }: WidgetCardPro
             data={data.rows as ChartDataPoint[]}
             columns={data.columns}
             interactive
+            onDrillDown={onDrillDown}
           />
         )}
       </div>
