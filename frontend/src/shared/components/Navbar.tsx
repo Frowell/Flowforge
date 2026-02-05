@@ -10,6 +10,7 @@ export default function Navbar() {
   const location = useLocation();
   const user = getCurrentUser();
   const canEdit = hasRole("admin") || hasRole("analyst");
+  const isAdmin = hasRole("admin");
 
   const isActive = (path: string) => location.pathname.startsWith(path);
 
@@ -43,6 +44,18 @@ export default function Navbar() {
           >
             Dashboards
           </Link>
+          {isAdmin && (
+            <Link
+              to="/admin/audit"
+              className={`px-3 py-1.5 text-xs rounded transition-colors ${
+                isActive("/admin")
+                  ? "bg-canvas-accent text-white"
+                  : "text-white/60 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              Audit Log
+            </Link>
+          )}
         </nav>
       </div>
 

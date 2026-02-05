@@ -7,10 +7,18 @@ import Navbar from "@/shared/components/Navbar";
 const CanvasPage = lazy(() => import("@/features/canvas/components/Canvas"));
 const DashboardPage = lazy(() => import("@/features/dashboards/components/DashboardGrid"));
 const EmbedPage = lazy(() => import("@/features/embed/EmbedRoot"));
+const AuditLogPage = lazy(() => import("@/features/admin/AuditLogPage"));
 
 function RequireEditorRole({ children }: { children: React.ReactNode }) {
   const canEdit = hasRole("admin") || hasRole("analyst");
   if (!canEdit) {
+    return <Navigate to="/dashboards" replace />;
+  }
+  return <>{children}</>;
+}
+
+function RequireAdminRole({ children }: { children: React.ReactNode }) {
+  if (!hasRole("admin")) {
     return <Navigate to="/dashboards" replace />;
   }
   return <>{children}</>;
@@ -44,6 +52,14 @@ export default function App() {
         <Route path="/dashboards" element={<DashboardPage />} />
         <Route path="/dashboards/:dashboardId" element={<DashboardPage />} />
         <Route path="/embed/:widgetId" element={<EmbedPage />} />
+        <Route
+          path="/admin/audit"
+          element={
+            <RequireAdminRole>
+              <AuditLogPage />
+            </RequireAdminRole>
+          }
+        />
         <Route path="*" element={<Navigate to={isViewer ? "/dashboards" : "/canvas"} replace />} />
       </Routes>
       <ConnectionStatus />
