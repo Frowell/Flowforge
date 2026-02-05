@@ -54,3 +54,14 @@ The devcontainer setup is a lighter alternative for working on backend/frontend 
 ## Production Target
 
 Production deploys to managed K8s (EKS/GKE/AKS). The k3d manifests in `k8s/base/` are compatible — same K8s API, different overlays (`k8s/overlays/prod/` adds HPA, PDB, ingress, resource limits).
+
+## Service Mapping: Dev → Production
+
+| DevContainer Service | Production (GCP) |
+|---------------------|------------------|
+| `db` (PostgreSQL 16 pod) | Cloud SQL for PostgreSQL 16 (HA in prod) |
+| `redis` (Redis 7 pod) | Memorystore for Redis (HA in prod) |
+| N/A | GKE cluster (application runtime) |
+| N/A | Artifact Registry (container images) |
+| N/A | Secret Manager (credentials) |
+| N/A | Cloud DNS + HTTPS LB (external access) |

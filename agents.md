@@ -277,3 +277,21 @@ All charts use **Apache ECharts** via `echarts-for-react`. Chart types: Bar, Lin
 | 3 | Visualization + Dashboards | Chart nodes + dashboard CRUD + widget pinning + global filters |
 | 4 | Live Data + Embed | WebSocket push + Materialize/Redis integration + embed mode |
 | 5 | Polish | Templates, undo/redo, RBAC, audit logging, versioning |
+
+---
+
+## Cloud Infrastructure (GCP)
+
+Production infrastructure is managed by **Terraform** targeting Google Cloud Platform. See [`terraform/agents.md`](./terraform/agents.md) for detailed requirements.
+
+Key GCP services:
+- **GKE**: Application workloads + self-hosted ClickHouse/Materialize
+- **Cloud SQL**: Managed PostgreSQL (replaces the pod-based PostgreSQL from dev)
+- **Memorystore**: Managed Redis (replaces the pod-based Redis from dev)
+- **Artifact Registry**: Docker images
+- **Secret Manager**: All secrets (no secrets in K8s ConfigMaps)
+- **Workload Identity**: IAM for pods (no JSON key files)
+
+Environments: `dev`, `staging`, `prod` — each in its own GCP project.
+
+CI/CD via GitHub Actions. See [`.github/workflows/agents.md`](./.github/workflows/agents.md).

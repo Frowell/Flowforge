@@ -230,3 +230,11 @@ All configuration via `pydantic-settings` `Settings` class in `app/core/config.p
 | Pagination | `MAX_PAGE_OFFSET` (10,000 hard cap), `DEFAULT_PAGE_SIZE` (50) |
 
 ClickHouse uses **HTTP protocol** (port 8123) via `clickhouse-connect`, not the native protocol.
+
+## Production Database Differences
+
+In production, PostgreSQL and Redis are managed GCP services (Cloud SQL, Memorystore), not pods:
+- Connection strings come from Secret Manager via Workload Identity
+- Cloud SQL uses Private Service Access (no public IP)
+- Cloud SQL Proxy sidecar not required when using Workload Identity + direct private IP
+- Redis uses Memorystore private endpoint (VPC-internal)
