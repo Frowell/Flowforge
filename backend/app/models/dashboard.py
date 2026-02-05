@@ -60,6 +60,7 @@ class Widget(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     title: Mapped[str | None] = mapped_column(String(255))
     layout: Mapped[dict] = mapped_column(JSONB, default=dict)
     config_overrides: Mapped[dict] = mapped_column(JSONB, default=dict)
+    auto_refresh_interval: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Relationships
     dashboard: Mapped[Dashboard] = relationship(back_populates="widgets")

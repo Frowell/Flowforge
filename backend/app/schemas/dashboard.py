@@ -51,12 +51,14 @@ class WidgetCreate(BaseModel):
     title: str | None = None
     layout: dict = {"x": 0, "y": 0, "w": 6, "h": 4}
     config_overrides: dict = {}
+    auto_refresh_interval: int | None = None
 
 
 class WidgetUpdate(BaseModel):
     title: str | None = None
     layout: dict | None = None
     config_overrides: dict | None = None
+    auto_refresh_interval: int | None = None
 
 
 class WidgetResponse(BaseModel):
@@ -67,6 +69,7 @@ class WidgetResponse(BaseModel):
     title: str | None
     layout: dict
     config_overrides: dict
+    auto_refresh_interval: int | None = None
     created_at: datetime
     updated_at: datetime
 

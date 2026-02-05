@@ -7,7 +7,7 @@ Cross-tenant references (dashboard in tenant A, workflow in tenant B) are reject
 import json
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -67,6 +67,7 @@ async def pin_widget(
         title=body.title,
         layout=body.layout,
         config_overrides=body.config_overrides,
+        auto_refresh_interval=body.auto_refresh_interval,
     )
     db.add(widget)
     await db.commit()
