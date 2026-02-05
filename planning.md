@@ -548,8 +548,8 @@ Chart outputs and the full dashboard lifecycle.
 - [x] Dashboard grid layout: drag/resize widgets (react-grid-layout), save layout to PostgreSQL
 - [x] Dashboard list view: create, rename, delete, open dashboards (DashboardPicker)
 - [x] Global dashboard filters: date range picker, dropdown filters, propagated to all widget queries
-- [ ] Drill-down: click chart element → filtered detail view in a modal or expanded panel
-- [ ] Dashboard save/load/share via URL
+- [x] Drill-down: click chart element → filtered detail view in a modal or expanded panel
+- [x] Dashboard save/load/share via URL
 
 **Deliverable:** User builds a workflow with 3 chart outputs, pins them to a dashboard, adds a date range filter. A colleague opens the dashboard URL and sees live data.
 
@@ -560,11 +560,11 @@ WebSocket integration and the embeddable widget system.
 - [x] WebSocket infrastructure: connection manager, subscription lifecycle, reconnection handling
 - [ ] Live query mode: Materialize-backed Data Source nodes push updates via WebSocket (charts redraw on new data)
 - [x] Redis integration: query router dispatches point lookups to Redis for sub-ms latest-state queries
-- [ ] Auto-refresh on dashboard widgets: configurable interval (5s, 30s, 1m, 5m) or live (WebSocket)
+- [x] Auto-refresh on dashboard widgets: configurable interval (5s, 30s, 1m, 5m) or live (WebSocket)
 - [x] Embed mode: `/embed/:widget_id` route with chromeless rendering
 - [x] API key management: create/revoke keys scoped to specific widgets or dashboards
 - [x] Embed URL parameters: `?symbol=AAPL&range=1d` override widget filters
-- [ ] Embed responsive sizing: widget fills iframe container
+- [x] Embed responsive sizing: widget fills iframe container
 
 **Deliverable:** Dashboard widgets update in real time as new data flows into Materialize. An embedded widget renders in a customer's portal via iframe with API key auth.
 
@@ -584,8 +584,8 @@ Reduce time-to-value and production readiness.
 - [x] Keyboard shortcuts: delete node, copy/paste, select all, run workflow
 - [x] Role-based access: admin (everything), analyst (canvas + dashboards), viewer (dashboards only)
 - [x] Audit logging: who created/modified/ran what (model + service + route built)
-- [ ] Audit log admin panel UI: queryable in admin panel
-- [ ] Error states: orphaned widgets, failed queries, disconnected WebSocket, stale schema
+- [x] Audit log admin panel UI: queryable in admin panel
+- [x] Error states: orphaned widgets, failed queries, disconnected WebSocket, stale schema
 
 **Deliverable:** New user picks a template, customizes it, and has a live dashboard in under 15 minutes. Access control enforced per role.
 
