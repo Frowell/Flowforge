@@ -32,8 +32,8 @@ describe("data_source transform", () => {
     const result = propagateSchemas(nodes, []);
     const schema = result.get("src")!;
     expect(schema).toHaveLength(4);
-    expect(schema[0].name).toBe("id");
-    expect(schema[3].name).toBe("quantity");
+    expect(schema[0]!.name).toBe("id");
+    expect(schema[3]!.name).toBe("quantity");
   });
 
   it("outputs empty when no columns configured", () => {
@@ -86,8 +86,8 @@ describe("filter transform", () => {
     const edges: WorkflowEdge[] = [{ source: "src", target: "flt" }];
     const result = propagateSchemas(nodes, edges);
     const schema = result.get("flt")!;
-    expect(schema[2].name).toBe("price");
-    expect(schema[2].dtype).toBe("float64");
+    expect(schema[2]!.name).toBe("price");
+    expect(schema[2]!.dtype).toBe("float64");
   });
 });
 
@@ -111,8 +111,8 @@ describe("select transform", () => {
     const result = propagateSchemas(nodes, edges);
     const schema = result.get("sel")!;
     expect(schema).toHaveLength(2);
-    expect(schema[0].name).toBe("price");
-    expect(schema[1].name).toBe("symbol");
+    expect(schema[0]!.name).toBe("price");
+    expect(schema[1]!.name).toBe("symbol");
   });
 
   it("ignores columns that do not exist in input", () => {
@@ -226,9 +226,10 @@ describe("formula transform", () => {
     const result = propagateSchemas(nodes, edges);
     const schema = result.get("frm")!;
     expect(schema).toHaveLength(SAMPLE_COLUMNS.length + 1);
-    expect(schema[schema.length - 1].name).toBe("notional");
-    expect(schema[schema.length - 1].dtype).toBe("float64");
-    expect(schema[schema.length - 1].nullable).toBe(true);
+    const last = schema[schema.length - 1]!;
+    expect(last.name).toBe("notional");
+    expect(last.dtype).toBe("float64");
+    expect(last.nullable).toBe(true);
   });
 });
 
@@ -325,8 +326,9 @@ describe("multi-node DAG", () => {
     expect(result.get("sel")).toHaveLength(2);
     // After sort: still 2
     expect(result.get("srt")).toHaveLength(2);
-    expect(result.get("srt")![0].name).toBe("symbol");
-    expect(result.get("srt")![1].name).toBe("price");
+    const srtSchema = result.get("srt")!;
+    expect(srtSchema[0]!.name).toBe("symbol");
+    expect(srtSchema[1]!.name).toBe("price");
   });
 
   it("disconnected nodes handled gracefully", () => {
@@ -402,9 +404,9 @@ describe("group_by transform", () => {
     const result = propagateSchemas(nodes, edges);
     const schema = result.get("grp")!;
     expect(schema).toHaveLength(2);
-    expect(schema[0].name).toBe("symbol");
-    expect(schema[1].name).toBe("avg_price");
-    expect(schema[1].dtype).toBe("float64");
+    expect(schema[0]!.name).toBe("symbol");
+    expect(schema[1]!.name).toBe("avg_price");
+    expect(schema[1]!.dtype).toBe("float64");
   });
 });
 

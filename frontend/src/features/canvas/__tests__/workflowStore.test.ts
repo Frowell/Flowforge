@@ -32,8 +32,8 @@ describe("workflowStore", () => {
 
       const { nodes } = useWorkflowStore.getState();
       expect(nodes).toHaveLength(1);
-      expect(nodes[0].id).toBe("n1");
-      expect(nodes[0].data.nodeType).toBe("data_source");
+      expect(nodes[0]!.id).toBe("n1");
+      expect(nodes[0]!.data.nodeType).toBe("data_source");
     });
 
     it("adds multiple nodes", () => {
@@ -52,7 +52,7 @@ describe("workflowStore", () => {
 
       const { nodes } = useWorkflowStore.getState();
       expect(nodes).toHaveLength(1);
-      expect(nodes[0].id).toBe("n2");
+      expect(nodes[0]!.id).toBe("n2");
     });
 
     it("removes connected edges when node is removed", () => {
@@ -101,7 +101,7 @@ describe("workflowStore", () => {
       useWorkflowStore.getState().updateNodeConfig("n1", { operator: "=" });
 
       const node = useWorkflowStore.getState().nodes[0];
-      expect(node.data.config).toEqual({ column: "symbol", operator: "=" });
+      expect(node!.data.config).toEqual({ column: "symbol", operator: "=" });
     });
 
     it("does not affect other nodes", () => {
@@ -110,7 +110,7 @@ describe("workflowStore", () => {
 
       useWorkflowStore.getState().updateNodeConfig("n1", { column: "c" });
 
-      expect(useWorkflowStore.getState().nodes[1].data.config).toEqual({ column: "b" });
+      expect(useWorkflowStore.getState().nodes[1]!.data.config).toEqual({ column: "b" });
     });
   });
 
@@ -128,8 +128,8 @@ describe("workflowStore", () => {
 
       const { edges } = useWorkflowStore.getState();
       expect(edges).toHaveLength(1);
-      expect(edges[0].source).toBe("n1");
-      expect(edges[0].target).toBe("n2");
+      expect(edges[0]!.source).toBe("n1");
+      expect(edges[0]!.target).toBe("n2");
     });
   });
 
