@@ -58,7 +58,7 @@ class Widget(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     source_workflow: Mapped["Workflow"] = relationship(back_populates="widgets")  # noqa: F821
 
 
-class FilterType(str, enum.Enum):
+class FilterType(enum.StrEnum):
     DATE_RANGE = "date_range"
     DROPDOWN = "dropdown"
     TEXT = "text"

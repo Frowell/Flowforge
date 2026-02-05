@@ -8,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base, TenantMixin, TimestampMixin, UUIDPrimaryKeyMixin
 
 
-class UserRole(str, enum.Enum):
+class UserRole(enum.StrEnum):
     ADMIN = "admin"
     ANALYST = "analyst"
     VIEWER = "viewer"

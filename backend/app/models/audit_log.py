@@ -15,7 +15,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.database import Base, TenantMixin, UUIDPrimaryKeyMixin
 
 
-class AuditAction(str, enum.Enum):
+class AuditAction(enum.StrEnum):
     CREATED = "created"
     UPDATED = "updated"
     DELETED = "deleted"
@@ -23,7 +23,7 @@ class AuditAction(str, enum.Enum):
     REVOKED = "revoked"
 
 
-class AuditResourceType(str, enum.Enum):
+class AuditResourceType(enum.StrEnum):
     WORKFLOW = "workflow"
     DASHBOARD = "dashboard"
     WIDGET = "widget"
