@@ -136,8 +136,9 @@ export default function ChartRenderer({
   const baseProps = { data, interactive, onDrillDown, className };
 
   // For table type, derive columns from data if not provided
-  const tableColumns = columns ?? (data.length > 0
-    ? Object.keys(data[0]).map((name) => ({ name, dtype: "string" }))
+  const firstRow = data.length > 0 ? data[0] : undefined;
+  const tableColumns = columns ?? (firstRow
+    ? Object.keys(firstRow).map((name) => ({ name, dtype: "string" }))
     : []);
 
   return (
