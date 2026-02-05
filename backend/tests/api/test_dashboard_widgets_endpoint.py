@@ -271,3 +271,75 @@ async def test_widget_data_invalid_filters_returns_400(
     )
     assert response.status_code == 400
     assert "Invalid filters JSON" in response.json()["detail"]
+
+
+# ── Dashboard CRUD ────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_create_dashboard_returns_201(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    mock_auth,
+    seed_user_a,
+    tenant_id: UUID,
+    user_id: UUID,
+):
+    """POST /dashboards creates a dashboard and returns 201."""
+    response = await client.post(
+        "/api/v1/dashboards",
+        json={"name": "New Dashboard", "description": "A test dashboard"},
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["name"] == "New Dashboard"
+    assert "id" in data
+
+
+@pytest.mark.asyncio
+async def test_list_dashboards_filters_by_tenant(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    mock_auth,
+    seed_user_a,
+    seed_user_b,
+    tenant_id: UUID,
+    user_id: UUID,
+    tenant_id_b: UUID,
+    user_id_b: UUID,
+):
+    """GET /dashboards returns only the current tenant's dashboards."""
+    # Create dashboards for both tenants directly in DB
+    dash_a = Dashboard(name="Tenant A Dash", tenant_id=tenant_id, created_by=user_id)
+    dash_b = Dashboard(
+        name="Tenant B Dash", tenant_id=tenant_id_b, created_by=user_id_b
+    )
+    db_session.add(dash_a)
+    db_session.add(dash_b)
+    await db_session.commit()
+
+    response = await client.get("/api/v1/dashboards")
+    assert response.status_code == 200
+    data = response.json()
+    names = [d["name"] for d in data["items"]]
+    assert "Tenant A Dash" in names
+    assert "Tenant B Dash" not in names
+
+
+@pytest.mark.asyncio
+async def test_get_dashboard_other_tenant_returns_404(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    mock_auth,
+    seed_user_a,
+    seed_user_b,
+    tenant_id_b: UUID,
+    user_id_b: UUID,
+):
+    """GET /dashboards/{id} for a different tenant returns 404."""
+    dash_b = await _create_dashboard(
+        db_session, tenant_id_b, user_id_b, "Other Tenant Dashboard"
+    )
+
+    response = await client.get(f"/api/v1/dashboards/{dash_b.id}")
+    assert response.status_code == 404

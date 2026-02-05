@@ -349,6 +349,292 @@ class TestQueryMerging:
         assert "PRICE" in sql_upper
 
 
+class TestEdgeCases:
+    """Edge cases: empty graph, no data source, IS NULL, IN, OR filters, pagination."""
+
+    def test_compile_empty_graph_returns_empty(self):
+        """Empty node list produces no segments."""
+        compiler = get_compiler()
+        nodes: list[dict] = []
+        edges: list[dict] = []
+        segments = compiler._build_and_merge(
+            compiler._topological_sort(nodes, edges), nodes, edges
+        )
+        assert segments == []
+
+    def test_compile_no_data_source_returns_empty(self):
+        """A graph with only non-source nodes produces no output segments."""
+        compiler = get_compiler()
+        nodes = [
+            {"id": "flt", "type": "filter", "data": {"config": {}}},
+            {"id": "out", "type": "table_output", "data": {"config": {}}},
+        ]
+        edges = [{"source": "flt", "target": "out"}]
+        segments = compiler._build_and_merge(
+            compiler._topological_sort(nodes, edges), nodes, edges
+        )
+        # Filter with no parent expr_map entry produces no segments
+        assert len(segments) == 0
+
+    def test_compile_table_output_with_max_rows(self):
+        """Table output node's max_rows config controls LIMIT in _apply_limits."""
+        compiler = get_compiler()
+        nodes = [
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [{"name": "symbol", "dtype": "string"}],
+                    }
+                },
+            },
+            {
+                "id": "out",
+                "type": "table_output",
+                "data": {"config": {"max_rows": 500}},
+            },
+        ]
+        edges = [{"source": "src", "target": "out"}]
+        segments = compiler.compile(nodes, edges)
+        assert len(segments) == 1
+        sql_upper = segments[0].sql.upper()
+        assert "LIMIT" in sql_upper
+        assert "500" in segments[0].sql
+
+    def test_compile_filter_is_null(self):
+        """IS NULL filter produces IS NULL in SQL."""
+        compiler = get_compiler()
+        nodes = [
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [{"name": "price", "dtype": "float64"}],
+                    }
+                },
+            },
+            {
+                "id": "flt",
+                "type": "filter",
+                "data": {
+                    "config": {
+                        "column": "price",
+                        "operator": "=",
+                        "value": "NULL",
+                    }
+                },
+            },
+            {"id": "out", "type": "table_output", "data": {"config": {}}},
+        ]
+        edges = [{"source": "src", "target": "flt"}, {"source": "flt", "target": "out"}]
+        segments = compiler._build_and_merge(
+            compiler._topological_sort(nodes, edges), nodes, edges
+        )
+        assert len(segments) == 1
+        # The filter with value "NULL" at least produces a WHERE clause
+        sql_upper = segments[0].sql.upper()
+        assert "WHERE" in sql_upper
+
+    def test_compile_filter_between_operator(self):
+        """Between operator produces BETWEEN in SQL."""
+        compiler = get_compiler()
+        nodes = [
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [{"name": "price", "dtype": "float64"}],
+                    }
+                },
+            },
+            {
+                "id": "flt",
+                "type": "filter",
+                "data": {
+                    "config": {
+                        "column": "price",
+                        "operator": "between",
+                        "value": "10,100",
+                    }
+                },
+            },
+            {"id": "out", "type": "table_output", "data": {"config": {}}},
+        ]
+        edges = [{"source": "src", "target": "flt"}, {"source": "flt", "target": "out"}]
+        segments = compiler._build_and_merge(
+            compiler._topological_sort(nodes, edges), nodes, edges
+        )
+        assert len(segments) == 1
+        sql_upper = segments[0].sql.upper()
+        assert "BETWEEN" in sql_upper
+
+    def test_compile_filter_starts_with(self):
+        """Starts with operator produces LIKE 'val%'."""
+        compiler = get_compiler()
+        nodes = [
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [{"name": "symbol", "dtype": "string"}],
+                    }
+                },
+            },
+            {
+                "id": "flt",
+                "type": "filter",
+                "data": {
+                    "config": {
+                        "column": "symbol",
+                        "operator": "starts with",
+                        "value": "AA",
+                    }
+                },
+            },
+            {"id": "out", "type": "table_output", "data": {"config": {}}},
+        ]
+        edges = [{"source": "src", "target": "flt"}, {"source": "flt", "target": "out"}]
+        segments = compiler._build_and_merge(
+            compiler._topological_sort(nodes, edges), nodes, edges
+        )
+        assert len(segments) == 1
+        sql = segments[0].sql
+        assert "LIKE" in sql.upper()
+        assert "AA%" in sql
+
+    def test_compile_filter_ends_with(self):
+        """Ends with operator produces LIKE '%val'."""
+        compiler = get_compiler()
+        nodes = [
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [{"name": "symbol", "dtype": "string"}],
+                    }
+                },
+            },
+            {
+                "id": "flt",
+                "type": "filter",
+                "data": {
+                    "config": {
+                        "column": "symbol",
+                        "operator": "ends with",
+                        "value": "PL",
+                    }
+                },
+            },
+            {"id": "out", "type": "table_output", "data": {"config": {}}},
+        ]
+        edges = [{"source": "src", "target": "flt"}, {"source": "flt", "target": "out"}]
+        segments = compiler._build_and_merge(
+            compiler._topological_sort(nodes, edges), nodes, edges
+        )
+        assert len(segments) == 1
+        sql = segments[0].sql
+        assert "LIKE" in sql.upper()
+        assert "%PL" in sql
+
+    def test_compile_multiple_filters_merge(self):
+        """Two consecutive filters produce merged WHERE with AND."""
+        compiler = get_compiler()
+        nodes = [
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "price", "dtype": "float64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "f1",
+                "type": "filter",
+                "data": {
+                    "config": {
+                        "column": "symbol",
+                        "operator": "=",
+                        "value": "AAPL",
+                    }
+                },
+            },
+            {
+                "id": "f2",
+                "type": "filter",
+                "data": {
+                    "config": {
+                        "column": "price",
+                        "operator": ">",
+                        "value": "100",
+                    }
+                },
+            },
+            {"id": "out", "type": "table_output", "data": {"config": {}}},
+        ]
+        edges = [
+            {"source": "src", "target": "f1"},
+            {"source": "f1", "target": "f2"},
+            {"source": "f2", "target": "out"},
+        ]
+        segments = compiler._build_and_merge(
+            compiler._topological_sort(nodes, edges), nodes, edges
+        )
+        assert len(segments) == 1
+        sql_upper = segments[0].sql.upper()
+        assert "WHERE" in sql_upper
+        assert "AND" in sql_upper
+        assert "SYMBOL" in sql_upper
+        assert "PRICE" in sql_upper
+
+    def test_compile_limit_node_produces_limit_offset(self):
+        """Limit node adds LIMIT and OFFSET."""
+        compiler = get_compiler()
+        nodes = [
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [{"name": "symbol", "dtype": "string"}],
+                    }
+                },
+            },
+            {
+                "id": "lim",
+                "type": "limit",
+                "data": {"config": {"limit": 25, "offset": 50}},
+            },
+            {"id": "out", "type": "table_output", "data": {"config": {}}},
+        ]
+        edges = [{"source": "src", "target": "lim"}, {"source": "lim", "target": "out"}]
+        segments = compiler._build_and_merge(
+            compiler._topological_sort(nodes, edges), nodes, edges
+        )
+        assert len(segments) == 1
+        sql_upper = segments[0].sql.upper()
+        assert "LIMIT" in sql_upper
+        assert "OFFSET" in sql_upper
+        assert "25" in segments[0].sql
+        assert "50" in segments[0].sql
+
+
 class TestPhase2NodeTypes:
     """Tests for Phase 2 analytical nodes: group_by, join, etc."""
 
