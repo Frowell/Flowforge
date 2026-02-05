@@ -175,6 +175,267 @@ class TestPivotTransform:
         assert result["p1"] == []
 
 
+class TestSortTransform:
+    def test_sort_passthrough_preserves_all_columns(self):
+        engine = SchemaEngine()
+        nodes = [
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {"columns": [c.model_dump() for c in SAMPLE_COLUMNS]}
+                },
+            },
+            {
+                "id": "srt",
+                "type": "sort",
+                "data": {
+                    "config": {
+                        "sort_by": [{"column": "price", "direction": "desc"}],
+                    }
+                },
+            },
+        ]
+        edges = [{"source": "src", "target": "srt"}]
+        result = engine.validate_dag(nodes, edges)
+        assert len(result["srt"]) == len(SAMPLE_COLUMNS)
+        assert [c.name for c in result["srt"]] == [c.name for c in SAMPLE_COLUMNS]
+
+
+class TestRenameTransform:
+    def test_rename_output_has_renamed_columns(self):
+        engine = SchemaEngine()
+        nodes = [
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {"columns": [c.model_dump() for c in SAMPLE_COLUMNS]}
+                },
+            },
+            {
+                "id": "ren",
+                "type": "rename",
+                "data": {
+                    "config": {
+                        "rename_map": {"price": "trade_price", "symbol": "ticker"},
+                    }
+                },
+            },
+        ]
+        edges = [{"source": "src", "target": "ren"}]
+        result = engine.validate_dag(nodes, edges)
+        assert len(result["ren"]) == len(SAMPLE_COLUMNS)
+        names = [c.name for c in result["ren"]]
+        assert "trade_price" in names
+        assert "ticker" in names
+        assert "price" not in names
+        assert "symbol" not in names
+
+    def test_rename_preserves_dtype(self):
+        engine = SchemaEngine()
+        nodes = [
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {"columns": [c.model_dump() for c in SAMPLE_COLUMNS]}
+                },
+            },
+            {
+                "id": "ren",
+                "type": "rename",
+                "data": {"config": {"rename_map": {"price": "trade_price"}}},
+            },
+        ]
+        edges = [{"source": "src", "target": "ren"}]
+        result = engine.validate_dag(nodes, edges)
+        renamed_col = next(c for c in result["ren"] if c.name == "trade_price")
+        assert renamed_col.dtype == "float64"
+
+
+class TestDataSourceTransform:
+    def test_data_source_outputs_config_columns(self):
+        engine = SchemaEngine()
+        columns = [
+            {"name": "id", "dtype": "int64", "nullable": False},
+            {"name": "name", "dtype": "string", "nullable": True},
+        ]
+        nodes = [
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {"config": {"columns": columns}},
+            },
+        ]
+        result = engine.validate_dag(nodes, [])
+        assert len(result["src"]) == 2
+        assert result["src"][0].name == "id"
+        assert result["src"][1].name == "name"
+
+    def test_data_source_empty_columns(self):
+        engine = SchemaEngine()
+        nodes = [
+            {"id": "src", "type": "data_source", "data": {"config": {"columns": []}}},
+        ]
+        result = engine.validate_dag(nodes, [])
+        assert result["src"] == []
+
+
+class TestFormulaTransform:
+    def test_formula_adds_computed_column(self):
+        engine = SchemaEngine()
+        nodes = [
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {"columns": [c.model_dump() for c in SAMPLE_COLUMNS]}
+                },
+            },
+            {
+                "id": "frm",
+                "type": "formula",
+                "data": {
+                    "config": {
+                        "output_column": "notional",
+                        "output_dtype": "float64",
+                    }
+                },
+            },
+        ]
+        edges = [{"source": "src", "target": "frm"}]
+        result = engine.validate_dag(nodes, edges)
+        assert len(result["frm"]) == len(SAMPLE_COLUMNS) + 1
+        assert result["frm"][-1].name == "notional"
+        assert result["frm"][-1].dtype == "float64"
+        assert result["frm"][-1].nullable is True
+
+
+class TestUniqueTransform:
+    def test_unique_passthrough_preserves_all_columns(self):
+        engine = SchemaEngine()
+        nodes = [
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {"columns": [c.model_dump() for c in SAMPLE_COLUMNS]}
+                },
+            },
+            {"id": "unq", "type": "unique", "data": {"config": {}}},
+        ]
+        edges = [{"source": "src", "target": "unq"}]
+        result = engine.validate_dag(nodes, edges)
+        assert len(result["unq"]) == len(SAMPLE_COLUMNS)
+
+
+class TestSampleTransform:
+    def test_sample_passthrough_preserves_all_columns(self):
+        engine = SchemaEngine()
+        nodes = [
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {"columns": [c.model_dump() for c in SAMPLE_COLUMNS]}
+                },
+            },
+            {"id": "smp", "type": "sample", "data": {"config": {"count": 10}}},
+        ]
+        edges = [{"source": "src", "target": "smp"}]
+        result = engine.validate_dag(nodes, edges)
+        assert len(result["smp"]) == len(SAMPLE_COLUMNS)
+
+
+class TestMultiNodeDAG:
+    def test_source_filter_select_sort_validates_correctly(self):
+        engine = SchemaEngine()
+        nodes = [
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {"columns": [c.model_dump() for c in SAMPLE_COLUMNS]}
+                },
+            },
+            {
+                "id": "flt",
+                "type": "filter",
+                "data": {
+                    "config": {"column": "symbol", "operator": "=", "value": "AAPL"}
+                },
+            },
+            {
+                "id": "sel",
+                "type": "select",
+                "data": {"config": {"columns": ["symbol", "price"]}},
+            },
+            {
+                "id": "srt",
+                "type": "sort",
+                "data": {
+                    "config": {
+                        "sort_by": [{"column": "price", "direction": "desc"}],
+                    }
+                },
+            },
+        ]
+        edges = [
+            {"source": "src", "target": "flt"},
+            {"source": "flt", "target": "sel"},
+            {"source": "sel", "target": "srt"},
+        ]
+        result = engine.validate_dag(nodes, edges)
+        # After select, only symbol and price remain
+        assert len(result["sel"]) == 2
+        # Sort is passthrough
+        assert len(result["srt"]) == 2
+        assert result["srt"][0].name == "symbol"
+        assert result["srt"][1].name == "price"
+
+
+class TestDisconnectedNodes:
+    def test_disconnected_nodes_handled_gracefully(self):
+        engine = SchemaEngine()
+        nodes = [
+            {
+                "id": "src1",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "columns": [{"name": "a", "dtype": "string", "nullable": False}]
+                    }
+                },
+            },
+            {
+                "id": "src2",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "columns": [{"name": "b", "dtype": "int64", "nullable": True}]
+                    }
+                },
+            },
+        ]
+        # No edges — both are independent
+        result = engine.validate_dag(nodes, [])
+        assert len(result["src1"]) == 1
+        assert len(result["src2"]) == 1
+        assert result["src1"][0].name == "a"
+        assert result["src2"][0].name == "b"
+
+
+class TestUnknownNodeType:
+    def test_unknown_node_type_raises_value_error(self):
+        engine = SchemaEngine()
+        nodes = [
+            {"id": "x", "type": "nonexistent_node", "data": {"config": {}}},
+        ]
+        with pytest.raises(ValueError, match="Unknown node type"):
+            engine.validate_dag(nodes, [])
+
+
 class TestCycleDetection:
     def test_cycle_raises_value_error(self):
         engine = SchemaEngine()

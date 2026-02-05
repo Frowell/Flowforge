@@ -4,6 +4,9 @@ from uuid import UUID
 
 from httpx import AsyncClient
 
+from app.api.deps import get_user_claims
+from app.main import app
+
 
 async def test_list_workflows_empty_returns_200(client: AsyncClient, mock_auth):
     response = await client.get("/api/v1/workflows")
@@ -111,3 +114,122 @@ async def test_get_workflow_other_tenant_returns_404(
     # Try to access as tenant A (mock_auth uses tenant_id_a)
     response = await client.get(f"/api/v1/workflows/{wf.id}")
     assert response.status_code == 404
+
+
+async def test_update_workflow_valid_returns_200(
+    client: AsyncClient,
+    mock_auth,
+    seed_user_a,
+    tenant_id: UUID,
+    user_id: UUID,
+):
+    """PATCH /workflows/{id} updates and returns the workflow."""
+
+    # Need analyst/admin claims for role-protected route
+    async def _claims():
+        return {
+            "sub": str(user_id),
+            "tenant_id": str(tenant_id),
+            "realm_access": {"roles": ["analyst"]},
+            "resource_access": {},
+        }
+
+    app.dependency_overrides[get_user_claims] = _claims
+
+    try:
+        # Create first
+        create_resp = await client.post(
+            "/api/v1/workflows",
+            json={"name": "Original Name", "description": "desc", "graph_json": {}},
+        )
+        assert create_resp.status_code == 201
+        wf_id = create_resp.json()["id"]
+
+        # Update
+        update_resp = await client.patch(
+            f"/api/v1/workflows/{wf_id}",
+            json={"name": "Updated Name"},
+        )
+        assert update_resp.status_code == 200
+        assert update_resp.json()["name"] == "Updated Name"
+    finally:
+        app.dependency_overrides.pop(get_user_claims, None)
+
+
+async def test_delete_workflow_returns_204(
+    client: AsyncClient,
+    mock_auth,
+    seed_user_a,
+    tenant_id: UUID,
+    user_id: UUID,
+):
+    """DELETE /workflows/{id} deletes and returns 204."""
+
+    async def _claims():
+        return {
+            "sub": str(user_id),
+            "tenant_id": str(tenant_id),
+            "realm_access": {"roles": ["analyst"]},
+            "resource_access": {},
+        }
+
+    app.dependency_overrides[get_user_claims] = _claims
+
+    try:
+        # Create first
+        create_resp = await client.post(
+            "/api/v1/workflows",
+            json={"name": "To Delete", "description": "", "graph_json": {}},
+        )
+        assert create_resp.status_code == 201
+        wf_id = create_resp.json()["id"]
+
+        # Delete
+        delete_resp = await client.delete(f"/api/v1/workflows/{wf_id}")
+        assert delete_resp.status_code == 204
+
+        # Verify gone
+        get_resp = await client.get(f"/api/v1/workflows/{wf_id}")
+        assert get_resp.status_code == 404
+    finally:
+        app.dependency_overrides.pop(get_user_claims, None)
+
+
+async def test_delete_workflow_other_tenant_returns_404(
+    client: AsyncClient,
+    db_session,
+    mock_auth,
+    seed_user_b,
+    tenant_id: UUID,
+    user_id: UUID,
+    tenant_id_b: UUID,
+    user_id_b: UUID,
+):
+    """DELETE /workflows/{id} for another tenant returns 404."""
+    from app.models.workflow import Workflow
+
+    async def _claims():
+        return {
+            "sub": str(user_id),
+            "tenant_id": str(tenant_id),
+            "realm_access": {"roles": ["admin"]},
+            "resource_access": {},
+        }
+
+    app.dependency_overrides[get_user_claims] = _claims
+
+    try:
+        wf = Workflow(
+            name="Other Tenant WF",
+            tenant_id=tenant_id_b,
+            created_by=user_id_b,
+            graph_json={},
+        )
+        db_session.add(wf)
+        await db_session.commit()
+        await db_session.refresh(wf)
+
+        delete_resp = await client.delete(f"/api/v1/workflows/{wf.id}")
+        assert delete_resp.status_code == 404
+    finally:
+        app.dependency_overrides.pop(get_user_claims, None)
