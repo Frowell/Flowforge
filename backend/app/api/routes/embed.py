@@ -18,7 +18,7 @@ from app.core.auth import validate_api_key
 from app.models.dashboard import Dashboard, Widget
 from app.models.workflow import Workflow
 from app.schemas.dashboard import WidgetDataResponse
-from app.services.rate_limiter import RateLimitExceeded, RateLimiter
+from app.services.rate_limiter import RateLimiter, RateLimitExceededError
 from app.services.widget_data_service import WidgetDataService
 
 router = APIRouter()
@@ -36,8 +36,9 @@ async def get_embed_widget_data(
 ):
     """Fetch widget data for embed mode.
 
-    Authenticates via API key (not session). The API key must be scoped
-    to include this widget_id and must belong to the same tenant as the widget's dashboard.
+    Authenticates via API key (not session). The API key must be
+    scoped to include this widget_id and must belong to the same
+    tenant as the widget's dashboard.
     """
     # 1. Validate API key
     scope = await validate_api_key(api_key, db)
@@ -45,7 +46,7 @@ async def get_embed_widget_data(
     # 2. Rate limit check
     try:
         await rate_limiter.check(scope["key_hash"], limit=scope["rate_limit"])
-    except RateLimitExceeded as exc:
+    except RateLimitExceededError as exc:
         return JSONResponse(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             content={"detail": "Rate limit exceeded"},

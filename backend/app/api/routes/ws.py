@@ -8,7 +8,6 @@ import json
 import logging
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from jose import JWTError
 
 from app.core.auth import _decode_token
 from app.core.config import settings
@@ -43,6 +42,7 @@ async def websocket_endpoint(websocket: WebSocket):
     token = websocket.query_params.get("token")
 
     # Dev-mode bypass
+    tenant_id: str | None
     if settings.app_env == "development" and not token:
         tenant_id = settings.dev_tenant_id
     elif not token:
@@ -77,12 +77,16 @@ async def websocket_endpoint(websocket: WebSocket):
                 # Always prepend tenant prefix to prevent cross-tenant leakage
                 full_channel = f"{CHANNEL_PREFIX}:{tenant_id}:{channel_suffix}"
                 await ws_manager.subscribe_to_channel(websocket, full_channel)
-                await websocket.send_json({"type": "subscribed", "channel": channel_suffix})
+                await websocket.send_json(
+                    {"type": "subscribed", "channel": channel_suffix}
+                )
 
             elif action == "unsubscribe" and channel_suffix:
                 full_channel = f"{CHANNEL_PREFIX}:{tenant_id}:{channel_suffix}"
                 await ws_manager.unsubscribe_from_channel(websocket, full_channel)
-                await websocket.send_json({"type": "unsubscribed", "channel": channel_suffix})
+                await websocket.send_json(
+                    {"type": "unsubscribed", "channel": channel_suffix}
+                )
 
             else:
                 await websocket.send_json({"type": "error", "detail": "Unknown action"})

@@ -28,7 +28,7 @@ export default function FilterPanel({ nodeId }: Props) {
   const selectedColumn = config.column as string | undefined;
   const selectedColumnSchema = inputSchema.find((c) => c.name === selectedColumn);
   const operators = selectedColumnSchema
-    ? OPERATORS_BY_TYPE[selectedColumnSchema.dtype] ?? ["=", "!="]
+    ? (OPERATORS_BY_TYPE[selectedColumnSchema.dtype] ?? ["=", "!="])
     : [];
 
   return (
@@ -37,7 +37,9 @@ export default function FilterPanel({ nodeId }: Props) {
         <label className="text-xs text-white/50 block mb-1">Column</label>
         <select
           value={selectedColumn ?? ""}
-          onChange={(e) => updateNodeConfig(nodeId, { column: e.target.value, operator: "=", value: "" })}
+          onChange={(e) =>
+            updateNodeConfig(nodeId, { column: e.target.value, operator: "=", value: "" })
+          }
           className="w-full bg-canvas-bg border border-white/10 rounded px-2 py-1.5 text-sm text-white"
         >
           <option value="">Select column...</option>
@@ -58,7 +60,9 @@ export default function FilterPanel({ nodeId }: Props) {
             className="w-full bg-canvas-bg border border-white/10 rounded px-2 py-1.5 text-sm text-white"
           >
             {operators.map((op) => (
-              <option key={op} value={op}>{op}</option>
+              <option key={op} value={op}>
+                {op}
+              </option>
             ))}
           </select>
         </div>

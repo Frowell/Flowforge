@@ -76,9 +76,7 @@ export function useKeyboardShortcuts({
       if (isMod && e.key === "a") {
         e.preventDefault();
         const { nodes, onNodesChange } = useWorkflowStore.getState();
-        onNodesChange(
-          nodes.map((n) => ({ type: "select" as const, id: n.id, selected: true })),
-        );
+        onNodesChange(nodes.map((n) => ({ type: "select" as const, id: n.id, selected: true })));
         return;
       }
 
@@ -86,9 +84,7 @@ export function useKeyboardShortcuts({
       if (e.key === "Escape") {
         e.preventDefault();
         const { nodes, onNodesChange } = useWorkflowStore.getState();
-        onNodesChange(
-          nodes.map((n) => ({ type: "select" as const, id: n.id, selected: false })),
-        );
+        onNodesChange(nodes.map((n) => ({ type: "select" as const, id: n.id, selected: false })));
         useWorkflowStore.getState().selectNode(null);
         return;
       }

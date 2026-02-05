@@ -6,7 +6,7 @@ Run: pytest backend/tests/api/test_embed_auth.py -v --noconftest
 import hashlib
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
@@ -17,10 +17,12 @@ from fastapi import HTTPException
 
 from app.core.auth import validate_api_key
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────
 
-def _make_api_key_record(tenant_id=None, user_id=None, scoped_widget_ids=None, rate_limit=None):
+
+def _make_api_key_record(
+    tenant_id=None, user_id=None, scoped_widget_ids=None, rate_limit=None
+):
     """Create a mock APIKey model instance."""
     record = MagicMock()
     record.tenant_id = tenant_id or uuid4()
@@ -31,6 +33,7 @@ def _make_api_key_record(tenant_id=None, user_id=None, scoped_widget_ids=None, r
 
 
 # ── Tests ─────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_invalid_api_key_format_raises_401():

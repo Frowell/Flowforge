@@ -26,15 +26,17 @@ export default function GroupByPanel({ nodeId }: Props) {
 
   // Normalize aggregations from config
   const rawAggregations = config.aggregations as Aggregation[] | undefined;
-  const aggregations: Aggregation[] = rawAggregations ?? (
-    config.agg_column
-      ? [{
-          column: config.agg_column as string,
-          function: (config.agg_function as string) ?? "SUM",
-          alias: `${((config.agg_function as string) ?? "sum").toLowerCase()}_${config.agg_column as string}`,
-        }]
-      : [{ column: "", function: "SUM", alias: "" }]
-  );
+  const aggregations: Aggregation[] =
+    rawAggregations ??
+    (config.agg_column
+      ? [
+          {
+            column: config.agg_column as string,
+            function: (config.agg_function as string) ?? "SUM",
+            alias: `${((config.agg_function as string) ?? "sum").toLowerCase()}_${config.agg_column as string}`,
+          },
+        ]
+      : [{ column: "", function: "SUM", alias: "" }]);
 
   const nonGroupColumns = inputSchema.filter((c) => !groupColumns.includes(c.name));
 
@@ -108,7 +110,9 @@ export default function GroupByPanel({ nodeId }: Props) {
                 >
                   <option value="">Column...</option>
                   {nonGroupColumns.map((col) => (
-                    <option key={col.name} value={col.name}>{col.name}</option>
+                    <option key={col.name} value={col.name}>
+                      {col.name}
+                    </option>
                   ))}
                 </select>
                 <select
@@ -117,7 +121,9 @@ export default function GroupByPanel({ nodeId }: Props) {
                   className="w-20 bg-canvas-bg border border-white/10 rounded px-2 py-1 text-sm text-white"
                 >
                   {AGG_FUNCTIONS.map((fn) => (
-                    <option key={fn} value={fn}>{fn}</option>
+                    <option key={fn} value={fn}>
+                      {fn}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -141,10 +147,7 @@ export default function GroupByPanel({ nodeId }: Props) {
             </div>
           ))}
         </div>
-        <button
-          onClick={addAgg}
-          className="mt-2 text-xs text-blue-400 hover:text-blue-300"
-        >
+        <button onClick={addAgg} className="mt-2 text-xs text-blue-400 hover:text-blue-300">
           + Add Aggregation
         </button>
       </div>

@@ -5,10 +5,7 @@ Run with: pytest backend/tests/services/test_workflow_versioning.py -v --noconft
 
 import uuid
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
-
+from unittest.mock import MagicMock
 
 # ---------------------------------------------------------------------------
 # Model structure tests
@@ -28,7 +25,14 @@ class TestWorkflowVersionModel:
 
         mapper = WorkflowVersion.__mapper__
         column_names = {c.key for c in mapper.column_attrs}
-        expected = {"id", "workflow_id", "version_number", "graph_json", "created_by", "created_at"}
+        expected = {
+            "id",
+            "workflow_id",
+            "version_number",
+            "graph_json",
+            "created_by",
+            "created_at",
+        }
         assert expected.issubset(column_names)
 
     def test_model_has_no_tenant_mixin(self):
@@ -98,7 +102,10 @@ class TestVersionSnapshotLogic:
         from app.models.workflow import WorkflowVersion
 
         old_graph = {"nodes": [{"id": "1"}], "edges": []}
-        new_graph = {"nodes": [{"id": "1"}, {"id": "2"}], "edges": [{"source": "1", "target": "2"}]}
+        new_graph = {
+            "nodes": [{"id": "1"}, {"id": "2"}],
+            "edges": [{"source": "1", "target": "2"}],
+        }
 
         workflow_id = uuid.uuid4()
         user_id = uuid.uuid4()
@@ -138,7 +145,6 @@ class TestRollbackLogic:
         from app.models.workflow import WorkflowVersion
 
         current_graph = {"nodes": [{"id": "A"}], "edges": []}
-        target_graph = {"nodes": [], "edges": []}
         workflow_id = uuid.uuid4()
         user_id = uuid.uuid4()
 
@@ -155,7 +161,10 @@ class TestRollbackLogic:
 
     def test_rollback_applies_target_graph(self):
         """After rollback, workflow.graph_json should match the target version."""
-        target_graph = {"nodes": [{"id": "X"}], "edges": [{"source": "X", "target": "Y"}]}
+        target_graph = {
+            "nodes": [{"id": "X"}],
+            "edges": [{"source": "X", "target": "Y"}],
+        }
 
         # Simulate applying rollback
         workflow_graph_json = {"nodes": [{"id": "A"}], "edges": []}
@@ -226,7 +235,10 @@ class TestVersionSchemas:
         assert resp.graph_json == {"nodes": [], "edges": []}
 
     def test_version_list_response(self):
-        from app.schemas.workflow import WorkflowVersionListResponse, WorkflowVersionResponse
+        from app.schemas.workflow import (
+            WorkflowVersionListResponse,
+            WorkflowVersionResponse,
+        )
 
         version_id = uuid.uuid4()
         workflow_id = uuid.uuid4()

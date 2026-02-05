@@ -236,9 +236,7 @@ export function propagateSchemas(
     const transform = transforms[node.type];
     if (!transform) throw new Error(`Unknown node type: ${node.type}`);
 
-    const inputSchemas = (inbound.get(nodeId) ?? []).map(
-      (srcId) => outputSchemas.get(srcId) ?? [],
-    );
+    const inputSchemas = (inbound.get(nodeId) ?? []).map((srcId) => outputSchemas.get(srcId) ?? []);
 
     outputSchemas.set(nodeId, transform(node.data.config, inputSchemas));
 

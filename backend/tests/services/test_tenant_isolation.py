@@ -1,19 +1,17 @@
 """Multi-tenancy tests — verify tenant isolation across models and auth."""
 
 import uuid
-
-import pytest
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from fastapi import HTTPException
 from starlette.requests import Request
 
 from app.core.auth import get_current_tenant_id, get_current_user_id
 from app.core.database import TenantMixin
+from app.models.dashboard import APIKey, Dashboard, DashboardFilter, Widget
 from app.models.user import User
 from app.models.workflow import Workflow
-from app.models.dashboard import Dashboard, APIKey, Widget, DashboardFilter
-
 
 # ── TenantMixin Tests ────────────────────────────────────────────────────
 
@@ -63,8 +61,7 @@ def _make_request(headers: dict | None = None) -> Request:
         "method": "GET",
         "path": "/",
         "headers": [
-            (k.lower().encode(), v.encode())
-            for k, v in (headers or {}).items()
+            (k.lower().encode(), v.encode()) for k, v in (headers or {}).items()
         ],
     }
     return Request(scope)
@@ -94,7 +91,9 @@ class TestGetCurrentTenantId:
     @pytest.mark.asyncio
     async def test_missing_tenant_id_claim_returns_403(self):
         """A valid token without tenant_id claim should be rejected."""
-        with patch("app.core.auth._decode_token", new_callable=AsyncMock) as mock_decode:
+        with patch(
+            "app.core.auth._decode_token", new_callable=AsyncMock
+        ) as mock_decode:
             mock_decode.return_value = {"sub": str(uuid.uuid4()), "email": "a@b.com"}
             request = _make_request({"Authorization": "Bearer valid-token"})
             with pytest.raises(HTTPException) as exc_info:
@@ -105,7 +104,9 @@ class TestGetCurrentTenantId:
     @pytest.mark.asyncio
     async def test_valid_tenant_id_claim_returns_uuid(self):
         tenant_uuid = uuid.uuid4()
-        with patch("app.core.auth._decode_token", new_callable=AsyncMock) as mock_decode:
+        with patch(
+            "app.core.auth._decode_token", new_callable=AsyncMock
+        ) as mock_decode:
             mock_decode.return_value = {
                 "sub": str(uuid.uuid4()),
                 "tenant_id": str(tenant_uuid),
@@ -129,7 +130,9 @@ class TestGetCurrentUserId:
 
     @pytest.mark.asyncio
     async def test_missing_sub_claim_returns_401(self):
-        with patch("app.core.auth._decode_token", new_callable=AsyncMock) as mock_decode:
+        with patch(
+            "app.core.auth._decode_token", new_callable=AsyncMock
+        ) as mock_decode:
             mock_decode.return_value = {"email": "a@b.com"}
             request = _make_request({"Authorization": "Bearer valid-token"})
             with pytest.raises(HTTPException) as exc_info:
@@ -139,7 +142,9 @@ class TestGetCurrentUserId:
     @pytest.mark.asyncio
     async def test_valid_sub_claim_returns_uuid(self):
         user_uuid = uuid.uuid4()
-        with patch("app.core.auth._decode_token", new_callable=AsyncMock) as mock_decode:
+        with patch(
+            "app.core.auth._decode_token", new_callable=AsyncMock
+        ) as mock_decode:
             mock_decode.return_value = {"sub": str(user_uuid)}
             request = _make_request({"Authorization": "Bearer valid-token"})
             result = await get_current_user_id(request)
@@ -153,12 +158,15 @@ class TestPreviewCacheKeyIsolation:
     """Verify preview cache keys include tenant_id."""
 
     def test_different_tenants_produce_different_cache_keys(self):
-        from app.services.preview_service import PreviewService
         from unittest.mock import MagicMock
+
+        from app.services.preview_service import PreviewService
 
         compiler = MagicMock()
         compiler._find_ancestors.return_value = set()
-        service = PreviewService(compiler=compiler, query_router=MagicMock(), redis=MagicMock())
+        service = PreviewService(
+            compiler=compiler, query_router=MagicMock(), redis=MagicMock()
+        )
 
         tenant_a = uuid.uuid4()
         tenant_b = uuid.uuid4()
@@ -171,12 +179,15 @@ class TestPreviewCacheKeyIsolation:
         assert key_a != key_b
 
     def test_same_tenant_same_config_produces_same_cache_key(self):
-        from app.services.preview_service import PreviewService
         from unittest.mock import MagicMock
+
+        from app.services.preview_service import PreviewService
 
         compiler = MagicMock()
         compiler._find_ancestors.return_value = set()
-        service = PreviewService(compiler=compiler, query_router=MagicMock(), redis=MagicMock())
+        service = PreviewService(
+            compiler=compiler, query_router=MagicMock(), redis=MagicMock()
+        )
 
         tenant = uuid.uuid4()
         nodes = [{"id": "n1", "type": "data_source", "data": {"config": {}}}]

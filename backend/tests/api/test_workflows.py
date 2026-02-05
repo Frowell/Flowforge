@@ -13,7 +13,9 @@ async def test_list_workflows_empty_returns_200(client: AsyncClient, mock_auth):
     assert data["total"] == 0
 
 
-async def test_create_workflow_valid_returns_201(client: AsyncClient, mock_auth, seed_user_a):
+async def test_create_workflow_valid_returns_201(
+    client: AsyncClient, mock_auth, seed_user_a
+):
     response = await client.post(
         "/api/v1/workflows",
         json={"name": "Test Workflow", "description": "A test", "graph_json": {}},
@@ -25,7 +27,9 @@ async def test_create_workflow_valid_returns_201(client: AsyncClient, mock_auth,
 
 
 async def test_get_workflow_not_found_returns_404(client: AsyncClient, mock_auth):
-    response = await client.get("/api/v1/workflows/00000000-0000-0000-0000-000000000001")
+    response = await client.get(
+        "/api/v1/workflows/00000000-0000-0000-0000-000000000001"
+    )
     assert response.status_code == 404
 
 
@@ -43,8 +47,15 @@ async def test_create_workflow_sets_tenant_from_auth(
 
 
 async def test_list_workflows_returns_only_own_tenant(
-    client: AsyncClient, db_session, mock_auth, seed_user_a, seed_user_b,
-    tenant_id: UUID, user_id: UUID, tenant_id_b: UUID, user_id_b: UUID,
+    client: AsyncClient,
+    db_session,
+    mock_auth,
+    seed_user_a,
+    seed_user_b,
+    tenant_id: UUID,
+    user_id: UUID,
+    tenant_id_b: UUID,
+    user_id_b: UUID,
 ):
     """List workflows returns only the current tenant's workflows."""
     from app.models.workflow import Workflow
@@ -76,8 +87,12 @@ async def test_list_workflows_returns_only_own_tenant(
 
 
 async def test_get_workflow_other_tenant_returns_404(
-    client: AsyncClient, db_session, mock_auth, seed_user_b,
-    tenant_id_b: UUID, user_id_b: UUID,
+    client: AsyncClient,
+    db_session,
+    mock_auth,
+    seed_user_b,
+    tenant_id_b: UUID,
+    user_id_b: UUID,
 ):
     """Accessing a workflow belonging to another tenant returns 404 (not 403)."""
     from app.models.workflow import Workflow

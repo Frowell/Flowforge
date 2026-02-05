@@ -48,11 +48,13 @@ async def readiness(
     except Exception as exc:
         checks["postgresql"] = {"status": "error", "detail": str(exc)}
         healthy = False
-        logger.warning("readiness_check_failed", dependency="postgresql", error=str(exc))
+        logger.warning(
+            "readiness_check_failed", dependency="postgresql", error=str(exc)
+        )
 
     # Redis
     try:
-        await redis.ping()
+        await redis.ping()  # type: ignore[misc]
         checks["redis"] = {"status": "ok"}
     except Exception as exc:
         checks["redis"] = {"status": "error", "detail": str(exc)}

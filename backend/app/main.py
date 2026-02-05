@@ -1,19 +1,32 @@
 """FlowForge FastAPI application entry point."""
 
 import asyncio
+import contextlib
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.routes import (
+    api_keys,
+    audit,
+    dashboards,
+    embed,
+    executions,
+    health,
+    metrics,
+    schema,
+    templates,
+    widgets,
+    workflows,
+    ws,
+)
 from app.core.config import settings
 from app.core.logging_config import configure_logging
 from app.core.metrics import app_info
 from app.core.middleware import ObservabilityMiddleware
 from app.core.redis import get_redis
 from app.services.websocket_manager import WebSocketManager
-from app.api.routes import health, workflows, executions, dashboards, widgets, embed, schema, ws, metrics, api_keys, templates, audit
-
 
 configure_logging()
 
@@ -33,10 +46,8 @@ async def lifespan(app: FastAPI):
 
     # Shutdown: cancel subscriber and close connections
     subscriber_task.cancel()
-    try:
+    with contextlib.suppress(asyncio.CancelledError):
         await subscriber_task
-    except asyncio.CancelledError:
-        pass
 
 
 app = FastAPI(

@@ -8,7 +8,9 @@ export default function FormulaNode({ data, selected }: NodeProps) {
 
   return (
     <BaseNode label={nodeData.label || "Formula"} color="bg-amber-400" selected={selected}>
-      {expression ? expression.slice(0, 30) + (expression.length > 30 ? "..." : "") : "No expression"}
+      {expression
+        ? expression.slice(0, 30) + (expression.length > 30 ? "..." : "")
+        : "No expression"}
     </BaseNode>
   );
 }

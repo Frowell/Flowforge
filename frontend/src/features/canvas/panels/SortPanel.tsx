@@ -33,9 +33,7 @@ export default function SortPanel({ nodeId }: Props) {
   );
 
   const addRule = useCallback(() => {
-    const firstAvailable = inputSchema.find(
-      (col) => !sortBy.some((r) => r.column === col.name),
-    );
+    const firstAvailable = inputSchema.find((col) => !sortBy.some((r) => r.column === col.name));
     if (firstAvailable) {
       updateRules([...sortBy, { column: firstAvailable.name, direction: "asc" }]);
     }

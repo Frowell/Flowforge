@@ -55,9 +55,7 @@ export default function WorkflowPicker() {
               className="bg-canvas-node border border-canvas-border rounded-lg p-4 text-left hover:border-canvas-accent group relative cursor-pointer"
             >
               <div className="text-sm font-medium text-white">{w.name}</div>
-              <div className="text-xs text-white/40 mt-1">
-                {w.description ?? "No description"}
-              </div>
+              <div className="text-xs text-white/40 mt-1">{w.description ?? "No description"}</div>
               <div className="text-xs text-white/30 mt-2">
                 Updated {new Date(w.updated_at).toLocaleDateString()}
               </div>

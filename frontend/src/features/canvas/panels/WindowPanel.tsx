@@ -37,13 +37,20 @@ export default function WindowPanel({ nodeId }: Props) {
   const orderDir = (config.order_direction as string) ?? "ASC";
   const outputColumn = (config.output_column as string) ?? "window_result";
 
-  const needsSourceColumn = ["LAG", "LEAD", "SUM", "AVG", "MIN", "MAX", "FIRST_VALUE", "LAST_VALUE"].includes(func);
+  const needsSourceColumn = [
+    "LAG",
+    "LEAD",
+    "SUM",
+    "AVG",
+    "MIN",
+    "MAX",
+    "FIRST_VALUE",
+    "LAST_VALUE",
+  ].includes(func);
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-white/50">
-        Apply a window function across partitions of data.
-      </p>
+      <p className="text-xs text-white/50">Apply a window function across partitions of data.</p>
 
       <div>
         <label className="text-xs text-white/50 block mb-1">Function</label>

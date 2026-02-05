@@ -63,7 +63,9 @@ export default function PinToDialog({ workflowId, nodeId, onClose, onPin }: PinT
             >
               <option value="">Select a dashboard...</option>
               {data?.items.map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
               ))}
             </select>
           </div>
@@ -71,7 +73,9 @@ export default function PinToDialog({ workflowId, nodeId, onClose, onPin }: PinT
 
         {createWidget.error && (
           <div className="text-red-400 text-xs mb-3">
-            {createWidget.error instanceof Error ? createWidget.error.message : "Failed to pin widget"}
+            {createWidget.error instanceof Error
+              ? createWidget.error.message
+              : "Failed to pin widget"}
           </div>
         )}
 

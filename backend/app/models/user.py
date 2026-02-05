@@ -1,14 +1,21 @@
 """User model."""
 
+from __future__ import annotations
+
 import enum
+from typing import TYPE_CHECKING
 
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base, TenantMixin, TimestampMixin, UUIDPrimaryKeyMixin
 
+if TYPE_CHECKING:
+    from app.models.dashboard import APIKey, Dashboard
+    from app.models.workflow import Workflow
 
-class UserRole(str, enum.Enum):
+
+class UserRole(enum.StrEnum):
     ADMIN = "admin"
     ANALYST = "analyst"
     VIEWER = "viewer"
@@ -24,6 +31,8 @@ class User(Base, UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin):
     is_active: Mapped[bool] = mapped_column(default=True)
 
     # Relationships
-    workflows: Mapped[list["Workflow"]] = relationship(back_populates="created_by_user")  # noqa: F821
-    dashboards: Mapped[list["Dashboard"]] = relationship(back_populates="created_by_user")  # noqa: F821
-    api_keys: Mapped[list["APIKey"]] = relationship(back_populates="user")  # noqa: F821
+    workflows: Mapped[list[Workflow]] = relationship(back_populates="created_by_user")  # noqa: F821
+    dashboards: Mapped[list[Dashboard]] = relationship(  # noqa: F821
+        back_populates="created_by_user"
+    )
+    api_keys: Mapped[list[APIKey]] = relationship(back_populates="user")  # noqa: F821

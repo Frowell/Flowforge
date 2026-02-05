@@ -8,14 +8,14 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, Index, String, func
+from sqlalchemy import DateTime, Enum, Index, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base, TenantMixin, UUIDPrimaryKeyMixin
 
 
-class AuditAction(str, enum.Enum):
+class AuditAction(enum.StrEnum):
     CREATED = "created"
     UPDATED = "updated"
     DELETED = "deleted"
@@ -23,7 +23,7 @@ class AuditAction(str, enum.Enum):
     REVOKED = "revoked"
 
 
-class AuditResourceType(str, enum.Enum):
+class AuditResourceType(enum.StrEnum):
     WORKFLOW = "workflow"
     DASHBOARD = "dashboard"
     WIDGET = "widget"
@@ -32,9 +32,7 @@ class AuditResourceType(str, enum.Enum):
 
 class AuditLog(Base, UUIDPrimaryKeyMixin, TenantMixin):
     __tablename__ = "audit_logs"
-    __table_args__ = (
-        Index("ix_audit_logs_tenant_created", "tenant_id", "created_at"),
-    )
+    __table_args__ = (Index("ix_audit_logs_tenant_created", "tenant_id", "created_at"),)
 
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     action: Mapped[AuditAction] = mapped_column(

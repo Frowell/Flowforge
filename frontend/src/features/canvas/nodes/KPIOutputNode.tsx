@@ -15,7 +15,12 @@ export default function KPIOutputNode({ data, selected }: NodeProps) {
   }
 
   return (
-    <BaseNode label={nodeData.label || "KPI"} color="bg-green-400" selected={selected} outputPort={false}>
+    <BaseNode
+      label={nodeData.label || "KPI"}
+      color="bg-green-400"
+      selected={selected}
+      outputPorts={0}
+    >
       {display}
     </BaseNode>
   );

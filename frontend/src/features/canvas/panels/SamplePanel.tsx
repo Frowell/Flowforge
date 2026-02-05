@@ -16,9 +16,7 @@ export default function SamplePanel({ nodeId }: Props) {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-white/50">
-        Limits the output to a fixed number of rows.
-      </p>
+      <p className="text-xs text-white/50">Limits the output to a fixed number of rows.</p>
 
       <div>
         <label className="text-xs text-white/50 block mb-1">Row Count</label>

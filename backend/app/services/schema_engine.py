@@ -36,14 +36,18 @@ def register_transform(node_type: str) -> Callable:
 
 
 @register_transform("data_source")
-def data_source_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[ColumnSchema]:
+def data_source_transform(
+    config: dict, inputs: list[list[ColumnSchema]]
+) -> list[ColumnSchema]:
     """Output schema comes from the schema catalog, not from inputs."""
     columns = config.get("columns", [])
     return [ColumnSchema(**col) if isinstance(col, dict) else col for col in columns]
 
 
 @register_transform("filter")
-def filter_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[ColumnSchema]:
+def filter_transform(
+    config: dict, inputs: list[list[ColumnSchema]]
+) -> list[ColumnSchema]:
     """Passthrough — same columns, fewer rows."""
     if not inputs:
         return []
@@ -51,7 +55,9 @@ def filter_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[Col
 
 
 @register_transform("select")
-def select_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[ColumnSchema]:
+def select_transform(
+    config: dict, inputs: list[list[ColumnSchema]]
+) -> list[ColumnSchema]:
     """Subset of input columns in the specified order."""
     if not inputs:
         return []
@@ -61,7 +67,9 @@ def select_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[Col
 
 
 @register_transform("rename")
-def rename_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[ColumnSchema]:
+def rename_transform(
+    config: dict, inputs: list[list[ColumnSchema]]
+) -> list[ColumnSchema]:
     """Input columns with name substitutions."""
     if not inputs:
         return []
@@ -77,7 +85,9 @@ def rename_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[Col
 
 
 @register_transform("sort")
-def sort_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[ColumnSchema]:
+def sort_transform(
+    config: dict, inputs: list[list[ColumnSchema]]
+) -> list[ColumnSchema]:
     """Passthrough — same columns, reordered rows."""
     if not inputs:
         return []
@@ -85,7 +95,9 @@ def sort_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[Colum
 
 
 @register_transform("join")
-def join_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[ColumnSchema]:
+def join_transform(
+    config: dict, inputs: list[list[ColumnSchema]]
+) -> list[ColumnSchema]:
     """Merged schemas from both inputs."""
     if len(inputs) < 2:
         return inputs[0] if inputs else []
@@ -100,7 +112,9 @@ def join_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[Colum
 
 
 @register_transform("group_by")
-def group_by_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[ColumnSchema]:
+def group_by_transform(
+    config: dict, inputs: list[list[ColumnSchema]]
+) -> list[ColumnSchema]:
     """Group keys + aggregate output columns."""
     if not inputs:
         return []
@@ -117,7 +131,9 @@ def group_by_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[C
     for agg in aggregations:
         output.append(
             ColumnSchema(
-                name=agg.get("alias", f"{agg.get('function', 'agg')}_{agg.get('column', '')}"),
+                name=agg.get(
+                    "alias", f"{agg.get('function', 'agg')}_{agg.get('column', '')}"
+                ),
                 dtype=agg.get("output_dtype", "float64"),
                 nullable=True,
             )
@@ -127,7 +143,9 @@ def group_by_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[C
 
 
 @register_transform("pivot")
-def pivot_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[ColumnSchema]:
+def pivot_transform(
+    config: dict, inputs: list[list[ColumnSchema]]
+) -> list[ColumnSchema]:
     """Row dimension columns + pivoted value column."""
     if not inputs:
         return []
@@ -156,7 +174,9 @@ def pivot_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[Colu
 
 
 @register_transform("formula")
-def formula_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[ColumnSchema]:
+def formula_transform(
+    config: dict, inputs: list[list[ColumnSchema]]
+) -> list[ColumnSchema]:
     """Input columns + new calculated column."""
     if not inputs:
         return []
@@ -168,7 +188,9 @@ def formula_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[Co
 
 
 @register_transform("unique")
-def unique_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[ColumnSchema]:
+def unique_transform(
+    config: dict, inputs: list[list[ColumnSchema]]
+) -> list[ColumnSchema]:
     """Passthrough — deduplicated rows."""
     if not inputs:
         return []
@@ -176,7 +198,9 @@ def unique_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[Col
 
 
 @register_transform("sample")
-def sample_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[ColumnSchema]:
+def sample_transform(
+    config: dict, inputs: list[list[ColumnSchema]]
+) -> list[ColumnSchema]:
     """Passthrough — fewer rows."""
     if not inputs:
         return []
@@ -184,7 +208,9 @@ def sample_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[Col
 
 
 @register_transform("limit")
-def limit_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[ColumnSchema]:
+def limit_transform(
+    config: dict, inputs: list[list[ColumnSchema]]
+) -> list[ColumnSchema]:
     """Passthrough — limited rows."""
     if not inputs:
         return []
@@ -192,7 +218,9 @@ def limit_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[Colu
 
 
 @register_transform("window")
-def window_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[ColumnSchema]:
+def window_transform(
+    config: dict, inputs: list[list[ColumnSchema]]
+) -> list[ColumnSchema]:
     """Input columns + new window function column."""
     if not inputs:
         return []
@@ -217,7 +245,9 @@ def window_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[Col
 
 
 @register_transform("union")
-def union_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[ColumnSchema]:
+def union_transform(
+    config: dict, inputs: list[list[ColumnSchema]]
+) -> list[ColumnSchema]:
     """Columns from first input (both inputs must have compatible schemas)."""
     if not inputs:
         return []
@@ -225,19 +255,25 @@ def union_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[Colu
 
 
 @register_transform("chart_output")
-def chart_output_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[ColumnSchema]:
+def chart_output_transform(
+    config: dict, inputs: list[list[ColumnSchema]]
+) -> list[ColumnSchema]:
     """Terminal — no output schema."""
     return []
 
 
 @register_transform("table_output")
-def table_output_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[ColumnSchema]:
+def table_output_transform(
+    config: dict, inputs: list[list[ColumnSchema]]
+) -> list[ColumnSchema]:
     """Terminal — no output schema."""
     return []
 
 
 @register_transform("kpi_output")
-def kpi_output_transform(config: dict, inputs: list[list[ColumnSchema]]) -> list[ColumnSchema]:
+def kpi_output_transform(
+    config: dict, inputs: list[list[ColumnSchema]]
+) -> list[ColumnSchema]:
     """Terminal — no output schema."""
     return []
 
@@ -285,8 +321,7 @@ class SchemaEngine:
 
             # Gather input schemas from upstream nodes
             input_schemas = [
-                output_schemas.get(src_id, [])
-                for src_id in inbound.get(node_id, [])
+                output_schemas.get(src_id, []) for src_id in inbound.get(node_id, [])
             ]
 
             transform = _transforms.get(node_type)

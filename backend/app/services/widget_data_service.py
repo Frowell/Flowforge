@@ -64,6 +64,7 @@ class WidgetDataService:
 
         # Deep-copy nodes so we don't mutate the original, then apply overrides
         import copy
+
         nodes = copy.deepcopy(nodes)
 
         # Extract chart_config from the target node before overrides
@@ -72,11 +73,8 @@ class WidgetDataService:
         for node in nodes:
             if node["id"] == source_node_id:
                 node_type = node.get("type", "")
-                chart_config = node.get("data", {}).get("config")
-                if chart_config is not None:
-                    chart_config = dict(chart_config)
-                else:
-                    chart_config = {}
+                raw_config = node.get("data", {}).get("config")
+                chart_config = dict(raw_config) if raw_config is not None else {}
                 break
 
         # Set default chart_type based on node type if not specified
@@ -99,8 +97,14 @@ class WidgetDataService:
                     break
 
         cache_key = self._compute_cache_key(
-            tenant_id, source_node_id, nodes, edges,
-            config_overrides, filter_params, offset, limit,
+            tenant_id,
+            source_node_id,
+            nodes,
+            edges,
+            config_overrides,
+            filter_params,
+            offset,
+            limit,
         )
 
         # Cache check
@@ -128,8 +132,7 @@ class WidgetDataService:
         # Apply offset/limit to the final segment
         final = segments[-1]
         constrained_sql = (
-            f"SELECT * FROM ({final.sql}) AS widget_q "
-            f"LIMIT {limit} OFFSET {offset}"
+            f"SELECT * FROM ({final.sql}) AS widget_q LIMIT {limit} OFFSET {offset}"
         )
         constrained_segments = segments[:-1] + [
             CompiledSegment(
@@ -147,9 +150,7 @@ class WidgetDataService:
         elapsed_ms = (time.monotonic() - start) * 1000
 
         last_result = results[-1]
-        columns = [
-            {"name": col, "dtype": "String"} for col in last_result.columns
-        ]
+        columns = [{"name": col, "dtype": "String"} for col in last_result.columns]
         response = {
             "columns": columns,
             "rows": last_result.rows[:limit],
@@ -226,19 +227,29 @@ class WidgetDataService:
         try:
             raw = await self._redis.get(key)
             if raw is not None:
-                cache_operations_total.labels(cache_type="widget", operation="get", status="hit").inc()
+                cache_operations_total.labels(
+                    cache_type="widget", operation="get", status="hit"
+                ).inc()
                 return json.loads(raw)
-            cache_operations_total.labels(cache_type="widget", operation="get", status="miss").inc()
+            cache_operations_total.labels(
+                cache_type="widget", operation="get", status="miss"
+            ).inc()
         except Exception:
-            cache_operations_total.labels(cache_type="widget", operation="get", status="error").inc()
+            cache_operations_total.labels(
+                cache_type="widget", operation="get", status="error"
+            ).inc()
             logger.warning("Widget cache read failed for key %s", key, exc_info=True)
         return None
 
     async def _cache_set(self, key: str, value: dict, ttl: int) -> None:
-        """Write to Redis cache with TTL. Errors are logged, never raised (fail-open)."""
+        """Write to Redis cache with TTL. Errors logged, not raised."""
         try:
             await self._redis.set(key, json.dumps(value), ex=ttl)
-            cache_operations_total.labels(cache_type="widget", operation="set", status="hit").inc()
+            cache_operations_total.labels(
+                cache_type="widget", operation="set", status="hit"
+            ).inc()
         except Exception:
-            cache_operations_total.labels(cache_type="widget", operation="set", status="error").inc()
+            cache_operations_total.labels(
+                cache_type="widget", operation="set", status="error"
+            ).inc()
             logger.warning("Widget cache write failed for key %s", key, exc_info=True)

@@ -37,22 +37,23 @@ function isTransientError(error: unknown): boolean {
 }
 
 export default function WidgetCard({ widget, className, onUnpin }: WidgetCardProps) {
-  const refreshInterval = widget.config_overrides?.refreshInterval as
-    | number
-    | "live"
-    | undefined;
+  const refreshInterval = widget.config_overrides?.refreshInterval as number | "live" | undefined;
 
-  const { data, isLoading, error, refetch, isFetching } = useWidgetData(
-    widget.id,
-    { refreshInterval },
-  );
+  const { data, isLoading, error, refetch, isFetching } = useWidgetData(widget.id, {
+    refreshInterval,
+  });
 
   const chartType = (data?.chart_config?.chart_type as string) ?? "bar";
   const chartConfig = data?.chart_config ?? {};
   const isLive = refreshInterval === "live" || typeof refreshInterval === "number";
 
   return (
-    <div className={cn("bg-canvas-node rounded-lg border border-canvas-border flex flex-col overflow-hidden", className)}>
+    <div
+      className={cn(
+        "bg-canvas-node rounded-lg border border-canvas-border flex flex-col overflow-hidden",
+        className,
+      )}
+    >
       {/* Title bar — also serves as drag handle in edit mode */}
       <div className="widget-drag-handle flex items-center justify-between px-3 py-2 border-b border-canvas-border cursor-move">
         <div className="flex items-center gap-2 min-w-0">
@@ -73,10 +74,7 @@ export default function WidgetCard({ widget, className, onUnpin }: WidgetCardPro
             </span>
           )}
         </div>
-        <button
-          onClick={() => refetch()}
-          className="text-white/30 hover:text-white text-xs"
-        >
+        <button onClick={() => refetch()} className="text-white/30 hover:text-white text-xs">
           Refresh
         </button>
       </div>
@@ -84,16 +82,12 @@ export default function WidgetCard({ widget, className, onUnpin }: WidgetCardPro
       {/* Content */}
       <div className="flex-1 p-2 min-h-[150px]">
         {/* Loading state */}
-        {isLoading && (
-          <div className="w-full h-full animate-pulse bg-white/5 rounded" />
-        )}
+        {isLoading && <div className="w-full h-full animate-pulse bg-white/5 rounded" />}
 
         {/* Orphaned widget — source workflow deleted */}
         {error && isOrphanedError(error) && (
           <div className="w-full h-full flex flex-col items-center justify-center gap-3">
-            <div className="text-red-400/80 text-xs text-center">
-              Source workflow was deleted
-            </div>
+            <div className="text-red-400/80 text-xs text-center">Source workflow was deleted</div>
             <p className="text-white/30 text-[10px] text-center">
               The workflow this widget references no longer exists.
             </p>
@@ -111,9 +105,7 @@ export default function WidgetCard({ widget, className, onUnpin }: WidgetCardPro
         {/* Transient error — retry available */}
         {error && !isOrphanedError(error) && isTransientError(error) && (
           <div className="w-full h-full flex flex-col items-center justify-center gap-3">
-            <div className="text-yellow-400/80 text-xs text-center">
-              Failed to load data
-            </div>
+            <div className="text-yellow-400/80 text-xs text-center">Failed to load data</div>
             <p className="text-white/30 text-[10px] text-center">
               {error instanceof Error ? error.message : "Network error"}
             </p>
@@ -137,9 +129,7 @@ export default function WidgetCard({ widget, className, onUnpin }: WidgetCardPro
 
         {/* Stale data indicator while refetching */}
         {data && isFetching && !isLoading && (
-          <div className="absolute top-10 right-2 text-[10px] text-white/20">
-            Updating...
-          </div>
+          <div className="absolute top-10 right-2 text-[10px] text-white/20">Updating...</div>
         )}
 
         {data && !isLoading && !error && (

@@ -4,14 +4,22 @@ Dashboards are projections of workflows. Widgets point to workflow output
 nodes — they do NOT store their own queries.
 """
 
-import uuid
-import enum
+from __future__ import annotations
 
-from sqlalchemy import ForeignKey, Integer, String, Text, DateTime
+import enum
+import uuid
+from datetime import datetime
+from typing import TYPE_CHECKING
+
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base, TenantMixin, TimestampMixin, UUIDPrimaryKeyMixin
+
+if TYPE_CHECKING:
+    from app.models.user import User
+    from app.models.workflow import Workflow
 
 
 class Dashboard(Base, UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin):
@@ -24,11 +32,11 @@ class Dashboard(Base, UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin):
     )
 
     # Relationships
-    created_by_user: Mapped["User"] = relationship(back_populates="dashboards")  # noqa: F821
-    widgets: Mapped[list["Widget"]] = relationship(
+    created_by_user: Mapped[User] = relationship(back_populates="dashboards")  # noqa: F821
+    widgets: Mapped[list[Widget]] = relationship(
         back_populates="dashboard", cascade="all, delete-orphan"
     )
-    filters: Mapped[list["DashboardFilter"]] = relationship(
+    filters: Mapped[list[DashboardFilter]] = relationship(
         back_populates="dashboard", cascade="all, delete-orphan"
     )
 
@@ -54,11 +62,11 @@ class Widget(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     config_overrides: Mapped[dict] = mapped_column(JSONB, default=dict)
 
     # Relationships
-    dashboard: Mapped["Dashboard"] = relationship(back_populates="widgets")
-    source_workflow: Mapped["Workflow"] = relationship(back_populates="widgets")  # noqa: F821
+    dashboard: Mapped[Dashboard] = relationship(back_populates="widgets")
+    source_workflow: Mapped[Workflow] = relationship(back_populates="widgets")  # noqa: F821
 
 
-class FilterType(str, enum.Enum):
+class FilterType(enum.StrEnum):
     DATE_RANGE = "date_range"
     DROPDOWN = "dropdown"
     TEXT = "text"
@@ -76,7 +84,7 @@ class DashboardFilter(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     position: Mapped[int] = mapped_column(Integer, default=0)
 
     # Relationships
-    dashboard: Mapped["Dashboard"] = relationship(back_populates="filters")
+    dashboard: Mapped[Dashboard] = relationship(back_populates="filters")
 
 
 class APIKey(Base, UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin):
@@ -90,8 +98,8 @@ class APIKey(Base, UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin):
     )
     label: Mapped[str | None] = mapped_column(String(255))
     scoped_widget_ids: Mapped[list | None] = mapped_column(ARRAY(UUID(as_uuid=True)))
-    revoked_at: Mapped[DateTime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     rate_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Relationships
-    user: Mapped["User"] = relationship(back_populates="api_keys")  # noqa: F821
+    user: Mapped[User] = relationship(back_populates="api_keys")  # noqa: F821

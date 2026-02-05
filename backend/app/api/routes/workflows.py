@@ -10,10 +10,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_tenant_id, get_current_user_id, get_db, require_role
+from app.api.deps import (
+    get_current_tenant_id,
+    get_current_user_id,
+    get_db,
+    require_role,
+)
 from app.models.audit_log import AuditAction, AuditResourceType
 from app.models.workflow import Workflow, WorkflowVersion
-from app.services.audit_service import AuditService
 from app.schemas.workflow import (
     WorkflowCreate,
     WorkflowListResponse,
@@ -22,6 +26,7 @@ from app.schemas.workflow import (
     WorkflowVersionListResponse,
     WorkflowVersionResponse,
 )
+from app.services.audit_service import AuditService
 
 router = APIRouter()
 
@@ -70,7 +75,9 @@ async def get_workflow(
     )
     workflow = result.scalar_one_or_none()
     if not workflow:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found"
+        )
     return WorkflowResponse.model_validate(workflow)
 
 
@@ -124,7 +131,9 @@ async def update_workflow(
     )
     workflow = result.scalar_one_or_none()
     if not workflow:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found"
+        )
 
     update_data = body.model_dump(exclude_unset=True)
 
@@ -179,7 +188,9 @@ async def delete_workflow(
     )
     workflow = result.scalar_one_or_none()
     if not workflow:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found"
+        )
 
     audit = AuditService(db)
     await audit.log(
@@ -214,7 +225,9 @@ async def list_workflow_versions(
         )
     )
     if not wf_result.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found"
+        )
 
     total_q = await db.execute(
         select(func.count(WorkflowVersion.id)).where(
@@ -256,7 +269,9 @@ async def get_workflow_version(
         )
     )
     if not wf_result.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found"
+        )
 
     result = await db.execute(
         select(WorkflowVersion).where(
@@ -266,7 +281,9 @@ async def get_workflow_version(
     )
     version = result.scalar_one_or_none()
     if not version:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Version not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Version not found"
+        )
 
     return WorkflowVersionResponse.model_validate(version)
 
@@ -292,7 +309,9 @@ async def rollback_workflow(
     )
     workflow = wf_result.scalar_one_or_none()
     if not workflow:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found"
+        )
 
     # Fetch target version
     ver_result = await db.execute(
@@ -303,7 +322,9 @@ async def rollback_workflow(
     )
     target_version = ver_result.scalar_one_or_none()
     if not target_version:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Version not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Version not found"
+        )
 
     # Snapshot current state before rollback
     max_ver = await db.execute(

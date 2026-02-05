@@ -108,9 +108,7 @@ export default function DataGrid({ columns, rows, className }: DataGridProps) {
           ))}
         </tbody>
       </table>
-      {rows.length === 0 && (
-        <div className="text-center py-8 text-white/30 text-sm">No data</div>
-      )}
+      {rows.length === 0 && <div className="text-center py-8 text-white/30 text-sm">No data</div>}
     </div>
   );
 }

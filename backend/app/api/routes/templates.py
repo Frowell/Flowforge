@@ -8,7 +8,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_tenant_id, get_current_user_id, get_db, require_role
+from app.api.deps import (
+    get_current_tenant_id,
+    get_current_user_id,
+    get_db,
+    require_role,
+)
 from app.models.audit_log import AuditAction, AuditResourceType
 from app.models.workflow import Workflow
 from app.schemas.template import (
@@ -92,7 +97,7 @@ async def instantiate_template_route(
         )
 
     graph_json = instantiate_template(template_id)
-    name = (body.name if body and body.name else template.name)
+    name = body.name if body and body.name else template.name
 
     workflow = Workflow(
         name=name,

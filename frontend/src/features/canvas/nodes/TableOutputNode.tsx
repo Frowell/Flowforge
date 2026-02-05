@@ -6,7 +6,12 @@ export default function TableOutputNode({ data, selected }: NodeProps) {
   const nodeData = data as unknown as WorkflowNodeData;
 
   return (
-    <BaseNode label={nodeData.label || "Table View"} color="bg-green-400" selected={selected} outputPorts={0}>
+    <BaseNode
+      label={nodeData.label || "Table View"}
+      color="bg-green-400"
+      selected={selected}
+      outputPorts={0}
+    >
       Paginated grid
     </BaseNode>
   );

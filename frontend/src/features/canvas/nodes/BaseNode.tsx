@@ -11,7 +11,7 @@ interface BaseNodeProps {
   label: string;
   color: string;
   selected?: boolean;
-  inputPorts?: number;  // default 1, 0 for Data Source
+  inputPorts?: number; // default 1, 0 for Data Source
   outputPorts?: number; // default 1, 0 for terminal nodes
   children?: React.ReactNode;
 }

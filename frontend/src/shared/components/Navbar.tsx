@@ -47,9 +47,7 @@ export default function Navbar() {
       </div>
 
       <div className="flex items-center gap-3">
-        {user && (
-          <span className="text-xs text-white/40">{user.email}</span>
-        )}
+        {user && <span className="text-xs text-white/40">{user.email}</span>}
         <button
           onClick={() => logout()}
           className="text-xs text-white/40 hover:text-white transition-colors"

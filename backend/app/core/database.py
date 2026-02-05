@@ -3,18 +3,18 @@
 PostgreSQL stores application metadata only — never query results.
 """
 
+import uuid as _uuid
 from collections.abc import AsyncGenerator
+from datetime import datetime
 
+from sqlalchemy import DateTime, func
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import DateTime, func
-from datetime import datetime
-import uuid as _uuid
-from sqlalchemy.dialects.postgresql import UUID
 
 from app.core.config import settings
 

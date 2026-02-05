@@ -7,7 +7,12 @@ export default function ChartOutputNode({ data, selected }: NodeProps) {
   const chartType = (nodeData.config?.chart_type as string) ?? "bar";
 
   return (
-    <BaseNode label={nodeData.label || "Chart"} color="bg-green-400" selected={selected} outputPorts={0}>
+    <BaseNode
+      label={nodeData.label || "Chart"}
+      color="bg-green-400"
+      selected={selected}
+      outputPorts={0}
+    >
       {chartType.charAt(0).toUpperCase() + chartType.slice(1)} chart
     </BaseNode>
   );

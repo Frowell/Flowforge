@@ -59,7 +59,9 @@ export default function PivotPanel({ nodeId }: Props) {
         >
           <option value="">Select column...</option>
           {availableForPivot.map((col) => (
-            <option key={col.name} value={col.name}>{col.name}</option>
+            <option key={col.name} value={col.name}>
+              {col.name}
+            </option>
           ))}
         </select>
       </div>
@@ -73,7 +75,9 @@ export default function PivotPanel({ nodeId }: Props) {
         >
           <option value="">Select column...</option>
           {availableForValue.map((col) => (
-            <option key={col.name} value={col.name}>{col.name}</option>
+            <option key={col.name} value={col.name}>
+              {col.name}
+            </option>
           ))}
         </select>
       </div>
@@ -86,7 +90,9 @@ export default function PivotPanel({ nodeId }: Props) {
           className="w-full bg-canvas-bg border border-white/10 rounded px-2 py-1.5 text-sm text-white"
         >
           {AGG_FUNCTIONS.map((fn) => (
-            <option key={fn} value={fn}>{fn}</option>
+            <option key={fn} value={fn}>
+              {fn}
+            </option>
           ))}
         </select>
       </div>

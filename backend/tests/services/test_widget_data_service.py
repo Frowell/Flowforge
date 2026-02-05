@@ -6,7 +6,7 @@ Run: pytest backend/tests/services/test_widget_data_service.py -v --noconftest
 import json
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
@@ -18,8 +18,8 @@ from app.services.query_router import QueryResult
 from app.services.widget_data_service import WidgetDataService
 from app.services.workflow_compiler import CompiledSegment, WorkflowCompiler
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────
+
 
 def _make_graph(target: str = "clickhouse"):
     """Minimal graph with one data_source node."""
@@ -83,6 +83,7 @@ def _make_service(
 
 # ── Tests ─────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_cache_hit_returns_cached_data():
     """Cache hit returns cached data without compiling or executing."""
@@ -138,16 +139,29 @@ async def test_different_config_overrides_produce_different_cache_keys():
     edges = graph["edges"]
 
     import copy
+
     nodes_a = copy.deepcopy(nodes)
     nodes_b = copy.deepcopy(nodes)
 
     key_a = svc._compute_cache_key(
-        tenant_id, "node_1", nodes_a, edges,
-        {"filter": "A"}, {}, 0, 10000,
+        tenant_id,
+        "node_1",
+        nodes_a,
+        edges,
+        {"filter": "A"},
+        {},
+        0,
+        10000,
     )
     key_b = svc._compute_cache_key(
-        tenant_id, "node_1", nodes_b, edges,
-        {"filter": "B"}, {}, 0, 10000,
+        tenant_id,
+        "node_1",
+        nodes_b,
+        edges,
+        {"filter": "B"},
+        {},
+        0,
+        10000,
     )
 
     assert key_a != key_b
@@ -163,12 +177,24 @@ async def test_same_inputs_produce_same_cache_key():
     edges = graph["edges"]
 
     key_1 = svc._compute_cache_key(
-        tenant_id, "node_1", nodes, edges,
-        {"x": 1}, {}, 0, 100,
+        tenant_id,
+        "node_1",
+        nodes,
+        edges,
+        {"x": 1},
+        {},
+        0,
+        100,
     )
     key_2 = svc._compute_cache_key(
-        tenant_id, "node_1", nodes, edges,
-        {"x": 1}, {}, 0, 100,
+        tenant_id,
+        "node_1",
+        nodes,
+        edges,
+        {"x": 1},
+        {},
+        0,
+        100,
     )
 
     assert key_1 == key_2

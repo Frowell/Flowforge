@@ -35,20 +35,12 @@ export default function UnionPanel({ nodeId }: Props) {
               const matched = inLeft && inRight;
               return (
                 <div key={name} className="flex items-center gap-2 text-xs">
-                  <span
-                    className={
-                      matched
-                        ? "text-green-400"
-                        : "text-yellow-400"
-                    }
-                  >
+                  <span className={matched ? "text-green-400" : "text-yellow-400"}>
                     {matched ? "✓" : "!"}
                   </span>
                   <span className="text-white/70">{name}</span>
                   {!matched && (
-                    <span className="text-white/30">
-                      ({inLeft ? "left only" : "right only"})
-                    </span>
+                    <span className="text-white/30">({inLeft ? "left only" : "right only"})</span>
                   )}
                 </div>
               );

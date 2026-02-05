@@ -51,7 +51,9 @@ class WebSocketManager:
         self._ws_channels[websocket].add(channel)
         logger.info("WebSocket subscribed to channel: %s", channel)
 
-    async def unsubscribe_from_channel(self, websocket: WebSocket, channel: str) -> None:
+    async def unsubscribe_from_channel(
+        self, websocket: WebSocket, channel: str
+    ) -> None:
         """Unsubscribe a WebSocket from a specific channel."""
         if channel in self._connections:
             self._connections[channel].discard(websocket)

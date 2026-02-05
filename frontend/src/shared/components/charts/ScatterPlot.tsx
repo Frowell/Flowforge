@@ -26,10 +26,15 @@ interface Props extends BaseChartProps {
   config: ScatterPlotConfig & Record<string, unknown>;
 }
 
-function linearRegression(points: Array<{ x: number; y: number }>): { slope: number; intercept: number } | null {
+function linearRegression(
+  points: Array<{ x: number; y: number }>,
+): { slope: number; intercept: number } | null {
   if (points.length < 2) return null;
   const n = points.length;
-  let sumX = 0, sumY = 0, sumXX = 0, sumXY = 0;
+  let sumX = 0,
+    sumY = 0,
+    sumXX = 0,
+    sumXY = 0;
   for (const p of points) {
     sumX += p.x;
     sumY += p.y;
@@ -98,9 +103,7 @@ export default function ScatterPlot({ data, config, interactive = true, classNam
             fontSize={12}
             type="number"
           />
-          {sizeColumn && (
-            <ZAxis dataKey={sizeColumn} range={[20, 400]} name={sizeColumn} />
-          )}
+          {sizeColumn && <ZAxis dataKey={sizeColumn} range={[20, 400]} name={sizeColumn} />}
           {interactive && (
             <Tooltip
               contentStyle={{ background: "#0f3460", border: "1px solid #ffffff20" }}

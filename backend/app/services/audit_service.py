@@ -3,10 +3,10 @@
 Provides fire-and-forget audit record creation and paginated queries.
 """
 
-import structlog
 from uuid import UUID
 
-from sqlalchemy import select, func
+import structlog
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.audit_log import AuditAction, AuditLog, AuditResourceType
@@ -27,7 +27,10 @@ class AuditService:
         resource_id: UUID,
         metadata: dict | None = None,
     ) -> None:
-        """Create an audit log record. Fire-and-forget — errors are logged, not raised."""
+        """Create an audit log record.
+
+        Fire-and-forget: errors are logged, not raised.
+        """
         try:
             entry = AuditLog(
                 tenant_id=tenant_id,

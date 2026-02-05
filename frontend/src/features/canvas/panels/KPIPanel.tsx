@@ -30,15 +30,11 @@ export default function KPIPanel({ nodeId }: Props) {
   const prefix = (config.prefix as string) ?? "";
   const suffix = (config.suffix as string) ?? "";
 
-  const numericColumns = inputSchema.filter((col) =>
-    ["int64", "float64"].includes(col.dtype)
-  );
+  const numericColumns = inputSchema.filter((col) => ["int64", "float64"].includes(col.dtype));
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-white/50">
-        Display a single metric as a KPI card.
-      </p>
+      <p className="text-xs text-white/50">Display a single metric as a KPI card.</p>
 
       <div>
         <label className="text-xs text-white/50 block mb-1">Value Column</label>
@@ -113,11 +109,13 @@ export default function KPIPanel({ nodeId }: Props) {
           className="w-full bg-canvas-bg border border-white/10 rounded px-2 py-1.5 text-sm text-white"
         >
           <option value="">None</option>
-          {numericColumns.filter((c) => c.name !== valueColumn).map((col) => (
-            <option key={col.name} value={col.name}>
-              {col.name} ({col.dtype})
-            </option>
-          ))}
+          {numericColumns
+            .filter((c) => c.name !== valueColumn)
+            .map((col) => (
+              <option key={col.name} value={col.name}>
+                {col.name} ({col.dtype})
+              </option>
+            ))}
         </select>
         <p className="text-xs text-white/30 mt-1">Shows % change vs comparison value</p>
       </div>

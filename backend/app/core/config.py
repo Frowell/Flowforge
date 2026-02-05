@@ -51,8 +51,8 @@ class Settings(BaseSettings):
     schema_cache_ttl: int = 300
 
     # Widget data cache TTLs (seconds)
-    widget_cache_ttl_clickhouse: int = 300   # 5 min for analytical queries
-    widget_cache_ttl_materialize: int = 30   # 30 sec for live data
+    widget_cache_ttl_clickhouse: int = 300  # 5 min for analytical queries
+    widget_cache_ttl_materialize: int = 30  # 30 sec for live data
 
     # Observability
     log_level: str = "INFO"
@@ -63,8 +63,8 @@ class Settings(BaseSettings):
     dev_tenant_id: str = "00000000-0000-0000-0000-000000000002"
 
     # Embed rate limiting
-    embed_rate_limit_default: int = 100      # requests per second per API key
-    embed_rate_limit_window: int = 1         # window size in seconds
+    embed_rate_limit_default: int = 100  # requests per second per API key
+    embed_rate_limit_window: int = 1  # window size in seconds
 
     model_config = {"env_file": ".env"}
 

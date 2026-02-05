@@ -27,6 +27,7 @@ class TestAPIKeyCreate:
         key_id = response.json()["id"]
 
         from sqlalchemy import select
+
         from app.models.dashboard import APIKey
 
         result = await db_session.execute(select(APIKey).where(APIKey.id == key_id))
@@ -122,7 +123,11 @@ class TestAPIKeyUpdate:
         new_widgets = ["33333333-3333-3333-3333-333333333333"]
         patch_resp = await client.patch(
             f"/api/v1/api-keys/{key_id}",
-            json={"label": "Updated", "scoped_widget_ids": new_widgets, "rate_limit": 200},
+            json={
+                "label": "Updated",
+                "scoped_widget_ids": new_widgets,
+                "rate_limit": 200,
+            },
         )
         assert patch_resp.status_code == 200
         data = patch_resp.json()

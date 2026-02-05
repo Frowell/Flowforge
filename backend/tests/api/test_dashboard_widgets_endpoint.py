@@ -11,7 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.dashboard import Dashboard, Widget
 from app.models.workflow import Workflow
 
-
 # ── Helpers ──────────────────────────────────────────────────────────────
 
 
@@ -131,9 +130,11 @@ async def test_list_dashboard_widgets_different_tenant_404(
     tenant_id_b: UUID,
     user_id_b: UUID,
 ):
-    """GET /dashboards/{id}/widgets returns 404 when dashboard belongs to another tenant."""
+    """GET /dashboards/{id}/widgets returns 404 for other tenant."""
     # Create dashboard in tenant B
-    dashboard_b = await _create_dashboard(db_session, tenant_id_b, user_id_b, "Tenant B Dashboard")
+    dashboard_b = await _create_dashboard(
+        db_session, tenant_id_b, user_id_b, "Tenant B Dashboard"
+    )
 
     # Auth is set to tenant A via mock_auth — accessing tenant B dashboard should 404
     response = await client.get(f"/api/v1/dashboards/{dashboard_b.id}/widgets")
@@ -170,7 +171,9 @@ async def test_widget_data_includes_chart_config(
 
     with patch(
         "app.api.deps.get_widget_data_service",
-        return_value=lambda: AsyncMock(fetch_widget_data=AsyncMock(return_value=mock_result)),
+        return_value=lambda: AsyncMock(
+            fetch_widget_data=AsyncMock(return_value=mock_result)
+        ),
     ):
         # Override the dependency directly for this test
         from app.api.deps import get_widget_data_service
@@ -202,7 +205,7 @@ async def test_widget_data_accepts_filters_param(
     tenant_id: UUID,
     user_id: UUID,
 ):
-    """GET /widgets/{id}/data accepts a filters query parameter and passes it to the service."""
+    """GET /widgets/{id}/data accepts a filters query parameter."""
     dashboard = await _create_dashboard(db_session, tenant_id, user_id)
     workflow = await _create_workflow(db_session, tenant_id, user_id)
     widget = await _create_widget(db_session, dashboard.id, workflow.id)
@@ -226,7 +229,15 @@ async def test_widget_data_accepts_filters_param(
     test_app.dependency_overrides[get_widget_data_service] = lambda: mock_service
 
     try:
-        filters = json.dumps([{"column": "date", "type": "date_range", "value": {"from": "2024-01-01", "to": "2024-12-31"}}])
+        filters = json.dumps(
+            [
+                {
+                    "column": "date",
+                    "type": "date_range",
+                    "value": {"from": "2024-01-01", "to": "2024-12-31"},
+                }
+            ]
+        )
         response = await client.get(
             f"/api/v1/widgets/{widget.id}/data",
             params={"filters": filters},

@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 RATE_LIMIT_KEY_PREFIX = "flowforge:ratelimit:"
 
 
-class RateLimitExceeded(Exception):
+class RateLimitExceededError(Exception):
     """Raised when a rate limit is exceeded. Contains retry_after in seconds."""
 
     def __init__(self, retry_after: float):
@@ -40,9 +40,11 @@ class RateLimiter:
             limit: Override limit. If None, uses settings.embed_rate_limit_default.
 
         Raises:
-            RateLimitExceeded: If the rate limit is exceeded.
+            RateLimitExceededError: If the rate limit is exceeded.
         """
-        effective_limit = limit if limit is not None else settings.embed_rate_limit_default
+        effective_limit = (
+            limit if limit is not None else settings.embed_rate_limit_default
+        )
         window = settings.embed_rate_limit_window
 
         window_ts = int(time.time() // window)
@@ -60,10 +62,10 @@ class RateLimiter:
                 retry_after = round(window - (time.time() % window), 1)
                 if retry_after <= 0:
                     retry_after = 0.1
-                raise RateLimitExceeded(retry_after=retry_after)
+                raise RateLimitExceededError(retry_after=retry_after)
 
             rate_limit_checks_total.labels(status="allowed").inc()
-        except RateLimitExceeded:
+        except RateLimitExceededError:
             raise
         except Exception:
             # Fail open — Redis errors should not block requests

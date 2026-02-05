@@ -1,7 +1,8 @@
 """Structured logging configuration via structlog.
 
-Uses structlog.contextvars for async-safe per-request context (request_id, tenant_id).
-Wraps stdlib logging so existing logging.getLogger(__name__) calls get structured output.
+Uses structlog.contextvars for async-safe per-request context
+(request_id, tenant_id). Wraps stdlib logging so existing
+logging.getLogger(__name__) calls get structured output.
 """
 
 import logging

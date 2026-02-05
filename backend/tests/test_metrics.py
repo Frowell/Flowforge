@@ -9,11 +9,7 @@ from app.core.metrics import (
     cache_operations_total,
     http_request_duration_seconds,
     http_requests_total,
-    query_compilation_duration_seconds,
-    query_execution_duration_seconds,
     rate_limit_checks_total,
-    websocket_connections_active,
-    websocket_messages_sent_total,
 )
 
 
@@ -32,15 +28,19 @@ def test_registry_contains_expected_metrics():
     ]
     for name in expected:
         # prometheus_client may strip _total suffix in the registry
-        assert any(
-            name in m for m in metric_names
-        ), f"Metric {name} not found in registry. Available: {metric_names}"
+        assert any(name in m for m in metric_names), (
+            f"Metric {name} not found in registry. Available: {metric_names}"
+        )
 
 
 def test_counter_increment():
-    before = http_requests_total.labels(method="GET", path="/test", status=200)._value.get()
+    before = http_requests_total.labels(
+        method="GET", path="/test", status=200
+    )._value.get()
     http_requests_total.labels(method="GET", path="/test", status=200).inc()
-    after = http_requests_total.labels(method="GET", path="/test", status=200)._value.get()
+    after = http_requests_total.labels(
+        method="GET", path="/test", status=200
+    )._value.get()
     assert after == before + 1
 
 
@@ -58,8 +58,12 @@ def test_generate_latest_produces_valid_output():
 
 
 def test_cache_counter_labels():
-    cache_operations_total.labels(cache_type="preview", operation="get", status="hit").inc()
-    cache_operations_total.labels(cache_type="widget", operation="set", status="miss").inc()
+    cache_operations_total.labels(
+        cache_type="preview", operation="get", status="hit"
+    ).inc()
+    cache_operations_total.labels(
+        cache_type="widget", operation="set", status="miss"
+    ).inc()
     output = generate_latest().decode("utf-8")
     assert 'cache_type="preview"' in output
     assert 'cache_type="widget"' in output

@@ -31,10 +31,7 @@ function aggregate(values: number[], fn: KPICardConfig["aggregation"]): number {
   }
 }
 
-function getThresholdColor(
-  value: number,
-  thresholds?: KPICardConfig["thresholds"],
-): string {
+function getThresholdColor(value: number, thresholds?: KPICardConfig["thresholds"]): string {
   if (!thresholds) return "text-white";
   if (value >= thresholds.green) return "text-green-400";
   if (value >= thresholds.yellow) return "text-yellow-400";
@@ -43,9 +40,7 @@ function getThresholdColor(
 
 export default function KPICard({ data, config, className }: Props) {
   const { metricColumn, aggregation, comparisonValue, thresholds } = config;
-  const values = data
-    .map((row) => Number(row[metricColumn]))
-    .filter((v) => !isNaN(v));
+  const values = data.map((row) => Number(row[metricColumn])).filter((v) => !isNaN(v));
 
   const value = aggregate(values, aggregation);
   const colorClass = getThresholdColor(value, thresholds);
@@ -61,12 +56,7 @@ export default function KPICard({ data, config, className }: Props) {
         {value.toLocaleString(undefined, { maximumFractionDigits: 2 })}
       </div>
       {change !== undefined && (
-        <div
-          className={cn(
-            "text-sm mt-1",
-            change >= 0 ? "text-green-400" : "text-red-400",
-          )}
-        >
+        <div className={cn("text-sm mt-1", change >= 0 ? "text-green-400" : "text-red-400")}>
           {change >= 0 ? "+" : ""}
           {change.toFixed(1)}%
         </div>

@@ -23,7 +23,11 @@ export default function EmbedRoot() {
 
   return (
     <div className="h-screen w-screen bg-canvas-bg">
-      <EmbedWidget widgetId={widgetId} apiKey={apiKey} filterParams={Object.fromEntries(searchParams)} />
+      <EmbedWidget
+        widgetId={widgetId}
+        apiKey={apiKey}
+        filterParams={Object.fromEntries(searchParams)}
+      />
     </div>
   );
 }

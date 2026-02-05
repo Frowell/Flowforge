@@ -25,7 +25,13 @@ interface Props extends BaseChartProps {
   config: LineChartConfig & Record<string, unknown>;
 }
 
-export default function LineChart({ data, config, interactive = true, onDrillDown: _onDrillDown, className }: Props) {
+export default function LineChart({
+  data,
+  config,
+  interactive = true,
+  onDrillDown: _onDrillDown,
+  className,
+}: Props) {
   const { xAxis, yAxis, areaFill } = config;
   const ChartComponent = areaFill ? AreaChart : RechartsLineChart;
 
@@ -36,7 +42,9 @@ export default function LineChart({ data, config, interactive = true, onDrillDow
           <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
           <XAxis dataKey={xAxis.column} stroke="#ffffff50" fontSize={12} />
           <YAxis stroke="#ffffff50" fontSize={12} />
-          {interactive && <Tooltip contentStyle={{ background: "#0f3460", border: "1px solid #ffffff20" }} />}
+          {interactive && (
+            <Tooltip contentStyle={{ background: "#0f3460", border: "1px solid #ffffff20" }} />
+          )}
           <Legend />
           {yAxis.map((axis, i) =>
             areaFill ? (

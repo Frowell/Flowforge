@@ -24,7 +24,13 @@ interface Props extends BaseChartProps {
   config: BarChartConfig & Record<string, unknown>;
 }
 
-export default function BarChart({ data, config, interactive = true, onDrillDown, className }: Props) {
+export default function BarChart({
+  data,
+  config,
+  interactive = true,
+  onDrillDown,
+  className,
+}: Props) {
   const { xAxis, yAxis, orientation, stacked } = config;
   const isHorizontal = orientation === "horizontal";
 
@@ -56,7 +62,9 @@ export default function BarChart({ data, config, interactive = true, onDrillDown
               <YAxis stroke="#ffffff50" fontSize={12} />
             </>
           )}
-          {interactive && <Tooltip contentStyle={{ background: "#0f3460", border: "1px solid #ffffff20" }} />}
+          {interactive && (
+            <Tooltip contentStyle={{ background: "#0f3460", border: "1px solid #ffffff20" }} />
+          )}
           <Legend />
           {yAxis.map((axis, i) => (
             <Bar

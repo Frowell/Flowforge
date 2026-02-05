@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.services.query_router import QueryRouter, QueryResult
+from app.services.query_router import QueryResult, QueryRouter
 from app.services.workflow_compiler import CompiledSegment
 
 
@@ -69,9 +69,7 @@ class TestRouting:
     async def test_materialize_target_dispatches_to_materialize(self):
         """Live data queries route to Materialize and return QueryResult."""
         mock_mz = MagicMock()
-        mock_mz.execute = AsyncMock(
-            return_value=[{"symbol": "AAPL", "position": 100}]
-        )
+        mock_mz.execute = AsyncMock(return_value=[{"symbol": "AAPL", "position": 100}])
         router = QueryRouter(materialize=mock_mz)
         segment = CompiledSegment(
             sql="SELECT * FROM positions",

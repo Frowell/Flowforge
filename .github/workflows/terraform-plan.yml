@@ -1,0 +1,89 @@
+---
+name: Terraform Plan
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "terraform/**"
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write  # Required for posting PR comments
+
+concurrency:
+  group: terraform-plan-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    name: Plan (${{ matrix.environment }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [dev, staging, prod]
+        include:
+          - environment: dev
+            gcp_project_var: GCP_PROJECT_DEV
+          - environment: staging
+            gcp_project_var: GCP_PROJECT_STAGING
+          - environment: prod
+            gcp_project_var: GCP_PROJECT_PROD
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: Terraform Init
+        id: init
+        run: terraform init -no-color
+        working-directory: terraform/environments/${{ matrix.environment }}
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -no-color -out=plan.tfplan 2>&1 | tee plan_output.txt
+        working-directory: terraform/environments/${{ matrix.environment }}
+        continue-on-error: true
+
+      - name: Post plan to PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const planPath = 'terraform/environments/${{ matrix.environment }}/plan_output.txt';
+            let plan = fs.readFileSync(planPath, 'utf8');
+
+            // Truncate if too long for a PR comment (max ~65536 chars)
+            const maxLength = 60000;
+            if (plan.length > maxLength) {
+              plan = plan.substring(0, maxLength) + '\n\n... (truncated)';
+            }
+
+            const body = [
+              `### Terraform Plan: \`${{ matrix.environment }}\``,
+              '',
+              '```',
+              plan,
+              '```',
+              '',
+              `*Plan result: ${{ steps.plan.outcome }}*`,
+            ].join('\n');
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body,
+            });
+
+      - name: Fail if plan failed
+        if: steps.plan.outcome == 'failure'
+        run: exit 1

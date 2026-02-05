@@ -1,9 +1,7 @@
 """Tests for WebSocket endpoint."""
 
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
+from unittest.mock import AsyncMock, MagicMock
 
 from app.services.websocket_manager import WebSocketManager
 
