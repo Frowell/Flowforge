@@ -1,0 +1,12 @@
+environment           = "dev"
+region                = "us-central1"
+default_machine_type  = "e2-standard-4"
+default_node_count    = 2
+stateful_machine_type = "e2-standard-4"
+stateful_node_count   = 1
+enable_spot_nodes     = true
+cloudsql_tier         = "db-f1-micro"
+cloudsql_disk_size    = 10
+cloudsql_enable_ha    = false
+memorystore_size_gb   = 1
+memorystore_tier      = "BASIC"

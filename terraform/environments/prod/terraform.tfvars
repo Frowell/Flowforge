@@ -1,0 +1,15 @@
+environment                 = "prod"
+region                      = "us-central1"
+default_machine_type        = "e2-standard-8"
+default_node_count          = 3
+default_max_node_count      = 6
+stateful_machine_type       = "e2-standard-8"
+stateful_node_count         = 3
+enable_binary_authorization = true
+cloudsql_tier               = "db-custom-4-8192"
+cloudsql_disk_size          = 50
+cloudsql_enable_ha          = true
+backup_retention_days       = 30
+memorystore_size_gb         = 5
+memorystore_tier            = "STANDARD_HA"
+memorystore_auth_enabled    = true

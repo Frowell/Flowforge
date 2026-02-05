@@ -1,0 +1,11 @@
+environment           = "staging"
+region                = "us-central1"
+default_machine_type  = "e2-standard-4"
+default_node_count    = 3
+stateful_machine_type = "e2-standard-4"
+stateful_node_count   = 1
+cloudsql_tier         = "db-custom-2-4096"
+cloudsql_disk_size    = 20
+cloudsql_enable_ha    = false
+memorystore_size_gb   = 2
+memorystore_tier      = "BASIC"
