@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-generator
+  namespace: flowforge
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: data-generator
+  template:
+    metadata:
+      labels:
+        app: data-generator
+    spec:
+      containers:
+        - name: generator
+          image: flowforge-registry:5111/flowforge-generator:dev
+          env:
+            - name: REDPANDA_BROKERS
+              value: "redpanda.flowforge.svc.cluster.local:29092"
+            - name: SYMBOLS
+              value: "AAPL,MSFT,GOOGL,AMZN,NVDA,TSLA,META,JPM,BAC,GS"
+            - name: TRADES_PER_SECOND
+              value: "10"
+            - name: QUOTES_PER_SECOND
+              value: "50"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"

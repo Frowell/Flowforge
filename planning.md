@@ -484,14 +484,14 @@ backend/app/
 Devcontainer, project scaffolding, and the empty shell.
 
 - [x] Devcontainer with PostgreSQL, Redis (dev instances)
-- [ ] Add ClickHouse and Materialize to devcontainer
-- [ ] Seed ClickHouse with sample market data (trades, quotes, positions, instruments) for development
+- [x] Add ClickHouse and Materialize to devcontainer
+- [x] Seed ClickHouse with sample market data (trades, quotes, positions, instruments) for development
 - [x] FastAPI backend skeleton: health check, CORS, async SQLAlchemy, ClickHouse client
 - [x] PostgreSQL schema: workflows, dashboards, widgets, users (ORM models complete)
 - [ ] Generate initial Alembic migration from ORM models (`alembic revision --autogenerate`)
 - [x] React SPA shell with routing (`/canvas`, `/dashboards`, `/embed/:id`)
 - [x] React Flow canvas rendering with empty workspace and basic node drag-and-drop
-- [ ] CI: lint, type-check, test on push (pre-commit hooks + Makefile exist, GitHub Actions missing)
+- [x] CI: lint, type-check, test on push (pre-commit hooks + Makefile exist, GitHub Actions missing)
 
 **Deliverable:** Empty canvas loads, API responds, ClickHouse has queryable sample data.
 

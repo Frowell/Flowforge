@@ -22,6 +22,23 @@ services:
       # Redis
       REDIS_URL: redis://redis:6379/0
 
+      # ClickHouse (analytical queries — read-only)
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: "8123"
+      CLICKHOUSE_DATABASE: flowforge
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: ""
+
+      # Materialize (live data — read-only, PG wire)
+      MATERIALIZE_HOST: materialize
+      MATERIALIZE_PORT: "6875"
+      MATERIALIZE_DATABASE: materialize
+      MATERIALIZE_USER: materialize
+      MATERIALIZE_PASSWORD: ""
+
+      # Redpanda (Kafka-compatible broker)
+      REDPANDA_BROKERS: redpanda:29092
+
       # App
       APP_ENV: development
       SECRET_KEY: dev-secret-change-in-prod
@@ -35,6 +52,12 @@ services:
       db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      materialize:
         condition: service_healthy
     networks:
       - flowforge
@@ -77,6 +100,94 @@ services:
     networks:
       - flowforge
 
+  # ── ClickHouse ──────────────────────────────────────────────────────
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    restart: unless-stopped
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./clickhouse-init:/docker-entrypoint-initdb.d
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    environment:
+      CLICKHOUSE_DB: flowforge
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8123/ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - flowforge
+
+  # ── Redpanda (Kafka-compatible) ────────────────────────────────────
+  redpanda:
+    image: redpandadata/redpanda:latest
+    restart: unless-stopped
+    command:
+      - redpanda start
+      - --smp 1
+      - --memory 512M
+      - --reserve-memory 0M
+      - --overprovisioned
+      - --node-id 0
+      - --kafka-addr PLAINTEXT://0.0.0.0:29092,OUTSIDE://0.0.0.0:9092
+      - --advertise-kafka-addr PLAINTEXT://redpanda:29092,OUTSIDE://localhost:9092
+      - --set redpanda.auto_create_topics_enabled=true
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    ports:
+      - "9092:9092"
+      - "9644:9644"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9644/v1/status/ready || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - flowforge
+
+  # ── Materialize ─────────────────────────────────────────────────────
+  materialize:
+    image: materializeinc/materialize:latest
+    restart: unless-stopped
+    command: ["--workers=1"]
+    volumes:
+      - materialize-data:/mzdata
+    ports:
+      - "6875:6875"
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 6875 -U materialize"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - flowforge
+
+  # ── Init-Materialize (one-shot) ────────────────────────────────────
+  init-materialize:
+    image: postgres:16-alpine
+    depends_on:
+      materialize:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    volumes:
+      - ./init-materialize.sh:/init-materialize.sh:ro
+    entrypoint: ["bash", "/init-materialize.sh"]
+    environment:
+      MATERIALIZE_HOST: materialize
+      MATERIALIZE_PORT: "6875"
+      REDPANDA_HOST: redpanda
+      REDPANDA_KAFKA_PORT: "29092"
+    restart: "no"
+    networks:
+      - flowforge
+
   # ── pgAdmin (optional, lightweight admin UI) ────────────────────────
   pgadmin:
     image: dpage/pgadmin4:latest
@@ -98,6 +209,9 @@ services:
 volumes:
   postgres-data:
   redis-data:
+  clickhouse-data:
+  redpanda-data:
+  materialize-data:
   vscode-server:
   node-modules:
   pip-cache:

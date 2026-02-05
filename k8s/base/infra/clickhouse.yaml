@@ -1,0 +1,185 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clickhouse-init
+  namespace: flowforge
+data:
+  000_init.sql: |
+    CREATE DATABASE IF NOT EXISTS flowforge;
+    CREATE DATABASE IF NOT EXISTS metrics;
+    CREATE DATABASE IF NOT EXISTS marts;
+
+    CREATE TABLE IF NOT EXISTS flowforge.raw_trades (
+        trade_id      String,
+        event_time    DateTime64(3),
+        symbol        String,
+        side          Enum8('BUY'=1, 'SELL'=2),
+        quantity      Decimal(18,4),
+        price         Decimal(18,6),
+        notional      Decimal(18,4)
+    ) ENGINE = MergeTree()
+    ORDER BY (symbol, event_time)
+    PARTITION BY toYYYYMM(event_time);
+
+    CREATE TABLE IF NOT EXISTS flowforge.raw_quotes (
+        symbol        String,
+        event_time    DateTime64(3),
+        bid           Decimal(18,6),
+        ask           Decimal(18,6),
+        bid_size      Decimal(18,4),
+        ask_size      Decimal(18,4),
+        mid_price     Decimal(18,6)
+    ) ENGINE = MergeTree()
+    ORDER BY (symbol, event_time)
+    PARTITION BY toYYYYMM(event_time);
+
+    CREATE TABLE IF NOT EXISTS metrics.vwap_5min (
+        symbol        String,
+        window_end    DateTime64(3),
+        vwap          Decimal(18,6),
+        volume        Decimal(18,4),
+        trade_count   UInt32,
+        spread_bps    Decimal(8,2)
+    ) ENGINE = MergeTree()
+    ORDER BY (symbol, window_end);
+
+    CREATE TABLE IF NOT EXISTS metrics.rolling_volatility (
+        symbol        String,
+        window_end    DateTime64(3),
+        volatility_1h Decimal(18,8),
+        volatility_24h Decimal(18,8),
+        return_pct    Decimal(18,8)
+    ) ENGINE = MergeTree()
+    ORDER BY (symbol, window_end);
+
+  001_mvs.sql: |
+    CREATE TABLE IF NOT EXISTS metrics.hourly_rollup (
+        symbol        String,
+        hour          DateTime,
+        open          Decimal(18,6),
+        high          Decimal(18,6),
+        low           Decimal(18,6),
+        close         Decimal(18,6),
+        vwap          Decimal(18,6),
+        total_volume  Decimal(18,4),
+        trade_count   UInt32
+    ) ENGINE = MergeTree()
+    ORDER BY (symbol, hour);
+
+    CREATE MATERIALIZED VIEW IF NOT EXISTS metrics.hourly_rollup_mv
+    TO metrics.hourly_rollup AS
+    SELECT
+        symbol,
+        toStartOfHour(event_time) AS hour,
+        argMin(price, event_time) AS open,
+        max(price) AS high,
+        min(price) AS low,
+        argMax(price, event_time) AS close,
+        sum(notional) / sum(quantity) AS vwap,
+        sum(quantity) AS total_volume,
+        count() AS trade_count
+    FROM flowforge.raw_trades
+    GROUP BY symbol, hour;
+
+    CREATE TABLE IF NOT EXISTS metrics.daily_rollup (
+        symbol        String,
+        day           Date,
+        open          Decimal(18,6),
+        high          Decimal(18,6),
+        low           Decimal(18,6),
+        close         Decimal(18,6),
+        vwap          Decimal(18,6),
+        total_volume  Decimal(18,4),
+        trade_count   UInt32
+    ) ENGINE = MergeTree()
+    ORDER BY (symbol, day);
+
+    CREATE MATERIALIZED VIEW IF NOT EXISTS metrics.daily_rollup_mv
+    TO metrics.daily_rollup AS
+    SELECT
+        symbol,
+        toDate(event_time) AS day,
+        argMin(price, event_time) AS open,
+        max(price) AS high,
+        min(price) AS low,
+        argMax(price, event_time) AS close,
+        sum(notional) / sum(quantity) AS vwap,
+        sum(quantity) AS total_volume,
+        count() AS trade_count
+    FROM flowforge.raw_trades
+    GROUP BY symbol, day;
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: clickhouse
+  namespace: flowforge
+spec:
+  serviceName: clickhouse
+  replicas: 1
+  selector:
+    matchLabels:
+      app: clickhouse
+  template:
+    metadata:
+      labels:
+        app: clickhouse
+    spec:
+      containers:
+        - name: clickhouse
+          image: clickhouse/clickhouse-server:latest
+          ports:
+            - containerPort: 8123
+              name: http
+            - containerPort: 9000
+              name: native
+          env:
+            - name: CLICKHOUSE_DB
+              value: "flowforge"
+            - name: CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT
+              value: "1"
+          resources:
+            requests:
+              memory: "2Gi"
+              cpu: "1000m"
+            limits:
+              memory: "4Gi"
+              cpu: "2000m"
+          readinessProbe:
+            exec:
+              command: ["clickhouse-client", "--query", "SELECT 1"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/clickhouse
+            - name: init-scripts
+              mountPath: /docker-entrypoint-initdb.d
+      volumes:
+        - name: init-scripts
+          configMap:
+            name: clickhouse-init
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clickhouse
+  namespace: flowforge
+spec:
+  selector:
+    app: clickhouse
+  ports:
+    - port: 8123
+      targetPort: http
+      name: http
+    - port: 9000
+      targetPort: native
+      name: native

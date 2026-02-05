@@ -3,15 +3,20 @@
 Read-only — this application never writes to ClickHouse.
 Used for analytical queries dispatched by the query router.
 
-NOTE: ClickHouse is not yet in the devcontainer. In development mode,
-the client returns mock data. All code using this client must be mockable for testing.
+Uses clickhouse-connect for HTTP protocol queries.
+Falls back to mock data in development when ClickHouse is unreachable.
 """
 
 import random
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
+import clickhouse_connect  # type: ignore[import-untyped]
+import structlog
+
 from app.core.config import settings
+
+logger = structlog.stdlib.get_logger("flowforge.clickhouse")
 
 
 def _generate_mock_data(query: str) -> list[dict]:
@@ -19,7 +24,6 @@ def _generate_mock_data(query: str) -> list[dict]:
 
     Returns sample rows that look realistic for demo purposes.
     """
-    # Generate 10-50 sample rows
     num_rows = random.randint(10, 50)
     rows = []
 
@@ -48,6 +52,9 @@ class ClickHouseClient:
     Provides a read-only interface to ClickHouse for:
     - Analytical queries compiled by the workflow compiler
     - Schema discovery from system.columns
+
+    Uses clickhouse-connect HTTP protocol. Falls back to mock data
+    in development if ClickHouse is not reachable.
     """
 
     host: str
@@ -56,48 +63,65 @@ class ClickHouseClient:
     user: str
     password: str
 
+    def _get_client(self) -> clickhouse_connect.driver.Client:  # type: ignore[name-defined]
+        """Create a clickhouse-connect client."""
+        return clickhouse_connect.get_client(
+            host=self.host,
+            port=self.port,
+            database=self.database,
+            username=self.user,
+            password=self.password,
+        )
+
     async def execute(self, query: str, params: dict | None = None) -> list[dict]:
         """Execute a read-only query and return rows as dicts.
 
         All queries must be built via SQLGlot — never string concatenation.
-        In development mode, returns mock data.
+        In development mode, falls back to mock data if ClickHouse is unreachable.
         """
-        if settings.app_env == "development":
-            # Return mock data for development
-            return _generate_mock_data(query)
-
-        # TODO: Implement with asynch or clickhouse-connect
-        raise NotImplementedError("ClickHouse client not yet implemented")
+        try:
+            client = self._get_client()
+            result = client.query(query, parameters=params)
+            columns = result.column_names
+            return [
+                dict(zip(columns, row, strict=False))
+                for row in result.result_rows
+            ]
+        except Exception as exc:
+            if settings.app_env == "development":
+                logger.info(
+                    "clickhouse_fallback_mock",
+                    reason=str(exc),
+                    query=query[:100],
+                )
+                return _generate_mock_data(query)
+            raise
 
     async def fetch_schema(self, table: str) -> list[dict]:
         """Fetch column metadata from system.columns for a given table."""
-        if settings.app_env == "development":
-            # Return mock schema for development
-            return [
-                {"name": "id", "type": "Int64", "comment": "Primary key"},
-                {"name": "timestamp", "type": "DateTime", "comment": "Event timestamp"},
-                {"name": "value", "type": "Float64", "comment": "Numeric value"},
-                {"name": "category", "type": "String", "comment": "Category label"},
-                {"name": "metric", "type": "Float64", "comment": "Metric value"},
-                {"name": "count", "type": "Int64", "comment": "Count"},
-                {"name": "name", "type": "String", "comment": "Name"},
-                {"name": "status", "type": "String", "comment": "Status"},
-            ]
+        if "." in table:
+            db, tbl = table.split(".", 1)
+        else:
+            db = self.database
+            tbl = table
+
         query = (
             "SELECT name, type, comment "
             "FROM system.columns "
             "WHERE database = {database:String} AND table = {table:String}"
         )
-        return await self.execute(query, {"database": self.database, "table": table})
+        return await self.execute(query, {"database": db, "table": tbl})
 
     async def ping(self) -> bool:
         """Health check."""
-        if settings.app_env == "development":
-            return True
         try:
-            await self.execute("SELECT 1")
-            return True
-        except Exception:
+            client = self._get_client()
+            result = client.query("SELECT 1")
+            return len(result.result_rows) > 0
+        except Exception as exc:
+            if settings.app_env == "development":
+                logger.info("clickhouse_ping_failed_dev", reason=str(exc))
+                return True
             return False
 
 

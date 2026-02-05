@@ -92,14 +92,22 @@
     8000,   // FastAPI backend
     5432,   // PostgreSQL
     6379,   // Redis
-    8080    // pgAdmin (optional)
+    8080,   // pgAdmin (optional)
+    8123,   // ClickHouse HTTP
+    9092,   // Redpanda (Kafka)
+    9644,   // Redpanda Admin API
+    6875    // Materialize (PG wire)
   ],
   "portsAttributes": {
     "5173": { "label": "Frontend (Vite)",      "onAutoForward": "openBrowser" },
     "8000": { "label": "Backend (FastAPI)",     "onAutoForward": "notify" },
     "5432": { "label": "PostgreSQL",            "onAutoForward": "silent" },
     "6379": { "label": "Redis",                 "onAutoForward": "silent" },
-    "8080": { "label": "pgAdmin",               "onAutoForward": "silent" }
+    "8080": { "label": "pgAdmin",               "onAutoForward": "silent" },
+    "8123": { "label": "ClickHouse",            "onAutoForward": "silent" },
+    "9092": { "label": "Redpanda (Kafka)",      "onAutoForward": "silent" },
+    "9644": { "label": "Redpanda Admin",        "onAutoForward": "silent" },
+    "6875": { "label": "Materialize",           "onAutoForward": "silent" }
   },
 
   // ── Lifecycle ─────────────────────────────────────────────────────

@@ -3,15 +3,17 @@
 Read-only — this application never writes to Materialize.
 Used for live data queries dispatched by the query router.
 
-NOTE: Materialize is not yet in the devcontainer. All code using this
-client must be mockable for testing.
+Falls back to mock data in development when Materialize is unreachable.
 """
 
 from dataclasses import dataclass
 
 import asyncpg  # type: ignore[import-untyped]
+import structlog
 
 from app.core.config import settings
+
+logger = structlog.stdlib.get_logger("flowforge.materialize")
 
 
 @dataclass
@@ -20,6 +22,7 @@ class MaterializeClient:
 
     Materialize speaks the PostgreSQL wire protocol, so we use asyncpg
     for connections. All queries are read-only.
+    Falls back to empty results in development if unreachable.
     """
 
     host: str
@@ -30,25 +33,38 @@ class MaterializeClient:
 
     async def execute(self, query: str, params: list | None = None) -> list[dict]:
         """Execute a read-only query and return rows as dicts."""
-        conn = await asyncpg.connect(
-            host=self.host,
-            port=self.port,
-            database=self.database,
-            user=self.user,
-            password=self.password,
-        )
         try:
-            rows = await conn.fetch(query, *(params or []))
-            return [dict(row) for row in rows]
-        finally:
-            await conn.close()
+            conn = await asyncpg.connect(
+                host=self.host,
+                port=self.port,
+                database=self.database,
+                user=self.user,
+                password=self.password,
+            )
+            try:
+                rows = await conn.fetch(query, *(params or []))
+                return [dict(row) for row in rows]
+            finally:
+                await conn.close()
+        except Exception as exc:
+            if settings.app_env == "development":
+                logger.info(
+                    "materialize_fallback_mock",
+                    reason=str(exc),
+                    query=query[:100],
+                )
+                return []
+            raise
 
     async def ping(self) -> bool:
         """Health check."""
         try:
             await self.execute("SELECT 1")
             return True
-        except Exception:
+        except Exception as exc:
+            if settings.app_env == "development":
+                logger.info("materialize_ping_failed_dev", reason=str(exc))
+                return False
             return False
 
 

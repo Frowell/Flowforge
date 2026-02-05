@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: flowforge
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: flowforge-registry:5111/flowforge-backend:dev
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: backend-config
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "1000m"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: flowforge
+data:
+  APP_ENV: "development"
+  CLICKHOUSE_HOST: "clickhouse.flowforge.svc.cluster.local"
+  CLICKHOUSE_PORT: "8123"
+  MATERIALIZE_HOST: "materialize.flowforge.svc.cluster.local"
+  MATERIALIZE_PORT: "6875"
+  REDIS_URL: "redis://redis.flowforge.svc.cluster.local:6379"
+  DATABASE_URL: "postgresql+asyncpg://flowforge:dev@postgres.flowforge.svc.cluster.local:5432/flowforge"
+  REDPANDA_BROKERS: "redpanda.flowforge.svc.cluster.local:29092"
+  CORS_ORIGINS: '["http://localhost:5173"]'
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: flowforge
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 8000
+      targetPort: 8000

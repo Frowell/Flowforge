@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: materialize
+  namespace: flowforge
+spec:
+  serviceName: materialize
+  replicas: 1
+  selector:
+    matchLabels:
+      app: materialize
+  template:
+    metadata:
+      labels:
+        app: materialize
+    spec:
+      containers:
+        - name: materialize
+          image: materializeinc/materialize:latest
+          args: ["--workers=2", "--availability-zone=dev"]
+          ports:
+            - containerPort: 6875
+              name: pg
+            - containerPort: 6876
+              name: http
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "3Gi"
+              cpu: "2000m"
+          readinessProbe:
+            tcpSocket:
+              port: 6875
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /mzdata
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: materialize
+  namespace: flowforge
+spec:
+  selector:
+    app: materialize
+  ports:
+    - port: 6875
+      targetPort: pg
+      name: pg
+    - port: 6876
+      targetPort: http
+      name: http
