@@ -2,6 +2,7 @@
  * Node output data preview — shows paginated rows of the selected node's output.
  */
 
+import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useWorkflowStore } from "../stores/workflowStore";
 import { useDataPreview } from "../hooks/useDataPreview";
@@ -13,7 +14,9 @@ export default function DataPreview() {
   const nodes = useWorkflowStore((s) => s.nodes);
   const edges = useWorkflowStore((s) => s.edges);
 
-  const { data, isLoading, error, offset, nextPage, prevPage } = useDataPreview({
+  const [dismissedStale, setDismissedStale] = useState(false);
+
+  const { data, isLoading, error, offset, nextPage, prevPage, dataUpdatedAt, refetch } = useDataPreview({
     workflowId,
     nodeId: selectedNodeId,
     nodes,
@@ -21,6 +24,11 @@ export default function DataPreview() {
   });
 
   if (!selectedNodeId) return null;
+
+  // Show stale indicator when cache_hit and data is older than 5 minutes
+  const isStale = data?.cache_hit && dataUpdatedAt
+    ? Date.now() - dataUpdatedAt > 5 * 60 * 1000
+    : false;
 
   const rangeStart = data ? data.offset + 1 : 0;
   const rangeEnd = data ? Math.min(data.offset + data.limit, data.total_estimate) : 0;
@@ -61,6 +69,17 @@ export default function DataPreview() {
         )}
       </div>
       {error && <div className="px-4 py-2 text-xs text-red-400">{error.message}</div>}
+      {isStale && !dismissedStale && (
+        <div className="flex items-center gap-2 px-4 py-1.5 bg-yellow-500/10 border-b border-yellow-500/20">
+          <span className="text-xs text-yellow-300">Schema may be outdated</span>
+          <button
+            onClick={() => { refetch(); setDismissedStale(true); }}
+            className="text-xs text-yellow-300 underline hover:text-yellow-200"
+          >
+            Refresh
+          </button>
+        </div>
+      )}
       <div className="h-[calc(100%-36px)] overflow-auto">
         <DataGrid columns={data?.columns ?? []} rows={data?.rows ?? []} />
       </div>

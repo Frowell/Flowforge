@@ -2,7 +2,9 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import { hasRole } from "@/shared/auth/keycloak";
 import ConnectionStatus from "@/shared/components/ConnectionStatus";
+import ErrorBoundary from "@/shared/components/ErrorBoundary";
 import Navbar from "@/shared/components/Navbar";
+import { ToastContainer } from "@/shared/components/Toast";
 
 const CanvasPage = lazy(() => import("@/features/canvas/components/Canvas"));
 const DashboardPage = lazy(() => import("@/features/dashboards/components/DashboardGrid"));
@@ -30,6 +32,7 @@ export default function App() {
   const isEmbed = location.pathname.startsWith("/embed");
 
   return (
+    <ErrorBoundary>
     <Suspense fallback={<LoadingScreen />}>
       {!isEmbed && <Navbar />}
       <Routes>
@@ -63,7 +66,9 @@ export default function App() {
         <Route path="*" element={<Navigate to={isViewer ? "/dashboards" : "/canvas"} replace />} />
       </Routes>
       <ConnectionStatus />
+      <ToastContainer />
     </Suspense>
+    </ErrorBoundary>
   );
 }
 

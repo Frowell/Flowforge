@@ -70,13 +70,15 @@ export default function EmbedWidget({ widgetId, apiKey, filterParams }: EmbedWid
   const chartType = (data.chart_config?.chart_type as string) ?? "bar";
 
   return (
-    <div className="h-full w-full p-4">
-      <ChartRenderer
-        chartType={chartType}
-        config={data.chart_config ?? {}}
-        data={data.rows as ChartDataPoint[]}
-        interactive={false}
-      />
+    <div className="h-full w-full p-2 sm:p-4 flex flex-col min-h-0">
+      <div className="flex-1 min-h-0">
+        <ChartRenderer
+          chartType={chartType}
+          config={data.chart_config ?? {}}
+          data={data.rows as ChartDataPoint[]}
+          interactive={false}
+        />
+      </div>
     </div>
   );
 }
