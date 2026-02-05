@@ -26,6 +26,7 @@ from app.core.logging_config import configure_logging
 from app.core.metrics import app_info
 from app.core.middleware import ObservabilityMiddleware
 from app.core.redis import get_redis
+from app.services.live_data_service import LiveDataService
 from app.services.websocket_manager import WebSocketManager
 
 configure_logging()
@@ -42,9 +43,19 @@ async def lifespan(app: FastAPI):
     app.state.ws_manager = ws_manager
     subscriber_task = asyncio.create_task(ws_manager.start_subscriber())
 
+    # Initialize live data service (placeholder widget_data_service —
+    # actual per-request service is injected in routes)
+    live_data_service = LiveDataService(
+        ws_manager=ws_manager,
+        widget_data_service=None,  # type: ignore[arg-type]
+    )
+    live_data_service.start()
+    app.state.live_data_service = live_data_service
+
     yield
 
-    # Shutdown: cancel subscriber and close connections
+    # Shutdown: stop live data service and cancel subscriber
+    live_data_service.stop()
     subscriber_task.cancel()
     with contextlib.suppress(asyncio.CancelledError):
         await subscriber_task

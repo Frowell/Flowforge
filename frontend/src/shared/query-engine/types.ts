@@ -57,6 +57,7 @@ export interface WidgetResponse {
   title: string | null;
   layout: { x: number; y: number; w: number; h: number };
   config_overrides: Record<string, unknown>;
+  auto_refresh_interval: number | null;
   created_at: string;
   updated_at: string;
 }

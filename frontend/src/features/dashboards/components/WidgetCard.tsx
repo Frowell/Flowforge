@@ -7,6 +7,7 @@
 import { cn } from "@/shared/lib/cn";
 import ChartRenderer from "@/shared/components/charts/ChartRenderer";
 import { useWidgetData } from "../hooks/useWidgetData";
+import WidgetSettingsMenu from "./WidgetSettingsMenu";
 import type { WidgetResponse } from "@/shared/query-engine/types";
 import type { ChartDataPoint } from "@/shared/components/charts/types";
 import { APIError } from "@/shared/query-engine/client";
@@ -37,7 +38,10 @@ function isTransientError(error: unknown): boolean {
 }
 
 export default function WidgetCard({ widget, className, onUnpin }: WidgetCardProps) {
-  const refreshInterval = widget.config_overrides?.refreshInterval as number | "live" | undefined;
+  // auto_refresh_interval: null=manual, -1=live (WebSocket), >0=polling interval in ms
+  const ari = widget.auto_refresh_interval;
+  const refreshInterval: number | "live" | undefined =
+    ari === -1 ? "live" : ari != null && ari > 0 ? ari : undefined;
 
   const { data, isLoading, error, refetch, isFetching } = useWidgetData(widget.id, {
     refreshInterval,
@@ -74,9 +78,15 @@ export default function WidgetCard({ widget, className, onUnpin }: WidgetCardPro
             </span>
           )}
         </div>
-        <button onClick={() => refetch()} className="text-white/30 hover:text-white text-xs">
-          Refresh
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <WidgetSettingsMenu
+            widgetId={widget.id}
+            currentInterval={widget.auto_refresh_interval}
+          />
+          <button onClick={() => refetch()} className="text-white/30 hover:text-white text-xs">
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Content */}
