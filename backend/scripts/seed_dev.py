@@ -29,9 +29,16 @@ from app.models.user import User
 
 SYMBOLS = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "TSLA", "META", "JPM", "BAC", "GS"]
 BASE_PRICES = {
-    "AAPL": 185.0, "MSFT": 420.0, "GOOGL": 155.0, "AMZN": 190.0,
-    "NVDA": 880.0, "TSLA": 245.0, "META": 510.0, "JPM": 195.0,
-    "BAC": 35.0, "GS": 420.0,
+    "AAPL": 185.0,
+    "MSFT": 420.0,
+    "GOOGL": 155.0,
+    "AMZN": 190.0,
+    "NVDA": 880.0,
+    "TSLA": 245.0,
+    "META": 510.0,
+    "JPM": 195.0,
+    "BAC": 35.0,
+    "GS": 420.0,
 }
 
 
@@ -108,19 +115,26 @@ def seed_clickhouse_data() -> bool:
             price = max(price * 0.8, min(price, price * 1.2))
 
             qty = random.choice([10, 25, 50, 100, 200, 500])
-            trades.append([
-                f"seed-{symbol}-{i}",
-                trade_time,
-                symbol,
-                random.choice(["BUY", "SELL"]),
-                qty,
-                round(price, 2),
-                round(qty * price, 2),
-            ])
+            trades.append(
+                [
+                    f"seed-{symbol}-{i}",
+                    trade_time,
+                    symbol,
+                    random.choice(["BUY", "SELL"]),
+                    qty,
+                    round(price, 2),
+                    round(qty * price, 2),
+                ]
+            )
 
     col_names = [
-        "trade_id", "event_time", "symbol",
-        "side", "quantity", "price", "notional",
+        "trade_id",
+        "event_time",
+        "symbol",
+        "side",
+        "quantity",
+        "price",
+        "notional",
     ]
     client.insert("flowforge.raw_trades", trades, column_names=col_names)
     print(f"  Inserted {len(trades)} trades")
@@ -143,19 +157,26 @@ def seed_clickhouse_data() -> bool:
             ask = round(price + spread / 2, 2)
             mid = round((bid + ask) / 2, 6)
 
-            quotes.append([
-                symbol,
-                quote_time,
-                bid,
-                ask,
-                random.choice([100, 200, 500, 1000]),
-                random.choice([100, 200, 500, 1000]),
-                mid,
-            ])
+            quotes.append(
+                [
+                    symbol,
+                    quote_time,
+                    bid,
+                    ask,
+                    random.choice([100, 200, 500, 1000]),
+                    random.choice([100, 200, 500, 1000]),
+                    mid,
+                ]
+            )
 
     quote_cols = [
-        "symbol", "event_time", "bid", "ask",
-        "bid_size", "ask_size", "mid_price",
+        "symbol",
+        "event_time",
+        "bid",
+        "ask",
+        "bid_size",
+        "ask_size",
+        "mid_price",
     ]
     client.insert("flowforge.raw_quotes", quotes, column_names=quote_cols)
     print(f"  Inserted {len(quotes)} quotes")

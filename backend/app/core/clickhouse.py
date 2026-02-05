@@ -83,10 +83,7 @@ class ClickHouseClient:
             client = self._get_client()
             result = client.query(query, parameters=params)
             columns = result.column_names
-            return [
-                dict(zip(columns, row, strict=False))
-                for row in result.result_rows
-            ]
+            return [dict(zip(columns, row, strict=False)) for row in result.result_rows]
         except Exception as exc:
             if settings.app_env == "development":
                 logger.info(

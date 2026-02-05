@@ -71,9 +71,7 @@ async def readiness(
         checks["clickhouse"] = {"status": "ok" if ok else "degraded"}
     except Exception as exc:
         checks["clickhouse"] = {"status": "degraded", "detail": str(exc)}
-        logger.info(
-            "readiness_check_degraded", dependency="clickhouse", error=str(exc)
-        )
+        logger.info("readiness_check_degraded", dependency="clickhouse", error=str(exc))
 
     # Materialize (optional — degraded, not failing)
     try:
