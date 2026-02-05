@@ -16,19 +16,19 @@ export default function DataPreview() {
 
   const [dismissedStale, setDismissedStale] = useState(false);
 
-  const { data, isLoading, error, offset, nextPage, prevPage, dataUpdatedAt, refetch } = useDataPreview({
-    workflowId,
-    nodeId: selectedNodeId,
-    nodes,
-    edges,
-  });
+  const { data, isLoading, error, offset, nextPage, prevPage, dataUpdatedAt, refetch } =
+    useDataPreview({
+      workflowId,
+      nodeId: selectedNodeId,
+      nodes,
+      edges,
+    });
 
   if (!selectedNodeId) return null;
 
   // Show stale indicator when cache_hit and data is older than 5 minutes
-  const isStale = data?.cache_hit && dataUpdatedAt
-    ? Date.now() - dataUpdatedAt > 5 * 60 * 1000
-    : false;
+  const isStale =
+    data?.cache_hit && dataUpdatedAt ? Date.now() - dataUpdatedAt > 5 * 60 * 1000 : false;
 
   const rangeStart = data ? data.offset + 1 : 0;
   const rangeEnd = data ? Math.min(data.offset + data.limit, data.total_estimate) : 0;
@@ -73,7 +73,10 @@ export default function DataPreview() {
         <div className="flex items-center gap-2 px-4 py-1.5 bg-yellow-500/10 border-b border-yellow-500/20">
           <span className="text-xs text-yellow-300">Schema may be outdated</span>
           <button
-            onClick={() => { refetch(); setDismissedStale(true); }}
+            onClick={() => {
+              refetch();
+              setDismissedStale(true);
+            }}
             className="text-xs text-yellow-300 underline hover:text-yellow-200"
           >
             Refresh

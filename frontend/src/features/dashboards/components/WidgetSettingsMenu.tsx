@@ -22,10 +22,7 @@ const REFRESH_OPTIONS = [
   { label: "Live", value: -1 },
 ] as const;
 
-export default function WidgetSettingsMenu({
-  widgetId,
-  currentInterval,
-}: WidgetSettingsMenuProps) {
+export default function WidgetSettingsMenu({ widgetId, currentInterval }: WidgetSettingsMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const queryClient = useQueryClient();
 
@@ -37,8 +34,7 @@ export default function WidgetSettingsMenu({
     queryClient.invalidateQueries({ queryKey: ["dashboardWidgets"] });
   };
 
-  const currentLabel =
-    REFRESH_OPTIONS.find((o) => o.value === currentInterval)?.label ?? "Manual";
+  const currentLabel = REFRESH_OPTIONS.find((o) => o.value === currentInterval)?.label ?? "Manual";
 
   return (
     <div className="relative">
@@ -57,9 +53,7 @@ export default function WidgetSettingsMenu({
                 key={String(option.value)}
                 onClick={() => handleSelect(option.value)}
                 className={`block w-full text-left px-3 py-1.5 text-xs hover:bg-white/10 transition-colors ${
-                  option.value === currentInterval
-                    ? "text-canvas-accent"
-                    : "text-white/60"
+                  option.value === currentInterval ? "text-canvas-accent" : "text-white/60"
                 }`}
               >
                 {option.label}

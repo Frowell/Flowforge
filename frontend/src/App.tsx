@@ -33,41 +33,44 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-    <Suspense fallback={<LoadingScreen />}>
-      {!isEmbed && <Navbar />}
-      <Routes>
-        <Route
-          path="/canvas"
-          element={
-            <RequireEditorRole>
-              <CanvasPage />
-            </RequireEditorRole>
-          }
-        />
-        <Route
-          path="/canvas/:workflowId"
-          element={
-            <RequireEditorRole>
-              <CanvasPage />
-            </RequireEditorRole>
-          }
-        />
-        <Route path="/dashboards" element={<DashboardPage />} />
-        <Route path="/dashboards/:dashboardId" element={<DashboardPage />} />
-        <Route path="/embed/:widgetId" element={<EmbedPage />} />
-        <Route
-          path="/admin/audit"
-          element={
-            <RequireAdminRole>
-              <AuditLogPage />
-            </RequireAdminRole>
-          }
-        />
-        <Route path="*" element={<Navigate to={isViewer ? "/dashboards" : "/canvas"} replace />} />
-      </Routes>
-      <ConnectionStatus />
-      <ToastContainer />
-    </Suspense>
+      <Suspense fallback={<LoadingScreen />}>
+        {!isEmbed && <Navbar />}
+        <Routes>
+          <Route
+            path="/canvas"
+            element={
+              <RequireEditorRole>
+                <CanvasPage />
+              </RequireEditorRole>
+            }
+          />
+          <Route
+            path="/canvas/:workflowId"
+            element={
+              <RequireEditorRole>
+                <CanvasPage />
+              </RequireEditorRole>
+            }
+          />
+          <Route path="/dashboards" element={<DashboardPage />} />
+          <Route path="/dashboards/:dashboardId" element={<DashboardPage />} />
+          <Route path="/embed/:widgetId" element={<EmbedPage />} />
+          <Route
+            path="/admin/audit"
+            element={
+              <RequireAdminRole>
+                <AuditLogPage />
+              </RequireAdminRole>
+            }
+          />
+          <Route
+            path="*"
+            element={<Navigate to={isViewer ? "/dashboards" : "/canvas"} replace />}
+          />
+        </Routes>
+        <ConnectionStatus />
+        <ToastContainer />
+      </Suspense>
     </ErrorBoundary>
   );
 }

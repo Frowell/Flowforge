@@ -12,7 +12,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.api.deps import get_db, get_websocket_manager
+from app.api.deps import get_db, get_schema_registry, get_websocket_manager
 from app.core.auth import get_current_tenant_id, get_current_user_id
 from app.core.config import settings
 from app.core.database import Base
@@ -78,6 +78,15 @@ async def client(db_engine) -> AsyncClient:
     mock_ws.publish_execution_status = AsyncMock()
     app.dependency_overrides[get_websocket_manager] = lambda: mock_ws
 
+    # Mock schema registry to avoid real Redis/ClickHouse connections
+    from app.schemas.schema import CatalogResponse
+
+    empty_catalog = CatalogResponse(tables=[])
+    mock_registry = MagicMock()
+    mock_registry.get_catalog = AsyncMock(return_value=empty_catalog)
+    mock_registry.refresh = AsyncMock(return_value=empty_catalog)
+    app.dependency_overrides[get_schema_registry] = lambda: mock_registry
+
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
@@ -87,6 +96,7 @@ async def client(db_engine) -> AsyncClient:
     # Only remove overrides — don't clear all (preserves mock_auth)
     app.dependency_overrides.pop(get_db, None)
     app.dependency_overrides.pop(get_websocket_manager, None)
+    app.dependency_overrides.pop(get_schema_registry, None)
 
 
 @pytest.fixture
