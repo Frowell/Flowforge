@@ -29,7 +29,8 @@
 18. [Seed Data and Data Generator](#18-seed-data-and-data-generator)
 19. [AGENTS.md and Memory Files](#19-agentsmd-and-memory-files)
 20. [Development Workflow](#20-development-workflow)
-21. [Implementation Phases](#21-implementation-phases)
+21. [Testing Strategy](#21-testing-strategy)
+22. [Implementation Phases](#22-implementation-phases)
 
 ---
 
@@ -181,11 +182,20 @@ flowforge/
 │   │       ├── __init__.py
 │   │       └── handler.py                 # WebSocket endpoint for live data
 │   └── tests/
-│       ├── conftest.py
-│       ├── test_workflow_compiler.py
-│       ├── test_schema_engine.py
-│       ├── test_query_router.py
-│       └── test_preview.py
+│       ├── conftest.py                  # Async DB session, tenant fixtures, factory helpers
+│       ├── api/                         # Route handler integration tests
+│       │   ├── test_workflows.py
+│       │   ├── test_dashboards.py
+│       │   ├── test_widgets.py
+│       │   ├── test_preview.py
+│       │   ├── test_embed_auth.py
+│       │   └── test_health.py
+│       └── services/                    # Service unit tests
+│           ├── test_workflow_compiler.py
+│           ├── test_schema_engine.py
+│           ├── test_query_router.py
+│           ├── test_formula_parser.py
+│           └── test_tenant_isolation.py
 │
 ├── frontend/                              # React SPA
 │   ├── AGENTS.md                          # Frontend-specific agent instructions
@@ -247,10 +257,30 @@ flowforge/
 │       │   │   └── useAuth.ts
 │       │   └── websocket/
 │       │       └── useWebSocket.ts        # WebSocket hook for live data
-│       └── types/
-│           ├── workflow.ts                # TypeScript types matching Pydantic schemas
-│           ├── node.ts                    # Node type definitions
-│           └── schema.ts                  # Schema types
+│       ├── types/
+│       │   ├── workflow.ts                # TypeScript types matching Pydantic schemas
+│       │   ├── node.ts                    # Node type definitions
+│       │   └── schema.ts                  # Schema types
+│       └── __tests__/                     # Vitest test files
+│           ├── setup.ts                   # Global test setup (mocks, cleanup)
+│           ├── helpers/
+│           │   ├── render.tsx             # Custom render with providers
+│           │   └── factories.ts           # Test data factories
+│           ├── shared/
+│           │   ├── schema/
+│           │   │   └── propagation.test.ts
+│           │   └── components/
+│           │       └── charts/
+│           │           └── BarChart.test.tsx
+│           └── features/
+│               ├── canvas/
+│               │   ├── Canvas.test.tsx
+│               │   ├── nodes/
+│               │   │   └── FilterNode.test.tsx
+│               │   └── hooks/
+│               │       └── useWorkflow.test.ts
+│               └── dashboards/
+│                   └── Dashboard.test.tsx
 │
 ├── pipeline/                              # Data pipeline (separate workstream)
 │   ├── generator/
@@ -3676,7 +3706,490 @@ tilt up
 
 ---
 
-## 21. Implementation Phases
+## 21. Testing Strategy
+
+Testing is a first-class concern. Every backend service, every frontend feature, and every cross-cutting concern (multi-tenancy, auth, schema propagation) has defined testing patterns. CI enforces all tests pass before merge.
+
+### Test Pyramid
+
+| Layer | Scope | Tool | Target |
+|-------|-------|------|--------|
+| Unit | Single function / class | pytest / vitest | Services, schema engine, formula parser, compiler, React hooks, Zustand stores |
+| Integration | Route → service → mock store | pytest + httpx | API routes with mocked external stores + real PostgreSQL |
+| Component | Single React component | vitest + Testing Library | Node components, config panels, chart components |
+| E2E | Full user flow (browser) | Playwright | Canvas build → preview → pin to dashboard → embed |
+
+### Coverage Targets
+
+| Layer | Minimum | Enforced in CI |
+|-------|---------|----------------|
+| Backend | 80% line coverage | Yes — `pytest --cov=app --cov-fail-under=80` |
+| Frontend | 70% line coverage | Yes — `vitest --coverage --coverage.thresholds.lines=70` |
+| E2E | Critical paths only | No minimum — smoke tests for P0 flows |
+
+---
+
+### Backend Testing
+
+#### Structure
+
+```
+backend/tests/
+├── conftest.py                    # Shared fixtures (see below)
+├── api/                           # Route handler integration tests
+│   ├── test_workflows.py
+│   ├── test_dashboards.py
+│   ├── test_widgets.py
+│   ├── test_preview.py
+│   ├── test_embed_auth.py
+│   └── test_health.py
+└── services/                      # Service unit tests
+    ├── test_workflow_compiler.py
+    ├── test_schema_engine.py
+    ├── test_query_router.py
+    ├── test_formula_parser.py
+    └── test_tenant_isolation.py
+```
+
+#### Pytest Configuration
+
+In `pyproject.toml`:
+
+```toml
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-v --tb=short --strict-markers"
+markers = [
+    "slow: marks tests that take > 1s",
+]
+```
+
+#### Core Fixtures (`conftest.py`)
+
+```python
+import uuid
+from collections.abc import AsyncGenerator
+
+import pytest
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+
+from app.main import create_app
+from app.core.database import get_db
+from app.api.deps import get_current_tenant_id
+
+TENANT_A = uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+TENANT_B = uuid.UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
+
+
+@pytest.fixture
+async def db_session() -> AsyncGenerator[AsyncSession, None]:
+    """Provide a transactional DB session that rolls back after each test."""
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    # Create tables from metadata
+    async with engine.begin() as conn:
+        from app.models.base import Base
+        await conn.run_sync(Base.metadata.create_all)
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with session_factory() as session:
+        yield session
+    await engine.dispose()
+
+
+@pytest.fixture
+def tenant_a_client(db_session: AsyncSession):
+    """HTTP client authenticated as tenant A."""
+    app = create_app()
+    app.dependency_overrides[get_db] = lambda: db_session
+    app.dependency_overrides[get_current_tenant_id] = lambda: TENANT_A
+    return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+
+
+@pytest.fixture
+def tenant_b_client(db_session: AsyncSession):
+    """HTTP client authenticated as tenant B."""
+    app = create_app()
+    app.dependency_overrides[get_db] = lambda: db_session
+    app.dependency_overrides[get_current_tenant_id] = lambda: TENANT_B
+    return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+```
+
+#### Test Naming Convention
+
+```
+test_<action>_<condition>_<expected>
+```
+
+Examples:
+- `test_create_workflow_valid_returns_201`
+- `test_compile_workflow_missing_source_raises_validation_error`
+- `test_query_router_live_table_dispatches_to_materialize`
+- `test_list_workflows_filters_by_tenant`
+
+#### Mocking Rules
+
+| When testing | Mock at | Never require |
+|---|---|---|
+| API routes | Service boundary (inject mock service) | Running external stores |
+| Services | Client boundary (mock ClickHouse/Materialize/Redis clients) | Network calls |
+| Compiler | Nothing — pure function, test input→output | Any I/O |
+| Schema engine | Nothing — pure function | Any I/O |
+
+- Use **factory functions** (not deep fixture chains) for test data:
+
+```python
+def make_workflow(*, tenant_id: uuid.UUID = TENANT_A, name: str = "test") -> Workflow:
+    return Workflow(id=uuid.uuid4(), tenant_id=tenant_id, name=name, graph_json={})
+```
+
+#### Key Test Areas
+
+| Area | What to test | Example assertion |
+|---|---|---|
+| Workflow compiler | Query merging — adjacent nodes produce single queries | `Filter → Select → Sort` on same table = 1 SQL query |
+| Schema engine | Transform functions — output schema for each node type | `Select(["price", "qty"])` on 5-col input → 2-col output |
+| Formula parser | Expression parsing — arithmetic, functions, column refs | `[price] * [qty]` → valid SQLGlot AST |
+| Query router | Freshness routing — dispatch to correct store | `live_positions` → Materialize, `marts.fct_trades` → ClickHouse |
+| API routes | Status codes, validation, response shapes | `POST /api/v1/workflows` with missing `name` → 422 |
+| Preview | Cache hit/miss, row limits, execution constraints | Same query twice → second returns `cache_hit: true` |
+
+#### Multi-Tenancy Tests (Required)
+
+Every tenant-scoped route MUST have tests verifying:
+
+1. **List isolation**: `GET /workflows` for tenant A returns only tenant A's workflows
+2. **Get isolation**: `GET /workflows/{id}` returns 404 (not 403) for cross-tenant IDs
+3. **Create scoping**: `POST /workflows` sets `tenant_id` from auth, not request body
+4. **Update isolation**: `PATCH /workflows/{id}` returns 404 for cross-tenant IDs
+5. **Delete isolation**: `DELETE /workflows/{id}` returns 404 for cross-tenant IDs
+6. **Cross-tenant references**: Widget referencing a workflow from another tenant → 400/404
+7. **Cache isolation**: Tenant A's cached preview result NOT returned for tenant B
+
+---
+
+### Frontend Testing
+
+#### Structure
+
+Tests live in `src/__tests__/`, mirroring the `src/` directory:
+
+```
+frontend/src/__tests__/
+├── setup.ts                       # Global test setup (mocks, cleanup)
+├── helpers/
+│   ├── render.tsx                 # Custom render with providers (QueryClient, Router, Auth)
+│   └── factories.ts              # Test data factories (workflows, nodes, schemas)
+├── shared/
+│   ├── schema/
+│   │   └── propagation.test.ts   # Schema propagation engine unit tests
+│   └── components/
+│       └── charts/
+│           └── BarChart.test.tsx  # Chart component render tests
+└── features/
+    ├── canvas/
+    │   ├── Canvas.test.tsx        # Canvas integration test
+    │   ├── nodes/
+    │   │   └── FilterNode.test.tsx
+    │   └── hooks/
+    │       └── useWorkflow.test.ts
+    └── dashboards/
+        └── Dashboard.test.tsx
+```
+
+#### Vitest Configuration
+
+In `vite.config.ts`:
+
+```typescript
+/// <reference types="vitest" />
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  test: {
+    globals: true,
+    environment: "jsdom",
+    setupFiles: ["./src/__tests__/setup.ts"],
+    include: ["src/**/*.test.{ts,tsx}"],
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: ["src/__tests__/**", "src/main.tsx"],
+      thresholds: { lines: 70 },
+    },
+  },
+});
+```
+
+#### Custom Render Helper
+
+All component tests use a custom `render()` that wraps components with required providers:
+
+```tsx
+// src/__tests__/helpers/render.tsx
+import { render, type RenderOptions } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
+
+function createTestQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: 0 },
+      mutations: { retry: false },
+    },
+  });
+}
+
+export function renderWithProviders(
+  ui: React.ReactElement,
+  options?: RenderOptions & { route?: string },
+) {
+  const queryClient = createTestQueryClient();
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[options?.route ?? "/"]}>
+        {ui}
+      </MemoryRouter>
+    </QueryClientProvider>,
+    options,
+  );
+}
+```
+
+#### Mocking Patterns
+
+| Dependency | How to mock |
+|---|---|
+| **API calls (TanStack Query)** | `msw` (Mock Service Worker) for network-level mocking — intercept `fetch()` calls with realistic responses |
+| **Keycloak auth** | Mock `shared/auth/useAuth` to return `{ user, tenantId, token, isAuthenticated: true }` |
+| **Zustand stores** | Test with real stores — they're lightweight. Reset between tests in `setup.ts` |
+| **React Flow** | Mock `@xyflow/react` for unit tests of individual nodes. Use real React Flow for canvas integration tests |
+| **WebSocket** | Mock `shared/websocket/useWebSocket` — return a controllable mock that can emit events |
+| **ECharts** | Mock `echarts-for-react` for snapshot tests. Use real ECharts for visual regression (optional) |
+
+#### Test Categories
+
+**1. Schema Propagation (Unit — highest priority)**
+
+The TypeScript schema engine in `shared/schema/propagation.ts` must produce identical results to the Python engine. These are pure-function tests:
+
+```typescript
+describe("propagation", () => {
+  it("Filter passes schema through unchanged", () => {
+    const input = [{ name: "price", type: "Float64" }, { name: "symbol", type: "String" }];
+    const output = propagate("filter", input, { conditions: [/*...*/] });
+    expect(output).toEqual(input);
+  });
+
+  it("Select narrows schema to selected columns", () => {
+    const input = [{ name: "price", type: "Float64" }, { name: "qty", type: "Int64" }, { name: "symbol", type: "String" }];
+    const output = propagate("select", input, { columns: ["price", "qty"] });
+    expect(output).toEqual([{ name: "price", type: "Float64" }, { name: "qty", type: "Int64" }]);
+  });
+
+  it("GroupBy produces group keys + aggregated columns", () => {
+    // ...
+  });
+});
+```
+
+**2. Canvas Node Components (Component)**
+
+Test that nodes render, accept configuration, and display schema-driven dropdowns:
+
+```typescript
+describe("FilterNode", () => {
+  it("renders column dropdown from input schema", () => {
+    renderWithProviders(<FilterNode data={{ schema: mockSchema }} />);
+    expect(screen.getByRole("combobox")).toBeInTheDocument();
+  });
+
+  it("calls onConfigChange when filter condition changes", async () => {
+    // ...
+  });
+});
+```
+
+**3. Hooks (Unit)**
+
+Test custom hooks that manage workflow state, data preview, and execution:
+
+```typescript
+describe("useWorkflow", () => {
+  it("saves workflow via mutation and invalidates query cache", async () => {
+    // ...
+  });
+});
+```
+
+**4. Chart Components (Component)**
+
+Test that shared chart components render without error and accept the standard `data` + `config` props:
+
+```typescript
+describe("BarChart", () => {
+  it("renders with valid data", () => {
+    renderWithProviders(<BarChart data={mockBarData} config={mockBarConfig} />);
+    expect(screen.getByTestId("bar-chart")).toBeInTheDocument();
+  });
+
+  it("shows empty state when data is empty", () => {
+    renderWithProviders(<BarChart data={[]} config={mockBarConfig} />);
+    expect(screen.getByText(/no data/i)).toBeInTheDocument();
+  });
+});
+```
+
+**5. Dashboard (Integration)**
+
+Test the dashboard grid renders widgets from workflow output nodes:
+
+```typescript
+describe("Dashboard", () => {
+  it("renders widgets from pinned workflow outputs", async () => {
+    server.use(
+      http.get("/api/v1/dashboards/:id", () => HttpResponse.json(mockDashboard)),
+      http.post("/api/v1/preview", () => HttpResponse.json(mockPreviewResult)),
+    );
+    renderWithProviders(<Dashboard />, { route: "/dashboards/123" });
+    await waitFor(() => expect(screen.getByTestId("widget-grid")).toBeInTheDocument());
+  });
+});
+```
+
+#### Dev Dependencies
+
+```json
+{
+  "devDependencies": {
+    "vitest": "^3.0.0",
+    "@testing-library/react": "^16.0.0",
+    "@testing-library/jest-dom": "^6.0.0",
+    "@testing-library/user-event": "^14.0.0",
+    "msw": "^2.0.0",
+    "jsdom": "^25.0.0",
+    "@vitest/coverage-v8": "^3.0.0"
+  }
+}
+```
+
+---
+
+### E2E Testing (Playwright)
+
+E2E tests cover critical user flows that span frontend and backend. They run against a full local stack (k3d).
+
+#### Structure
+
+```
+e2e/
+├── playwright.config.ts
+├── fixtures/
+│   └── auth.ts                    # Keycloak login helper
+└── tests/
+    ├── canvas-build.spec.ts       # Build a workflow end-to-end
+    ├── preview.spec.ts            # Preview data on canvas nodes
+    ├── dashboard-pin.spec.ts      # Pin output to dashboard, verify render
+    ├── embed.spec.ts              # Embed widget via API key, verify render
+    └── tenant-isolation.spec.ts   # Verify cross-tenant data is invisible
+```
+
+#### Scope
+
+E2E tests are limited to **P0 critical paths**:
+
+1. **Canvas build**: Create workflow → add DataSource → add Filter → connect → preview shows data
+2. **Save/load**: Save workflow → reload page → workflow restored
+3. **Dashboard pin**: Pin canvas output → navigate to dashboards → widget renders
+4. **Embed**: Generate API key → open embed URL → widget renders without Keycloak
+5. **Tenant isolation**: Log in as tenant A → create workflow → log in as tenant B → workflow not visible
+
+E2E tests are NOT run in PR CI (too slow). They run on a nightly schedule or manually before releases.
+
+#### Configuration
+
+```typescript
+// e2e/playwright.config.ts
+import { defineConfig } from "@playwright/test";
+
+export default defineConfig({
+  testDir: "./tests",
+  timeout: 30_000,
+  retries: 1,
+  use: {
+    baseURL: "http://localhost:5173",
+    trace: "on-first-retry",
+  },
+  projects: [{ name: "chromium", use: { browserName: "chromium" } }],
+});
+```
+
+---
+
+### Schema Propagation Cross-Validation
+
+The TypeScript and Python schema engines MUST produce identical output for the same input. This is enforced by a shared test fixture:
+
+```
+tests/fixtures/schema_propagation_cases.json
+```
+
+This JSON file contains test cases in the format:
+
+```json
+[
+  {
+    "node_type": "filter",
+    "input_schema": [{"name": "price", "type": "Float64"}, {"name": "symbol", "type": "String"}],
+    "config": {"conditions": [{"column": "price", "op": ">", "value": 100}]},
+    "expected_output_schema": [{"name": "price", "type": "Float64"}, {"name": "symbol", "type": "String"}]
+  },
+  {
+    "node_type": "select",
+    "input_schema": [{"name": "price", "type": "Float64"}, {"name": "qty", "type": "Int64"}, {"name": "symbol", "type": "String"}],
+    "config": {"columns": ["price", "qty"]},
+    "expected_output_schema": [{"name": "price", "type": "Float64"}, {"name": "qty", "type": "Int64"}]
+  }
+]
+```
+
+Both `backend/tests/services/test_schema_engine.py` and `frontend/src/__tests__/shared/schema/propagation.test.ts` load this file and run every case, ensuring parity. Adding a test case to the JSON file tests both engines simultaneously.
+
+---
+
+### CI Integration
+
+See `.github/workflows/ci.yml` for the full workflow. Summary:
+
+| Job | Steps | Gate |
+|-----|-------|------|
+| `backend` | `ruff check` → `ruff format --check` → `mypy` → `pytest --cov --cov-fail-under=80` | Must pass for merge |
+| `frontend` | `eslint` → `tsc --noEmit` → `prettier --check` → `vitest run --coverage` | Must pass for merge |
+| `e2e` (nightly) | Start local stack → `npx playwright test` | Advisory only |
+
+### Test Data Factories
+
+Both backend and frontend use factory functions (not fixtures/seeds) for test data:
+
+**Backend** (`tests/conftest.py`):
+```python
+def make_workflow(**overrides) -> Workflow: ...
+def make_dashboard(**overrides) -> Dashboard: ...
+def make_widget(*, dashboard: Dashboard, workflow: Workflow, **overrides) -> Widget: ...
+```
+
+**Frontend** (`src/__tests__/helpers/factories.ts`):
+```typescript
+export function makeWorkflow(overrides?: Partial<Workflow>): Workflow { ... }
+export function makeNode(type: NodeType, overrides?: Partial<CanvasNode>): CanvasNode { ... }
+export function makeSchema(columns: Array<{ name: string; type: string }>): Schema { ... }
+```
+
+Factories return valid, realistic objects with sensible defaults. Override only what the test cares about.
+
+---
+
+## 22. Implementation Phases
 
 ### Phase 0 — Scaffolding (Weeks 1-2)
 
