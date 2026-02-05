@@ -1044,3 +1044,379 @@ class TestPhase2NodeTypes:
         assert "GROUP BY" in sql_upper
         assert "SUM" in sql_upper
         assert "SECTOR" in sql_upper
+
+
+class TestMultiSourceDAG:
+    """Tests for complex multi-source DAG scenarios."""
+
+    def test_compile_join_then_filter_then_sort(self):
+        """Join → Filter → Sort pipeline produces merged query."""
+        compiler = get_compiler()
+        nodes = [
+            {
+                "id": "trades",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "price", "dtype": "float64"},
+                            {"name": "quantity", "dtype": "int64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "instruments",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "dim_instruments",
+                        "columns": [
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "sector", "dtype": "string"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "jn",
+                "type": "join",
+                "data": {
+                    "config": {
+                        "join_type": "inner",
+                        "left_key": "symbol",
+                        "right_key": "symbol",
+                    }
+                },
+            },
+            {
+                "id": "flt",
+                "type": "filter",
+                "data": {
+                    "config": {
+                        "column": "sector",
+                        "operator": "=",
+                        "value": "Technology",
+                    }
+                },
+            },
+            {
+                "id": "srt",
+                "type": "sort",
+                "data": {
+                    "config": {
+                        "sort_by": [{"column": "price", "direction": "desc"}],
+                    }
+                },
+            },
+            {"id": "out", "type": "table_output", "data": {"config": {}}},
+        ]
+        edges = [
+            {"source": "trades", "target": "jn"},
+            {"source": "instruments", "target": "jn"},
+            {"source": "jn", "target": "flt"},
+            {"source": "flt", "target": "srt"},
+            {"source": "srt", "target": "out"},
+        ]
+        segments = compiler._build_and_merge(
+            compiler._topological_sort(nodes, edges), nodes, edges
+        )
+        assert len(segments) == 1
+        sql_upper = segments[0].sql.upper()
+        assert "JOIN" in sql_upper
+        assert "WHERE" in sql_upper
+        assert "SECTOR" in sql_upper
+        assert "TECHNOLOGY" in sql_upper
+        assert "ORDER BY" in sql_upper
+        assert "DESC" in sql_upper
+
+    def test_compile_three_source_join(self):
+        """A JOIN B → JOIN C (chained joins)."""
+        compiler = get_compiler()
+        nodes = [
+            {
+                "id": "trades",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "account_id", "dtype": "string"},
+                            {"name": "price", "dtype": "float64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "instruments",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "dim_instruments",
+                        "columns": [
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "sector", "dtype": "string"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "accounts",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "dim_accounts",
+                        "columns": [
+                            {"name": "account_id", "dtype": "string"},
+                            {"name": "account_name", "dtype": "string"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "jn1",
+                "type": "join",
+                "data": {
+                    "config": {
+                        "join_type": "inner",
+                        "left_key": "symbol",
+                        "right_key": "symbol",
+                    }
+                },
+            },
+            {
+                "id": "jn2",
+                "type": "join",
+                "data": {
+                    "config": {
+                        "join_type": "left",
+                        "left_key": "account_id",
+                        "right_key": "account_id",
+                    }
+                },
+            },
+            {"id": "out", "type": "table_output", "data": {"config": {}}},
+        ]
+        edges = [
+            {"source": "trades", "target": "jn1"},
+            {"source": "instruments", "target": "jn1"},
+            {"source": "jn1", "target": "jn2"},
+            {"source": "accounts", "target": "jn2"},
+            {"source": "jn2", "target": "out"},
+        ]
+        segments = compiler._build_and_merge(
+            compiler._topological_sort(nodes, edges), nodes, edges
+        )
+        assert len(segments) == 1
+        sql_upper = segments[0].sql.upper()
+        # Should have multiple JOINs
+        assert sql_upper.count("JOIN") >= 2
+        # Should reference all three tables' columns
+        assert "SYMBOL" in sql_upper
+        assert "SECTOR" in sql_upper
+        assert "ACCOUNT_ID" in sql_upper
+
+    def test_compile_union_then_groupby(self):
+        """UNION ALL → GROUP BY produces aggregated union."""
+        compiler = get_compiler()
+        nodes = [
+            {
+                "id": "us_trades",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "trades_us",
+                        "columns": [
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "quantity", "dtype": "int64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "eu_trades",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "trades_eu",
+                        "columns": [
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "quantity", "dtype": "int64"},
+                        ],
+                    }
+                },
+            },
+            {"id": "un", "type": "union", "data": {"config": {}}},
+            {
+                "id": "grp",
+                "type": "group_by",
+                "data": {
+                    "config": {
+                        "group_columns": ["symbol"],
+                        "aggregations": [
+                            {
+                                "column": "quantity",
+                                "function": "SUM",
+                                "alias": "total_quantity",
+                            },
+                        ],
+                    }
+                },
+            },
+            {"id": "out", "type": "table_output", "data": {"config": {}}},
+        ]
+        edges = [
+            {"source": "us_trades", "target": "un"},
+            {"source": "eu_trades", "target": "un"},
+            {"source": "un", "target": "grp"},
+            {"source": "grp", "target": "out"},
+        ]
+        segments = compiler._build_and_merge(
+            compiler._topological_sort(nodes, edges), nodes, edges
+        )
+        assert len(segments) == 1
+        sql_upper = segments[0].sql.upper()
+        assert "UNION ALL" in sql_upper
+        assert "GROUP BY" in sql_upper
+        assert "SUM" in sql_upper
+        sql_lower = segments[0].sql.lower()
+        assert "total_quantity" in sql_lower
+
+    def test_compile_diamond_dag(self):
+        """Diamond DAG: A → B, A → C, then B+C → Join D (shared ancestor)."""
+        compiler = get_compiler()
+        nodes = [
+            {
+                "id": "trades",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "price", "dtype": "float64"},
+                            {"name": "quantity", "dtype": "int64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "filter_buy",
+                "type": "filter",
+                "data": {
+                    "config": {
+                        "column": "price",
+                        "operator": ">",
+                        "value": "100",
+                    }
+                },
+            },
+            {
+                "id": "filter_sell",
+                "type": "filter",
+                "data": {
+                    "config": {
+                        "column": "price",
+                        "operator": "<",
+                        "value": "50",
+                    }
+                },
+            },
+            {
+                "id": "jn",
+                "type": "union",  # Union the two filtered streams
+                "data": {"config": {}},
+            },
+            {"id": "out", "type": "table_output", "data": {"config": {}}},
+        ]
+        edges = [
+            {"source": "trades", "target": "filter_buy"},
+            {"source": "trades", "target": "filter_sell"},
+            {"source": "filter_buy", "target": "jn"},
+            {"source": "filter_sell", "target": "jn"},
+            {"source": "jn", "target": "out"},
+        ]
+        segments = compiler._build_and_merge(
+            compiler._topological_sort(nodes, edges), nodes, edges
+        )
+        # Diamond topology should produce a valid query
+        assert len(segments) == 1
+        sql_upper = segments[0].sql.upper()
+        # Should have UNION ALL combining the two branches
+        assert "UNION ALL" in sql_upper
+        # Both WHERE conditions should be present (in different subqueries)
+        assert "100" in segments[0].sql
+        assert "50" in segments[0].sql
+
+    def test_compile_join_with_formula(self):
+        """Join then Formula: computed column on joined data."""
+        compiler = get_compiler()
+        nodes = [
+            {
+                "id": "trades",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "price", "dtype": "float64"},
+                            {"name": "quantity", "dtype": "int64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "instruments",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "dim_instruments",
+                        "columns": [
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "lot_size", "dtype": "int64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "jn",
+                "type": "join",
+                "data": {
+                    "config": {
+                        "join_type": "inner",
+                        "left_key": "symbol",
+                        "right_key": "symbol",
+                    }
+                },
+            },
+            {
+                "id": "frm",
+                "type": "formula",
+                "data": {
+                    "config": {
+                        "expression": "[price] * [quantity]",
+                        "output_column": "notional",
+                    }
+                },
+            },
+            {"id": "out", "type": "table_output", "data": {"config": {}}},
+        ]
+        edges = [
+            {"source": "trades", "target": "jn"},
+            {"source": "instruments", "target": "jn"},
+            {"source": "jn", "target": "frm"},
+            {"source": "frm", "target": "out"},
+        ]
+        segments = compiler._build_and_merge(
+            compiler._topological_sort(nodes, edges), nodes, edges
+        )
+        assert len(segments) == 1
+        sql_upper = segments[0].sql.upper()
+        assert "JOIN" in sql_upper
+        sql_lower = segments[0].sql.lower()
+        assert "notional" in sql_lower
+        assert "*" in segments[0].sql  # multiplication for formula
