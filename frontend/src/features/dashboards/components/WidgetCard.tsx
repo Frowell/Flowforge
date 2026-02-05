@@ -4,8 +4,10 @@
  * The chart inside is imported from shared/components/charts/, never duplicated.
  */
 
+import { useEffect, useRef } from "react";
 import { cn } from "@/shared/lib/cn";
 import ChartRenderer from "@/shared/components/charts/ChartRenderer";
+import { useToastStore } from "@/shared/components/Toast";
 import { useWidgetData } from "../hooks/useWidgetData";
 import WidgetSettingsMenu from "./WidgetSettingsMenu";
 import type { WidgetResponse } from "@/shared/query-engine/types";
@@ -50,6 +52,17 @@ export default function WidgetCard({ widget, className, onUnpin }: WidgetCardPro
   const chartType = (data?.chart_config?.chart_type as string) ?? "bar";
   const chartConfig = data?.chart_config ?? {};
   const isLive = refreshInterval === "live" || typeof refreshInterval === "number";
+  const addToast = useToastStore((s) => s.addToast);
+  const prevErrorRef = useRef<unknown>(null);
+
+  // Show toast for transient errors (in addition to inline display)
+  useEffect(() => {
+    if (error && isTransientError(error) && error !== prevErrorRef.current) {
+      const msg = error instanceof Error ? error.message : "Network error";
+      addToast(`Widget "${widget.title ?? "Widget"}": ${msg}`, "error");
+    }
+    prevErrorRef.current = error;
+  }, [error, addToast, widget.title]);
 
   return (
     <div

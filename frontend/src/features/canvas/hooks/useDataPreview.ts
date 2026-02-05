@@ -26,6 +26,8 @@ export function useDataPreview({ workflowId, nodeId, nodes, edges }: UseDataPrev
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [offset, setOffset] = useState(0);
+  const [dataUpdatedAt, setDataUpdatedAt] = useState<number | null>(null);
+  const [refetchTrigger, setRefetchTrigger] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
 
   // Reset offset when node or graph config changes
@@ -92,6 +94,7 @@ export function useDataPreview({ workflowId, nodeId, nodes, edges }: UseDataPrev
         .then((result) => {
           setData(result);
           setError(null);
+          setDataUpdatedAt(Date.now());
         })
         .catch((err) => {
           if (err instanceof DOMException && err.name === "AbortError") return;
@@ -108,7 +111,7 @@ export function useDataPreview({ workflowId, nodeId, nodes, edges }: UseDataPrev
       clearTimeout(timer);
       abortRef.current?.abort();
     };
-  }, [workflowId, nodeId, nodes, edges, offset]);
+  }, [workflowId, nodeId, nodes, edges, offset, refetchTrigger]);
 
   const nextPage = useCallback(() => {
     if (data && offset + data.limit < data.total_estimate) {
@@ -122,5 +125,9 @@ export function useDataPreview({ workflowId, nodeId, nodes, edges }: UseDataPrev
     }
   }, [data, offset]);
 
-  return { data, isLoading, error, offset, nextPage, prevPage, setOffset };
+  const refetch = useCallback(() => {
+    setRefetchTrigger((prev) => prev + 1);
+  }, []);
+
+  return { data, isLoading, error, offset, nextPage, prevPage, setOffset, dataUpdatedAt, refetch };
 }

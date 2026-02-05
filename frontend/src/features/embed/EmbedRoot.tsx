@@ -22,7 +22,7 @@ export default function EmbedRoot() {
   }
 
   return (
-    <div className="h-screen w-screen bg-canvas-bg">
+    <div className="h-screen w-screen bg-canvas-bg overflow-hidden">
       <EmbedWidget
         widgetId={widgetId}
         apiKey={apiKey}
