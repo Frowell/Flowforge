@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_tenant_id, get_db, get_widget_data_service
+from app.api.deps import get_current_tenant_id, get_db, get_widget_data_service, require_role
 from app.models.dashboard import Dashboard, Widget
 from app.models.workflow import Workflow
 from app.schemas.dashboard import (
@@ -30,6 +30,7 @@ async def pin_widget(
     body: WidgetCreate,
     tenant_id: UUID = Depends(get_current_tenant_id),
     db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_role("admin", "analyst")),
 ):
     """Pin a workflow output node to a dashboard as a widget.
 
@@ -79,6 +80,7 @@ async def update_widget(
     body: WidgetUpdate,
     tenant_id: UUID = Depends(get_current_tenant_id),
     db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_role("admin", "analyst")),
 ):
     # Widget inherits tenant from its dashboard — join through dashboard to check tenant
     result = await db.execute(
@@ -171,6 +173,7 @@ async def unpin_widget(
     widget_id: UUID,
     tenant_id: UUID = Depends(get_current_tenant_id),
     db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_role("admin")),
 ):
     """Remove a widget from its dashboard."""
     result = await db.execute(
