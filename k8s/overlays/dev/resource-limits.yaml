@@ -1,0 +1,60 @@
+# Reduce resource requests for local development
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: flowforge
+spec:
+  template:
+    spec:
+      containers:
+        - name: backend
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: flowforge
+spec:
+  template:
+    spec:
+      containers:
+        - name: frontend
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-generator
+  namespace: flowforge
+spec:
+  template:
+    spec:
+      containers:
+        - name: generator
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bytewax-vwap
+  namespace: flowforge
+spec:
+  template:
+    spec:
+      containers:
+        - name: bytewax
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"

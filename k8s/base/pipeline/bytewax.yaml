@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bytewax-vwap
+  namespace: flowforge
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bytewax-vwap
+  template:
+    metadata:
+      labels:
+        app: bytewax-vwap
+    spec:
+      containers:
+        - name: bytewax
+          image: flowforge-registry:5111/flowforge-bytewax:dev
+          command: ["python", "-m", "bytewax.run", "flows.vwap:flow"]
+          env:
+            - name: REDPANDA_BROKERS
+              value: "redpanda.flowforge.svc.cluster.local:29092"
+            - name: CLICKHOUSE_HOST
+              value: "clickhouse.flowforge.svc.cluster.local"
+            - name: CLICKHOUSE_PORT
+              value: "8123"
+            - name: REDIS_HOST
+              value: "redis.flowforge.svc.cluster.local"
+            - name: REDIS_PORT
+              value: "6379"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "1000m"

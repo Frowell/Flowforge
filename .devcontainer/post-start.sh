@@ -18,6 +18,24 @@ until redis-cli -h redis ping 2>/dev/null | grep -q PONG; do
 done
 echo "✅ Redis is ready"
 
+echo "⏳ Waiting for ClickHouse..."
+until wget --spider -q http://clickhouse:8123/ping 2>/dev/null; do
+  sleep 1
+done
+echo "✅ ClickHouse is ready"
+
+echo "⏳ Waiting for Redpanda..."
+until curl -sf http://redpanda:9644/v1/status/ready >/dev/null 2>&1; do
+  sleep 1
+done
+echo "✅ Redpanda is ready"
+
+echo "⏳ Waiting for Materialize..."
+until pg_isready -h materialize -p 6875 -U materialize -q 2>/dev/null; do
+  sleep 1
+done
+echo "✅ Materialize is ready"
+
 echo ""
 echo "🚀 All infrastructure services are up!"
 echo ""

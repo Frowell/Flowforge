@@ -9,13 +9,11 @@
 | `app` | Python 3.12 + Node 22 | Application runtime (backend + frontend dev servers) |
 | `db` | PostgreSQL 16 | App metadata (workflows, dashboards, widgets, users) |
 | `redis` | Redis 7 | Cache (schema registry), pub/sub (WebSocket fan-out) |
+| `clickhouse` | ClickHouse | Analytical queries (read-only serving layer) |
+| `redpanda` | Redpanda | Kafka-compatible event streaming |
+| `materialize` | Materialize | Streaming SQL materialized views |
+| `init-materialize` | PostgreSQL 16 (one-shot) | Creates Materialize sources, views |
 | `pgadmin` | pgAdmin (optional) | Database administration UI |
-
-## Services Not Yet Added
-
-- **ClickHouse** and **Materialize** are not yet in the devcontainer.
-- All code that interacts with these services **must be mockable** — services should accept injected clients that can be replaced with test doubles.
-- Tests must never require running ClickHouse or Materialize instances.
 
 ## Environment Variables
 

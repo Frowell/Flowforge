@@ -1,0 +1,11 @@
+symbol,name,sector,exchange,currency,lot_size
+AAPL,Apple Inc,Technology,NASDAQ,USD,1
+MSFT,Microsoft Corp,Technology,NASDAQ,USD,1
+GOOGL,Alphabet Inc,Technology,NASDAQ,USD,1
+AMZN,Amazon.com Inc,Consumer Discretionary,NASDAQ,USD,1
+NVDA,NVIDIA Corp,Technology,NASDAQ,USD,1
+TSLA,Tesla Inc,Consumer Discretionary,NASDAQ,USD,1
+META,Meta Platforms Inc,Communication Services,NASDAQ,USD,1
+JPM,JPMorgan Chase,Financials,NYSE,USD,1
+BAC,Bank of America,Financials,NYSE,USD,1
+GS,Goldman Sachs,Financials,NYSE,USD,1

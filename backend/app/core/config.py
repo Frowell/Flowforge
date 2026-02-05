@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     materialize_user: str = "materialize"
     materialize_password: str = ""
 
+    # Redpanda (Kafka-compatible broker)
+    redpanda_brokers: str = "redpanda:29092"
+
     # CORS
     cors_origins: list[str] = ["http://localhost:5173"]
 

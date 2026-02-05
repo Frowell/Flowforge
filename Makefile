@@ -74,6 +74,20 @@ scaffold: ## Generate initial project structure
 	@bash scripts/scaffold.sh
 	@echo "$(GREEN)Done! Run 'make dev' to start.$(RESET)"
 
+# ── Infrastructure ───────────────────────────────────────────────────
+
+seed: ## Seed dev user + ClickHouse sample data
+	cd backend && python scripts/seed_dev.py
+
+seed-historical: ## Seed 6 months of historical trades into ClickHouse
+	python scripts/seed_historical.py
+
+check: ## Run connectivity check against all services
+	bash scripts/check-connectivity.sh
+
+generator: ## Start the synthetic data generator
+	cd pipeline/generator && python generator.py
+
 # ── Cleanup ───────────────────────────────────────────────────────────
 
 clean: ## Remove build artifacts and caches

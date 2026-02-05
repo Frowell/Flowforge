@@ -5,6 +5,7 @@
 - /health/ready — readiness probe (checks dependencies)
 """
 
+import httpx
 import structlog
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
@@ -13,7 +14,9 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.clickhouse import get_clickhouse_client
+from app.core.config import settings
 from app.core.database import get_db
+from app.core.materialize import get_materialize_client
 from app.core.redis import get_redis
 
 router = APIRouter()
@@ -37,7 +40,7 @@ async def readiness(
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
 ):
-    """Readiness probe — checks PostgreSQL, Redis, and ClickHouse."""
+    """Readiness probe — checks PostgreSQL, Redis, ClickHouse, Materialize, Redpanda."""
     checks: dict[str, dict] = {}
     healthy = True
 
@@ -69,6 +72,31 @@ async def readiness(
     except Exception as exc:
         checks["clickhouse"] = {"status": "degraded", "detail": str(exc)}
         logger.info("readiness_check_degraded", dependency="clickhouse", error=str(exc))
+
+    # Materialize (optional — degraded, not failing)
+    try:
+        mz = get_materialize_client()
+        ok = await mz.ping()
+        checks["materialize"] = {"status": "ok" if ok else "degraded"}
+    except Exception as exc:
+        checks["materialize"] = {"status": "degraded", "detail": str(exc)}
+        logger.info(
+            "readiness_check_degraded", dependency="materialize", error=str(exc)
+        )
+
+    # Redpanda (optional — degraded, not failing)
+    try:
+        redpanda_host = settings.redpanda_brokers.split(":")[0]
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"http://{redpanda_host}:9644/v1/status/ready", timeout=2.0
+            )
+            checks["redpanda"] = {
+                "status": "ok" if resp.status_code == 200 else "degraded"
+            }
+    except Exception as exc:
+        checks["redpanda"] = {"status": "degraded", "detail": str(exc)}
+        logger.info("readiness_check_degraded", dependency="redpanda", error=str(exc))
 
     status_code = 200 if healthy else 503
     return JSONResponse(

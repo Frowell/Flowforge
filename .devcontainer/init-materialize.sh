@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+set -e
+
+MZ_HOST="${MATERIALIZE_HOST:-materialize}"
+MZ_PORT="${MATERIALIZE_PORT:-6875}"
+REDPANDA_HOST="${REDPANDA_HOST:-redpanda}"
+REDPANDA_KAFKA_PORT="${REDPANDA_KAFKA_PORT:-29092}"
+
+echo "=== Waiting for Materialize ==="
+until pg_isready -h "$MZ_HOST" -p "$MZ_PORT" -U materialize 2>/dev/null; do
+  echo "  Waiting for Materialize at ${MZ_HOST}:${MZ_PORT}..."
+  sleep 2
+done
+echo "Materialize is ready."
+
+echo "=== Waiting for Redpanda ==="
+until curl -sf "http://${REDPANDA_HOST}:9644/v1/status/ready" >/dev/null 2>&1; do
+  echo "  Waiting for Redpanda at ${REDPANDA_HOST}:9644..."
+  sleep 2
+done
+echo "Redpanda is ready."
+
+echo "=== Creating Materialize sources ==="
+psql -h "$MZ_HOST" -p "$MZ_PORT" -U materialize <<EOF
+CREATE CONNECTION IF NOT EXISTS redpanda_conn TO KAFKA (
+    BROKER '${REDPANDA_HOST}:${REDPANDA_KAFKA_PORT}',
+    SECURITY PROTOCOL PLAINTEXT
+);
+
+CREATE SOURCE IF NOT EXISTS raw_trades_source
+  FROM KAFKA CONNECTION redpanda_conn (TOPIC 'raw.trades')
+  FORMAT JSON
+  INCLUDE TIMESTAMP;
+
+CREATE SOURCE IF NOT EXISTS raw_quotes_source
+  FROM KAFKA CONNECTION redpanda_conn (TOPIC 'raw.quotes')
+  FORMAT JSON
+  INCLUDE TIMESTAMP;
+EOF
+
+echo "=== Creating staging views ==="
+psql -h "$MZ_HOST" -p "$MZ_PORT" -U materialize <<EOF
+CREATE VIEW IF NOT EXISTS raw_trades_parsed AS
+SELECT
+    (data->>'trade_id')::TEXT AS trade_id,
+    (data->>'event_time')::TIMESTAMPTZ AS event_time,
+    (data->>'symbol')::TEXT AS symbol,
+    (data->>'side')::TEXT AS side,
+    (data->>'quantity')::NUMERIC AS quantity,
+    (data->>'price')::NUMERIC AS price,
+    (data->>'quantity')::NUMERIC * (data->>'price')::NUMERIC AS notional
+FROM raw_trades_source;
+
+CREATE VIEW IF NOT EXISTS raw_quotes_parsed AS
+SELECT
+    (data->>'symbol')::TEXT AS symbol,
+    (data->>'event_time')::TIMESTAMPTZ AS event_time,
+    (data->>'bid')::NUMERIC AS bid,
+    (data->>'ask')::NUMERIC AS ask,
+    (data->>'bid_size')::NUMERIC AS bid_size,
+    (data->>'ask_size')::NUMERIC AS ask_size,
+    ((data->>'bid')::NUMERIC + (data->>'ask')::NUMERIC) / 2 AS mid_price
+FROM raw_quotes_source;
+EOF
+
+echo "=== Creating materialized views ==="
+psql -h "$MZ_HOST" -p "$MZ_PORT" -U materialize <<EOF
+CREATE MATERIALIZED VIEW IF NOT EXISTS live_positions AS
+SELECT
+    symbol,
+    SUM(CASE WHEN side = 'BUY' THEN quantity ELSE -quantity END) AS net_qty,
+    SUM(CASE WHEN side = 'BUY' THEN quantity * price ELSE -quantity * price END) AS net_notional,
+    COUNT(*) AS trade_count,
+    MAX(event_time) AS last_update
+FROM raw_trades_parsed
+GROUP BY symbol;
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS live_quotes AS
+SELECT DISTINCT ON (symbol)
+    symbol,
+    bid,
+    ask,
+    mid_price,
+    bid_size,
+    ask_size,
+    event_time AS last_update
+FROM raw_quotes_parsed
+ORDER BY symbol, event_time DESC;
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS live_pnl AS
+SELECT
+    p.symbol,
+    p.net_qty,
+    p.net_notional,
+    q.mid_price,
+    (p.net_qty * q.mid_price) - p.net_notional AS unrealized_pnl,
+    GREATEST(p.last_update, q.last_update) AS as_of
+FROM live_positions p
+JOIN live_quotes q ON p.symbol = q.symbol;
+EOF
+
+echo "=== Materialize initialization complete ==="

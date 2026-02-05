@@ -1,0 +1,5 @@
+bytewax>=0.19
+confluent-kafka>=2.3
+clickhouse-connect>=0.7
+redis>=5.0
+orjson>=3.9

@@ -18,6 +18,8 @@ dependencies = [
     "alembic>=1.14.0",
     "greenlet>=3.1.0",
     "redis>=5.2.0",
+    # ClickHouse (read-only analytical queries)
+    "clickhouse-connect>=0.8.0",
     # SQL generation (NOT DataFrames)
     "sqlglot>=25.0.0",
     # Validation

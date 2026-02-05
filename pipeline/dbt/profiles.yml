@@ -1,0 +1,11 @@
+flowforge:
+  target: dev
+  outputs:
+    dev:
+      type: clickhouse
+      host: "{{ env_var('CLICKHOUSE_HOST', 'clickhouse') }}"
+      port: 8123
+      user: default
+      password: ""
+      schema: marts
+      secure: false

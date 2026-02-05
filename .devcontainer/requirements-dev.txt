@@ -13,6 +13,9 @@ greenlet>=3.1.0
 # ── Cache / Pub-Sub ──────────────────────────────────────────────────
 redis>=5.2.0
 
+# ── ClickHouse ───────────────────────────────────────────────────────
+clickhouse-connect>=0.8.0
+
 # ── SQL Generation + Preview Formatting ──────────────────────────────
 sqlglot>=25.0.0
 pandas>=2.2.0
