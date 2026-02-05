@@ -42,7 +42,7 @@ If any of these 6 are missing, the node type is incomplete.
 
 ## Chart Library
 
-All charts use **Apache ECharts** via `echarts-for-react`. Chart types: Bar, Line, Candlestick, Scatter, KPI Card, Pivot Table. All live in `frontend/src/shared/components/charts/`.
+All charts use **Recharts**. Chart types: Bar, Line, Candlestick, Scatter, KPI Card, Pivot Table. All live in `frontend/src/shared/components/charts/`.
 
 ---
 

@@ -488,10 +488,10 @@ Devcontainer, project scaffolding, and the empty shell.
 - [x] Seed ClickHouse with sample market data (trades, quotes, positions, instruments) for development
 - [x] FastAPI backend skeleton: health check, CORS, async SQLAlchemy, ClickHouse client
 - [x] PostgreSQL schema: workflows, dashboards, widgets, users (ORM models complete)
-- [ ] Generate initial Alembic migration from ORM models (`alembic revision --autogenerate`)
+- [x] Generate initial Alembic migration from ORM models (2 migrations: initial schema + audit logs)
 - [x] React SPA shell with routing (`/canvas`, `/dashboards`, `/embed/:id`)
 - [x] React Flow canvas rendering with empty workspace and basic node drag-and-drop
-- [x] CI: lint, type-check, test on push (pre-commit hooks + Makefile exist, GitHub Actions missing)
+- [x] CI: lint, type-check, test on push (GitHub Actions: ci.yml, build.yml, deploy workflows, terraform workflows)
 
 **Deliverable:** Empty canvas loads, API responds, ClickHouse has queryable sample data.
 
@@ -499,18 +499,18 @@ Devcontainer, project scaffolding, and the empty shell.
 
 The schema propagation engine and the first five node types. Every subsequent phase builds on this.
 
-- [ ] Schema registry: query ClickHouse `system.columns` and Materialize `mz_catalog`, cache results
-- [ ] Schema propagation engine: TypeScript (client-side, instant feedback) + Python (server-side, authoritative)
-- [ ] Node type registry: declared input/output schemas per node type
-- [ ] Configuration panel framework: right sidebar, panels swap based on selected node, schema-aware dropdowns
-- [ ] **Data Source node:** table picker from catalog, column selection, row limit
-- [ ] **Filter node:** column dropdown (from upstream schema), type-aware operator picker, value input, AND/OR groups, live match count preview
-- [ ] **Select node:** checkbox column list, drag-to-reorder
-- [ ] **Sort node:** column dropdown, ASC/DESC, multi-column priority
-- [ ] **Table View output node:** paginated grid (TanStack Table), column resize, sort-on-click
-- [ ] Data preview on any node: click node → see first 100 rows of output
-- [ ] Workflow save/load: serialize React Flow state to PostgreSQL, list/open saved workflows
-- [ ] Workflow compiler: merge adjacent Filter/Select/Sort into single ClickHouse query
+- [x] Schema registry: query ClickHouse `system.columns` and Materialize `mz_catalog`, cache results
+- [x] Schema propagation engine: TypeScript (client-side, instant feedback) + Python (server-side, authoritative)
+- [x] Node type registry: declared input/output schemas per node type (17 transforms registered)
+- [x] Configuration panel framework: right sidebar, panels swap based on selected node, schema-aware dropdowns
+- [x] **Data Source node:** table picker from catalog, column selection, row limit
+- [x] **Filter node:** column dropdown (from upstream schema), type-aware operator picker, value input, AND/OR groups
+- [x] **Select node:** checkbox column list, drag-to-reorder
+- [x] **Sort node:** column dropdown, ASC/DESC, multi-column priority
+- [x] **Table View output node:** paginated grid (TanStack Table), column resize, sort-on-click
+- [x] Data preview on any node: click node → see first 100 rows of output
+- [x] Workflow save/load: serialize React Flow state to PostgreSQL, list/open saved workflows
+- [x] Workflow compiler: merge adjacent Filter/Select/Sort into single ClickHouse query
 
 **Deliverable:** User builds a 5-node workflow (Source → Filter → Select → Sort → Table), configures each via GUI with schema-aware dropdowns, previews at each step, saves and reloads.
 
@@ -518,15 +518,18 @@ The schema propagation engine and the first five node types. Every subsequent ph
 
 The nodes that make this more than a SQL GUI.
 
-- [ ] **Group By node:** dimension picker, metric + aggregation function selector (SUM/AVG/COUNT/MIN/MAX), multiple metrics
-- [ ] **Join node:** join type selector (inner/left/right/full), key column mapping from each input, schema merge preview
-- [ ] **Union node:** column alignment mapping, type coercion warnings
-- [ ] **Formula node:** expression editor with column reference autocomplete, function palette sidebar, output type inference, syntax validation
-- [ ] **Rename node:** column name mapping (old → new)
-- [ ] **Unique node:** column subset picker for deduplication key
-- [ ] **Sample node:** row count or percentage, random seed toggle
-- [ ] Formula parser: expression AST → ClickHouse SQL compilation, error messages with position highlighting
-- [ ] Compiler update: handle multi-source DAGs (joins), subquery generation for complex graphs
+- [x] **Group By node:** dimension picker, metric + aggregation function selector (SUM/AVG/COUNT/MIN/MAX), multiple metrics
+- [x] **Join node:** join type selector (inner/left/right/full), key column mapping from each input, schema merge preview
+- [x] **Union node:** column alignment mapping, type coercion warnings
+- [x] **Formula node:** expression editor with column reference autocomplete, function palette sidebar, output type inference, syntax validation
+- [x] **Rename node:** column name mapping (old → new)
+- [x] **Unique node:** column subset picker for deduplication key
+- [x] **Sample node:** row count or percentage, random seed toggle
+- [x] Formula parser: expression AST → ClickHouse SQL compilation, error messages with position highlighting
+- [x] Compiler update: handle multi-source DAGs (joins), subquery generation for complex graphs
+- [x] **Limit node:** row limit + offset (bonus, not in original plan)
+- [x] **Pivot node:** row/column dimension pickers, value + aggregation (bonus)
+- [x] **Window node:** window functions with partition/order (bonus)
 
 **Deliverable:** User joins two tables, groups by a dimension, adds a calculated field via formula, filters the result, and views it in a table. Formula builder handles arithmetic, conditionals, and common functions.
 
@@ -534,17 +537,17 @@ The nodes that make this more than a SQL GUI.
 
 Chart outputs and the full dashboard lifecycle.
 
-- [ ] **Bar Chart output node:** X/Y axis column mapping, color grouping, horizontal/vertical, stacked option
-- [ ] **Line Chart output node:** time axis, multi-series, line style, area fill option
-- [ ] **Candlestick output node:** OHLC column mapping, time axis, volume subplot
-- [ ] **Scatter Plot output node:** X/Y axis, size column, color column, trend line toggle
-- [ ] **KPI Card output node:** metric column, aggregation, comparison value, threshold coloring (red/yellow/green)
-- [ ] **Pivot Table output node:** row/column dimension pickers, value + aggregation
-- [ ] Shared chart component library: same components render in canvas preview, dashboard widgets, and embeds
-- [ ] "Pin to Dashboard" dialog on any output node: pick or create target dashboard
-- [ ] Dashboard grid layout: drag/resize widgets (react-grid-layout), save layout to PostgreSQL
-- [ ] Dashboard list view: create, rename, delete, open dashboards
-- [ ] Global dashboard filters: date range picker, dropdown filters, propagated to all widget queries
+- [x] **Bar Chart output node:** X/Y axis column mapping, color grouping, horizontal/vertical, stacked option
+- [x] **Line Chart output node:** time axis, multi-series, line style, area fill option
+- [x] **Candlestick output node:** OHLC column mapping, time axis, volume subplot
+- [x] **Scatter Plot output node:** X/Y axis, size column, color column, trend line toggle
+- [x] **KPI Card output node:** metric column, aggregation, comparison value, threshold coloring (red/yellow/green)
+- [x] **Pivot Table output node:** row/column dimension pickers, value + aggregation
+- [x] Shared chart component library: same components render in canvas preview, dashboard widgets, and embeds (Recharts)
+- [x] "Pin to Dashboard" dialog on any output node: pick or create target dashboard
+- [x] Dashboard grid layout: drag/resize widgets (react-grid-layout), save layout to PostgreSQL
+- [x] Dashboard list view: create, rename, delete, open dashboards (DashboardPicker)
+- [x] Global dashboard filters: date range picker, dropdown filters, propagated to all widget queries
 - [ ] Drill-down: click chart element → filtered detail view in a modal or expanded panel
 - [ ] Dashboard save/load/share via URL
 
@@ -554,13 +557,13 @@ Chart outputs and the full dashboard lifecycle.
 
 WebSocket integration and the embeddable widget system.
 
-- [ ] WebSocket infrastructure: connection manager, subscription lifecycle, reconnection handling
+- [x] WebSocket infrastructure: connection manager, subscription lifecycle, reconnection handling
 - [ ] Live query mode: Materialize-backed Data Source nodes push updates via WebSocket (charts redraw on new data)
-- [ ] Redis integration: query router dispatches point lookups to Redis for sub-ms latest-state queries
+- [x] Redis integration: query router dispatches point lookups to Redis for sub-ms latest-state queries
 - [ ] Auto-refresh on dashboard widgets: configurable interval (5s, 30s, 1m, 5m) or live (WebSocket)
-- [ ] Embed mode: `/embed/:widget_id` route with chromeless rendering
-- [ ] API key management: create/revoke keys scoped to specific widgets or dashboards
-- [ ] Embed URL parameters: `?symbol=AAPL&range=1d` override widget filters
+- [x] Embed mode: `/embed/:widget_id` route with chromeless rendering
+- [x] API key management: create/revoke keys scoped to specific widgets or dashboards
+- [x] Embed URL parameters: `?symbol=AAPL&range=1d` override widget filters
 - [ ] Embed responsive sizing: widget fills iframe container
 
 **Deliverable:** Dashboard widgets update in real time as new data flows into Materialize. An embedded widget renders in a customer's portal via iframe with API key auth.
@@ -569,18 +572,19 @@ WebSocket integration and the embeddable widget system.
 
 Reduce time-to-value and production readiness.
 
-- [ ] Template workflows:
+- [x] Template workflows:
   - Real-Time Position Monitor (positions source → group by symbol → KPI cards + bar chart)
   - VWAP Analysis (trades source → formula [price × qty] → group by time window → candlestick)
   - Sector Exposure Breakdown (positions join instruments → group by sector → pie/bar chart)
   - Trade Blotter (trades source → filter by date → sort by time → table view)
   - P&L Dashboard (positions source → formula [unrealized P&L] → KPI card + line chart over time)
-- [ ] Template picker in canvas: start from blank or from template
-- [ ] Workflow versioning: save versions, revert to previous
-- [ ] Undo/redo on canvas (Zustand middleware)
-- [ ] Keyboard shortcuts: delete node, copy/paste, select all, run workflow
-- [ ] Role-based access: admin (everything), analyst (canvas + dashboards), viewer (dashboards only)
-- [ ] Audit logging: who created/modified/ran what, queryable in admin panel
+- [x] Template picker in canvas: start from blank or from template
+- [x] Workflow versioning: save versions, revert to previous
+- [x] Undo/redo on canvas (Zustand middleware via zundo)
+- [x] Keyboard shortcuts: delete node, copy/paste, select all, run workflow
+- [x] Role-based access: admin (everything), analyst (canvas + dashboards), viewer (dashboards only)
+- [x] Audit logging: who created/modified/ran what (model + service + route built)
+- [ ] Audit log admin panel UI: queryable in admin panel
 - [ ] Error states: orphaned widgets, failed queries, disconnected WebSocket, stale schema
 
 **Deliverable:** New user picks a template, customizes it, and has a live dashboard in under 15 minutes. Access control enforced per role.
