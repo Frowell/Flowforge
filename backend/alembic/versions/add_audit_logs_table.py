@@ -46,20 +46,23 @@ def upgrade() -> None:
         sa.Column("user_id", sa.UUID(), nullable=False),
         sa.Column(
             "action",
-            sa.Enum(
+            postgresql.ENUM(
                 "CREATED",
                 "UPDATED",
                 "DELETED",
                 "EXECUTED",
                 "REVOKED",
                 name="audit_action",
+                create_type=False,
             ),
             nullable=False,
         ),
         sa.Column(
             "resource_type",
-            sa.Enum(
-                "WORKFLOW", "DASHBOARD", "WIDGET", "API_KEY", name="audit_resource_type"
+            postgresql.ENUM(
+                "WORKFLOW", "DASHBOARD", "WIDGET", "API_KEY",
+                name="audit_resource_type",
+                create_type=False,
             ),
             nullable=False,
         ),

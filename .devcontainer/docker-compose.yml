@@ -150,9 +150,8 @@ services:
 
   # ── Materialize ─────────────────────────────────────────────────────
   materialize:
-    image: materializeinc/materialize:latest
+    image: materialize/materialized:latest
     restart: unless-stopped
-    command: ["--workers=1"]
     volumes:
       - materialize-data:/mzdata
     ports:
@@ -161,7 +160,7 @@ services:
       redpanda:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h localhost -p 6875 -U materialize"]
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 6875 -U root"]
       interval: 5s
       timeout: 5s
       retries: 10
