@@ -10,7 +10,9 @@ from datetime import timedelta, datetime, timezone
 import bytewax.operators as op
 from bytewax.dataflow import Dataflow
 from bytewax.connectors.kafka import KafkaSource
-from bytewax.operators.windowing import TumblingWindower, EventClock, WindowMetadata
+from bytewax.operators.windowing import TumblingWindower, EventClock, fold_window
+from bytewax.connectors.stdio import StdOutSink
+from confluent_kafka import OFFSET_END
 
 import clickhouse_connect
 import redis
@@ -72,16 +74,27 @@ class VWAPAccumulator:
         return ((self.high - self.low) / self.low) * 10000
 
 
-def accumulate(acc, trade):
-    if acc is None:
-        acc = VWAPAccumulator()
+def build_acc():
+    return VWAPAccumulator()
+
+
+def fold_trade(acc, trade):
     return acc.add(trade)
+
+
+def merge_accs(acc1, acc2):
+    acc1.total_notional += acc2.total_notional
+    acc1.total_volume += acc2.total_volume
+    acc1.trade_count += acc2.trade_count
+    acc1.high = max(acc1.high, acc2.high)
+    acc1.low = min(acc1.low, acc2.low)
+    return acc1
 
 
 def emit_vwap(symbol_window):
     """Write VWAP result to ClickHouse and Redis."""
-    (symbol, window_meta), acc = symbol_window
-    window_end = window_meta.close_time
+    symbol, (_window_id, acc) = symbol_window
+    window_end = datetime.now(timezone.utc)
 
     # Write to ClickHouse
     ch_client.insert(
@@ -108,7 +121,7 @@ flow = Dataflow("vwap_5min")
 source = KafkaSource(
     brokers=REDPANDA_BROKERS,
     topics=["raw.trades"],
-    starting_offset="end",
+    starting_offset=OFFSET_END,
 )
 
 stream = op.input("trades_in", flow, source)
@@ -117,5 +130,6 @@ keyed = op.map("parse", stream, parse_trade)
 clock = EventClock(extract_event_time, wait_for_system_duration=timedelta(seconds=10))
 windower = TumblingWindower(length=timedelta(minutes=5), align_to=datetime(2024, 1, 1, tzinfo=timezone.utc))
 
-windowed = op.window.fold_window("vwap_window", keyed, clock, windower, lambda: None, accumulate)
-op.map("emit", windowed, emit_vwap)
+windowed = fold_window("vwap_window", keyed, clock, windower, build_acc, fold_trade, merge_accs)
+emitted = op.map("emit", windowed.down, emit_vwap)
+op.output("sink", emitted, StdOutSink())

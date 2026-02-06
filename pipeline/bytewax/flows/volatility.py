@@ -13,10 +13,13 @@ import json
 import math
 from datetime import timedelta, datetime, timezone
 from collections import deque
+from typing import Optional, Tuple
 
 import bytewax.operators as op
 from bytewax.dataflow import Dataflow
 from bytewax.connectors.kafka import KafkaSource
+from bytewax.connectors.stdio import StdOutSink
+from confluent_kafka import OFFSET_END
 
 import clickhouse_connect
 import redis
@@ -45,11 +48,6 @@ def parse_trade(msg):
             "price": float(data["price"]),
         },
     )
-
-
-def extract_event_time(trade):
-    """Extract event time for windowing."""
-    return trade["event_time"]
 
 
 class VolatilityAccumulator:
@@ -131,15 +129,19 @@ class DualVolatilityState:
         return self
 
 
-def accumulate(state, trade):
+def accumulate_mapper(
+    state: Optional[DualVolatilityState], trade: dict
+) -> Tuple[Optional[DualVolatilityState], DualVolatilityState]:
+    """stateful_map callback: (state, value) -> (new_state, emit_value)."""
     if state is None:
         state = DualVolatilityState()
-    return state.add(trade)
+    state.add(trade)
+    return (state, state)
 
 
 def should_emit(symbol_state):
     """Emit every 5 minutes to avoid flooding."""
-    symbol, state = symbol_state
+    _symbol, state = symbol_state
     now = datetime.now(timezone.utc)
 
     if state.last_emit is None or (now - state.last_emit) >= timedelta(minutes=5):
@@ -190,22 +192,18 @@ flow = Dataflow("rolling_volatility")
 source = KafkaSource(
     brokers=REDPANDA_BROKERS,
     topics=["raw.trades"],
-    starting_offset="end",
+    starting_offset=OFFSET_END,
 )
 
 stream = op.input("trades_in", flow, source)
 keyed = op.map("parse", stream, parse_trade)
 
 # Stateful accumulation per symbol
-accumulated = op.stateful_map(
-    "accumulate",
-    keyed,
-    lambda: None,
-    lambda s, t: (accumulate(s, t), (t[0], s or DualVolatilityState())),
-)
+accumulated = op.stateful_map("accumulate", keyed, accumulate_mapper)
 
 # Filter to emit periodically
 filtered = op.filter("should_emit", accumulated, should_emit)
 
 # Emit to sinks
-op.map("emit", filtered, emit_volatility)
+emitted = op.map("emit", filtered, emit_volatility)
+op.output("sink", emitted, StdOutSink())
