@@ -60,7 +60,10 @@ def upgrade() -> None:
         sa.Column(
             "resource_type",
             postgresql.ENUM(
-                "WORKFLOW", "DASHBOARD", "WIDGET", "API_KEY",
+                "WORKFLOW",
+                "DASHBOARD",
+                "WIDGET",
+                "API_KEY",
                 name="audit_resource_type",
                 create_type=False,
             ),
