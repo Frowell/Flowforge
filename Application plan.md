@@ -237,8 +237,8 @@ The pipeline exists in `pipeline/` for co-development but is architecturally ind
 |-----------|-------|--------|
 | Generator | `generator/generator.py`, Dockerfile, requirements.txt | Built |
 | Bytewax VWAP | `bytewax/flows/vwap.py`, Dockerfile, requirements.txt | Built |
-| Bytewax volatility | `bytewax/flows/volatility.py` | **Missing** |
-| Bytewax anomaly | `bytewax/flows/anomaly.py` | **Missing** |
+| Bytewax volatility | `bytewax/flows/volatility.py` | Built |
+| Bytewax anomaly | `bytewax/flows/anomaly.py` | Built |
 | dbt models | staging (2), intermediate (1), marts (3), seeds (1) | Partial — missing `int_clearing_matched.sql`, `counterparties.csv`, tests |
 | Materialize SQL | `000_sources.sql`, `001_staging.sql`, `002_views.sql` | **Missing** |
 | Airflow | `dags/dbt_cold_path.py` | Built |
@@ -413,9 +413,9 @@ The original plan references an `infra/` directory for ClickHouse init SQL, Post
 ### 4.3 Missing Pipeline Files
 
 The original plan specified files that don't exist:
-- `pipeline/bytewax/flows/volatility.py` — not created
-- `pipeline/bytewax/flows/anomaly.py` — not created
-- `pipeline/materialize/` directory — not created (Materialize SQL scripts)
+- `pipeline/bytewax/flows/volatility.py` — created
+- `pipeline/bytewax/flows/anomaly.py` — created
+- `pipeline/materialize/` directory — handled by `.devcontainer/init-materialize.sh`
 - `pipeline/dbt/models/intermediate/int_clearing_matched.sql` — not created
 - `pipeline/dbt/seeds/counterparties.csv` — not created
 - `pipeline/dbt/tests/` — not created
@@ -495,9 +495,9 @@ The original plan specified a tree with `AGENTS.md` files and symlinks to `CLAUD
 
 ### Tier 5: Missing Pipeline Components (Separate Workstream)
 
-- [ ] `pipeline/bytewax/flows/volatility.py` — Rolling volatility calculation
-- [ ] `pipeline/bytewax/flows/anomaly.py` — Spread/volume anomaly detection
-- [ ] `pipeline/materialize/` — CREATE SOURCE + staging + materialized views SQL
+- [x] `pipeline/bytewax/flows/volatility.py` — Rolling volatility calculation
+- [x] `pipeline/bytewax/flows/anomaly.py` — Spread/volume anomaly detection
+- [x] `pipeline/materialize/` — CREATE SOURCE + staging + materialized views SQL (via `.devcontainer/init-materialize.sh`)
 - [ ] `pipeline/dbt/models/intermediate/int_clearing_matched.sql`
 - [ ] `pipeline/dbt/seeds/counterparties.csv`
 - [ ] `pipeline/dbt/tests/assert_no_orphan_trades.sql`
