@@ -33,6 +33,31 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
 mkdir -p "$PID_DIR"
 
+# Detect environment and set hostnames
+# Inside devcontainer: use Docker service names
+# Outside (native): use localhost
+detect_environment() {
+    # Check if we're inside a devcontainer by testing if core Docker service names resolve
+    # (db and redis are always started; clickhouse/redpanda may need manual start)
+    if python3 -c "import socket; socket.gethostbyname('db')" 2>/dev/null; then
+        log_info "Detected devcontainer environment"
+        CLICKHOUSE_HOST="${CLICKHOUSE_HOST:-clickhouse}"
+        REDIS_HOST="${REDIS_HOST:-redis}"
+        REDPANDA_HOST="${REDPANDA_HOST:-redpanda}"
+        REDPANDA_BROKERS="${REDPANDA_BROKERS:-redpanda:29092}"
+        POSTGRES_HOST="${POSTGRES_HOST:-db}"
+    else
+        log_info "Detected native environment (using localhost)"
+        CLICKHOUSE_HOST="${CLICKHOUSE_HOST:-localhost}"
+        REDIS_HOST="${REDIS_HOST:-localhost}"
+        REDPANDA_HOST="${REDPANDA_HOST:-localhost}"
+        REDPANDA_BROKERS="${REDPANDA_BROKERS:-localhost:9092}"
+        POSTGRES_HOST="${POSTGRES_HOST:-localhost}"
+    fi
+
+    export CLICKHOUSE_HOST REDIS_HOST REDPANDA_HOST REDPANDA_BROKERS POSTGRES_HOST
+}
+
 stop_all() {
     log_info "Stopping all pipeline components..."
 
@@ -57,48 +82,69 @@ stop_all() {
 
 check_services() {
     log_info "Checking required services..."
+    local missing_services=()
 
-    # Check ClickHouse
-    if ! curl -sf http://localhost:8123/ping >/dev/null 2>&1; then
-        log_error "ClickHouse not available at localhost:8123"
-        log_info "Make sure the devcontainer is running: docker compose up -d"
+    # Check PostgreSQL (always required)
+    if ! pg_isready -h "${POSTGRES_HOST}" -p 5432 -U flowforge >/dev/null 2>&1; then
+        missing_services+=("PostgreSQL")
+    else
+        log_success "PostgreSQL is ready (${POSTGRES_HOST})"
+    fi
+
+    # Check Redis (always required)
+    # Use Python redis client or nc to check since redis-cli may not be installed
+    if python3 -c "import redis; r = redis.Redis(host='${REDIS_HOST}'); r.ping()" 2>/dev/null; then
+        log_success "Redis is ready (${REDIS_HOST})"
+    elif command -v redis-cli >/dev/null 2>&1 && redis-cli -h "${REDIS_HOST}" ping >/dev/null 2>&1; then
+        log_success "Redis is ready (${REDIS_HOST})"
+    elif nc -z "${REDIS_HOST}" 6379 2>/dev/null; then
+        log_success "Redis is ready (${REDIS_HOST})"
+    else
+        missing_services+=("Redis")
+    fi
+
+    # Check ClickHouse (required for analytics)
+    if ! curl -sf "http://${CLICKHOUSE_HOST}:8123/ping" >/dev/null 2>&1; then
+        missing_services+=("ClickHouse")
+    else
+        log_success "ClickHouse is ready (${CLICKHOUSE_HOST})"
+    fi
+
+    # Check Redpanda (required for streaming)
+    if ! curl -sf "http://${REDPANDA_HOST}:9644/v1/status/ready" >/dev/null 2>&1; then
+        missing_services+=("Redpanda")
+    else
+        log_success "Redpanda is ready (${REDPANDA_HOST})"
+    fi
+
+    # If any services are missing, show helpful error
+    if [[ ${#missing_services[@]} -gt 0 ]]; then
+        echo ""
+        log_error "Missing services: ${missing_services[*]}"
+        echo ""
+        echo "The full infrastructure stack may not be running."
+        echo ""
+        echo "To start all services, run from OUTSIDE the devcontainer:"
+        echo "  cd .devcontainer && docker compose up -d"
+        echo ""
+        echo "Or rebuild the devcontainer to start all services:"
+        echo "  Ctrl+Shift+P → 'Dev Containers: Rebuild Container'"
+        echo ""
         exit 1
     fi
-    log_success "ClickHouse is ready"
-
-    # Check Redis
-    if ! redis-cli -h localhost ping >/dev/null 2>&1; then
-        log_error "Redis not available at localhost:6379"
-        exit 1
-    fi
-    log_success "Redis is ready"
-
-    # Check Redpanda
-    if ! curl -sf http://localhost:9644/v1/status/ready >/dev/null 2>&1; then
-        log_error "Redpanda not available at localhost:9644"
-        exit 1
-    fi
-    log_success "Redpanda is ready"
-
-    # Check PostgreSQL
-    if ! pg_isready -h localhost -p 5432 -U flowforge >/dev/null 2>&1; then
-        log_error "PostgreSQL not available at localhost:5432"
-        exit 1
-    fi
-    log_success "PostgreSQL is ready"
 }
 
 seed_data() {
     log_info "Seeding historical data into ClickHouse..."
     cd "$WORKSPACE_DIR/scripts"
 
-    # Update host for local development
-    CLICKHOUSE_HOST=localhost python3 -c "
+    # Use detected ClickHouse host
+    CLICKHOUSE_HOST="${CLICKHOUSE_HOST}" python3 -c "
 import os
-os.environ['CLICKHOUSE_HOST'] = 'localhost'
+os.environ['CLICKHOUSE_HOST'] = os.environ.get('CLICKHOUSE_HOST', 'clickhouse')
 exec(open('seed_historical.py').read().replace(
     'clickhouse.flowforge.svc.cluster.local',
-    'localhost'
+    os.environ['CLICKHOUSE_HOST']
 ))
 " 2>&1 | while read line; do echo "  $line"; done
 
@@ -114,7 +160,7 @@ start_generator() {
         pip install -q confluent-kafka orjson
     fi
 
-    REDPANDA_BROKERS=localhost:9092 \
+    REDPANDA_BROKERS="${REDPANDA_BROKERS}" \
     python3 generator.py > "$PID_DIR/generator.log" 2>&1 &
     echo $! > "$PID_DIR/generator.pid"
 
@@ -130,9 +176,9 @@ start_bytewax_vwap() {
         pip install -q bytewax clickhouse-connect redis
     fi
 
-    REDPANDA_BROKERS=localhost:9092 \
-    CLICKHOUSE_HOST=localhost \
-    REDIS_HOST=localhost \
+    REDPANDA_BROKERS="${REDPANDA_BROKERS}" \
+    CLICKHOUSE_HOST="${CLICKHOUSE_HOST}" \
+    REDIS_HOST="${REDIS_HOST}" \
     python3 -m bytewax.run flows.vwap > "$PID_DIR/bytewax-vwap.log" 2>&1 &
     echo $! > "$PID_DIR/bytewax-vwap.pid"
 
@@ -143,9 +189,9 @@ start_bytewax_volatility() {
     log_info "Starting Bytewax Volatility flow..."
     cd "$WORKSPACE_DIR/pipeline/bytewax"
 
-    REDPANDA_BROKERS=localhost:9092 \
-    CLICKHOUSE_HOST=localhost \
-    REDIS_HOST=localhost \
+    REDPANDA_BROKERS="${REDPANDA_BROKERS}" \
+    CLICKHOUSE_HOST="${CLICKHOUSE_HOST}" \
+    REDIS_HOST="${REDIS_HOST}" \
     python3 -m bytewax.run flows.volatility > "$PID_DIR/bytewax-volatility.log" 2>&1 &
     echo $! > "$PID_DIR/bytewax-volatility.pid"
 
@@ -208,7 +254,7 @@ show_status() {
     echo "  Frontend:  http://localhost:5173"
     echo "  Backend:   http://localhost:8000"
     echo "  API Docs:  http://localhost:8000/docs"
-    echo "  ClickHouse: http://localhost:8123"
+    echo "  ClickHouse: http://${CLICKHOUSE_HOST:-localhost}:8123"
     echo ""
     echo "Logs: $PID_DIR/*.log"
     echo "Stop: $0 --stop"
@@ -218,10 +264,12 @@ show_status() {
 main() {
     case "${1:-}" in
         --stop)
+            detect_environment
             stop_all
             exit 0
             ;;
         --status)
+            detect_environment
             show_status
             exit 0
             ;;
@@ -235,6 +283,9 @@ main() {
     echo "  Starting FlowForge Pipeline"
     echo "=========================================="
     echo ""
+
+    # Detect environment first
+    detect_environment
 
     # Stop any existing processes first
     stop_all 2>/dev/null || true
