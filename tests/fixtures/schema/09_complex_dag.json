@@ -1,0 +1,90 @@
+{
+  "description": "Complex DAG: source → filter → formula → group_by → sort → table_output",
+  "nodes": [
+    {
+      "id": "src",
+      "type": "data_source",
+      "data": {
+        "config": {
+          "columns": [
+            {"name": "symbol", "dtype": "string", "nullable": false},
+            {"name": "price", "dtype": "float64", "nullable": false},
+            {"name": "quantity", "dtype": "int64", "nullable": false}
+          ]
+        }
+      }
+    },
+    {
+      "id": "flt",
+      "type": "filter",
+      "data": {"config": {"column": "price", "operator": ">", "value": 100}}
+    },
+    {
+      "id": "formula",
+      "type": "formula",
+      "data": {
+        "config": {
+          "expression": "[price] * [quantity]",
+          "output_column": "notional",
+          "output_dtype": "float64"
+        }
+      }
+    },
+    {
+      "id": "grp",
+      "type": "group_by",
+      "data": {
+        "config": {
+          "group_columns": ["symbol"],
+          "aggregations": [
+            {"column": "notional", "function": "SUM", "alias": "total_notional", "output_dtype": "float64"}
+          ]
+        }
+      }
+    },
+    {
+      "id": "srt",
+      "type": "sort",
+      "data": {"config": {"sort_by": [{"column": "total_notional", "direction": "desc"}]}}
+    },
+    {
+      "id": "out",
+      "type": "table_output",
+      "data": {"config": {}}
+    }
+  ],
+  "edges": [
+    {"source": "src", "target": "flt"},
+    {"source": "flt", "target": "formula"},
+    {"source": "formula", "target": "grp"},
+    {"source": "grp", "target": "srt"},
+    {"source": "srt", "target": "out"}
+  ],
+  "expected": {
+    "src": [
+      {"name": "symbol", "dtype": "string", "nullable": false},
+      {"name": "price", "dtype": "float64", "nullable": false},
+      {"name": "quantity", "dtype": "int64", "nullable": false}
+    ],
+    "flt": [
+      {"name": "symbol", "dtype": "string", "nullable": false},
+      {"name": "price", "dtype": "float64", "nullable": false},
+      {"name": "quantity", "dtype": "int64", "nullable": false}
+    ],
+    "formula": [
+      {"name": "symbol", "dtype": "string", "nullable": false},
+      {"name": "price", "dtype": "float64", "nullable": false},
+      {"name": "quantity", "dtype": "int64", "nullable": false},
+      {"name": "notional", "dtype": "float64", "nullable": true}
+    ],
+    "grp": [
+      {"name": "symbol", "dtype": "string", "nullable": false},
+      {"name": "total_notional", "dtype": "float64", "nullable": true}
+    ],
+    "srt": [
+      {"name": "symbol", "dtype": "string", "nullable": false},
+      {"name": "total_notional", "dtype": "float64", "nullable": true}
+    ],
+    "out": []
+  }
+}

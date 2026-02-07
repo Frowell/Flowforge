@@ -52,3 +52,23 @@ class WorkflowVersionResponse(BaseModel):
 class WorkflowVersionListResponse(BaseModel):
     items: list[WorkflowVersionResponse]
     total: int
+
+
+class WorkflowExportMetadata(BaseModel):
+    version: str = "1.0"
+    exported_at: datetime
+    source_workflow_id: UUID
+
+
+class WorkflowExportResponse(BaseModel):
+    metadata: WorkflowExportMetadata
+    name: str
+    description: str | None
+    graph_json: dict
+
+
+class WorkflowImportRequest(BaseModel):
+    metadata: WorkflowExportMetadata
+    name: str
+    description: str | None = None
+    graph_json: dict

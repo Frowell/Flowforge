@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     materialize_database: str = "materialize"
     materialize_user: str = "materialize"
     materialize_password: str = ""
+    materialize_subscribe_enabled: bool = True
+    materialize_pool_min_size: int = 2
+    materialize_pool_max_size: int = 10
 
     # Redpanda (Kafka-compatible broker)
     redpanda_brokers: str = "redpanda:29092"

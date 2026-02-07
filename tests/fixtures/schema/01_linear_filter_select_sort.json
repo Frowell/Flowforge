@@ -1,0 +1,72 @@
+{
+  "description": "Linear pipeline: DataSource → Filter → Select → Sort",
+  "nodes": [
+    {
+      "id": "src",
+      "type": "data_source",
+      "data": {
+        "config": {
+          "columns": [
+            {"name": "trade_id", "dtype": "string", "nullable": false},
+            {"name": "symbol", "dtype": "string", "nullable": false},
+            {"name": "price", "dtype": "float64", "nullable": false},
+            {"name": "quantity", "dtype": "int64", "nullable": false},
+            {"name": "side", "dtype": "string", "nullable": false}
+          ]
+        }
+      }
+    },
+    {
+      "id": "flt",
+      "type": "filter",
+      "data": {
+        "config": {"column": "symbol", "operator": "=", "value": "AAPL"}
+      }
+    },
+    {
+      "id": "sel",
+      "type": "select",
+      "data": {
+        "config": {"columns": ["trade_id", "price", "quantity"]}
+      }
+    },
+    {
+      "id": "srt",
+      "type": "sort",
+      "data": {
+        "config": {"sort_by": [{"column": "price", "direction": "desc"}]}
+      }
+    }
+  ],
+  "edges": [
+    {"source": "src", "target": "flt"},
+    {"source": "flt", "target": "sel"},
+    {"source": "sel", "target": "srt"}
+  ],
+  "expected": {
+    "src": [
+      {"name": "trade_id", "dtype": "string", "nullable": false},
+      {"name": "symbol", "dtype": "string", "nullable": false},
+      {"name": "price", "dtype": "float64", "nullable": false},
+      {"name": "quantity", "dtype": "int64", "nullable": false},
+      {"name": "side", "dtype": "string", "nullable": false}
+    ],
+    "flt": [
+      {"name": "trade_id", "dtype": "string", "nullable": false},
+      {"name": "symbol", "dtype": "string", "nullable": false},
+      {"name": "price", "dtype": "float64", "nullable": false},
+      {"name": "quantity", "dtype": "int64", "nullable": false},
+      {"name": "side", "dtype": "string", "nullable": false}
+    ],
+    "sel": [
+      {"name": "trade_id", "dtype": "string", "nullable": false},
+      {"name": "price", "dtype": "float64", "nullable": false},
+      {"name": "quantity", "dtype": "int64", "nullable": false}
+    ],
+    "srt": [
+      {"name": "trade_id", "dtype": "string", "nullable": false},
+      {"name": "price", "dtype": "float64", "nullable": false},
+      {"name": "quantity", "dtype": "int64", "nullable": false}
+    ]
+  }
+}

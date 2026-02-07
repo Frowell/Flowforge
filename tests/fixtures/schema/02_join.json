@@ -1,0 +1,61 @@
+{
+  "description": "Join: two data sources joined",
+  "nodes": [
+    {
+      "id": "left",
+      "type": "data_source",
+      "data": {
+        "config": {
+          "columns": [
+            {"name": "trade_id", "dtype": "string", "nullable": false},
+            {"name": "symbol", "dtype": "string", "nullable": false},
+            {"name": "price", "dtype": "float64", "nullable": false}
+          ]
+        }
+      }
+    },
+    {
+      "id": "right",
+      "type": "data_source",
+      "data": {
+        "config": {
+          "columns": [
+            {"name": "symbol", "dtype": "string", "nullable": false},
+            {"name": "sector", "dtype": "string", "nullable": true},
+            {"name": "exchange", "dtype": "string", "nullable": true}
+          ]
+        }
+      }
+    },
+    {
+      "id": "join",
+      "type": "join",
+      "data": {
+        "config": {"join_type": "left", "left_column": "symbol", "right_column": "symbol"}
+      }
+    }
+  ],
+  "edges": [
+    {"source": "left", "target": "join"},
+    {"source": "right", "target": "join"}
+  ],
+  "expected": {
+    "left": [
+      {"name": "trade_id", "dtype": "string", "nullable": false},
+      {"name": "symbol", "dtype": "string", "nullable": false},
+      {"name": "price", "dtype": "float64", "nullable": false}
+    ],
+    "right": [
+      {"name": "symbol", "dtype": "string", "nullable": false},
+      {"name": "sector", "dtype": "string", "nullable": true},
+      {"name": "exchange", "dtype": "string", "nullable": true}
+    ],
+    "join": [
+      {"name": "trade_id", "dtype": "string", "nullable": false},
+      {"name": "symbol", "dtype": "string", "nullable": false},
+      {"name": "price", "dtype": "float64", "nullable": false},
+      {"name": "sector", "dtype": "string", "nullable": true},
+      {"name": "exchange", "dtype": "string", "nullable": true}
+    ]
+  }
+}

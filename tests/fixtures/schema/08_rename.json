@@ -1,0 +1,39 @@
+{
+  "description": "Rename: rename columns",
+  "nodes": [
+    {
+      "id": "src",
+      "type": "data_source",
+      "data": {
+        "config": {
+          "columns": [
+            {"name": "trade_id", "dtype": "string", "nullable": false},
+            {"name": "qty", "dtype": "int64", "nullable": false}
+          ]
+        }
+      }
+    },
+    {
+      "id": "ren",
+      "type": "rename",
+      "data": {
+        "config": {
+          "rename_map": {"trade_id": "id", "qty": "quantity"}
+        }
+      }
+    }
+  ],
+  "edges": [
+    {"source": "src", "target": "ren"}
+  ],
+  "expected": {
+    "src": [
+      {"name": "trade_id", "dtype": "string", "nullable": false},
+      {"name": "qty", "dtype": "int64", "nullable": false}
+    ],
+    "ren": [
+      {"name": "id", "dtype": "string", "nullable": false},
+      {"name": "quantity", "dtype": "int64", "nullable": false}
+    ]
+  }
+}

@@ -21,6 +21,8 @@ class AuditAction(enum.StrEnum):
     DELETED = "deleted"
     EXECUTED = "executed"
     REVOKED = "revoked"
+    EXPORTED = "exported"
+    IMPORTED = "imported"
 
 
 class AuditResourceType(enum.StrEnum):

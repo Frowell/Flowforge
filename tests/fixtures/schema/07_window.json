@@ -1,0 +1,43 @@
+{
+  "description": "Window: add ROW_NUMBER window function",
+  "nodes": [
+    {
+      "id": "src",
+      "type": "data_source",
+      "data": {
+        "config": {
+          "columns": [
+            {"name": "trade_id", "dtype": "string", "nullable": false},
+            {"name": "price", "dtype": "float64", "nullable": false}
+          ]
+        }
+      }
+    },
+    {
+      "id": "win",
+      "type": "window",
+      "data": {
+        "config": {
+          "function": "ROW_NUMBER",
+          "output_column": "row_num",
+          "partition_by": [],
+          "order_by": [{"column": "price", "direction": "desc"}]
+        }
+      }
+    }
+  ],
+  "edges": [
+    {"source": "src", "target": "win"}
+  ],
+  "expected": {
+    "src": [
+      {"name": "trade_id", "dtype": "string", "nullable": false},
+      {"name": "price", "dtype": "float64", "nullable": false}
+    ],
+    "win": [
+      {"name": "trade_id", "dtype": "string", "nullable": false},
+      {"name": "price", "dtype": "float64", "nullable": false},
+      {"name": "row_num", "dtype": "int64", "nullable": true}
+    ]
+  }
+}
