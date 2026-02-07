@@ -30,11 +30,16 @@ until curl -sf http://redpanda:9644/v1/status/ready >/dev/null 2>&1; do
 done
 echo "✅ Redpanda is ready"
 
-echo "⏳ Waiting for Materialize..."
-until pg_isready -h materialize -p 6875 -U materialize -q 2>/dev/null; do
-  sleep 1
-done
-echo "✅ Materialize is ready"
+# Materialize is behind the "streaming" profile — only wait if reachable
+if pg_isready -h materialize -p 6875 -U materialize -q 2>/dev/null; then
+  echo "⏳ Waiting for Materialize..."
+  until pg_isready -h materialize -p 6875 -U materialize -q 2>/dev/null; do
+    sleep 1
+  done
+  echo "✅ Materialize is ready"
+else
+  echo "⏭️  Materialize not running (enable with: docker compose --profile streaming up)"
+fi
 
 echo ""
 echo "🚀 All infrastructure services are up!"

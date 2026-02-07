@@ -122,7 +122,8 @@
     "ghcr.io/devcontainers/features/git:1": {},
     "ghcr.io/devcontainers-extra/features/zsh-plugins:0": {
       "plugins": "git docker-compose python node npm"
-    }
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {}
   },
 
   // ── Remote User ───────────────────────────────────────────────────

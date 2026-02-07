@@ -57,8 +57,6 @@ services:
         condition: service_healthy
       redpanda:
         condition: service_healthy
-      materialize:
-        condition: service_healthy
     networks:
       - flowforge
 
@@ -150,6 +148,8 @@ services:
 
   # ── Materialize ─────────────────────────────────────────────────────
   materialize:
+    profiles:
+      - streaming
     image: materialize/materialized:latest
     restart: unless-stopped
     volumes:
@@ -169,6 +169,8 @@ services:
 
   # ── Init-Materialize (one-shot) ────────────────────────────────────
   init-materialize:
+    profiles:
+      - streaming
     image: postgres:16-alpine
     depends_on:
       materialize:

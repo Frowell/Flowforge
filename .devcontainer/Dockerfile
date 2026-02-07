@@ -44,4 +44,7 @@ RUN echo 'alias ll="ls -alF"' >> ~/.zshrc \
     && echo 'alias logs="docker compose logs -f"' >> ~/.zshrc \
     && echo 'export PATH="/workspace/frontend/node_modules/.bin:$PATH"' >> ~/.zshrc
 
+RUN mkdir -p /home/vscode/.cache && chown -R vscode:vscode /home/vscode/.cache
+
+
 WORKDIR /workspace
