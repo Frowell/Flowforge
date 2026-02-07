@@ -101,10 +101,7 @@ class LiveDataService:
     def start(self) -> None:
         """Mark the service as running and start health checks."""
         self._running = True
-        if (
-            self._materialize is not None
-            and settings.materialize_subscribe_enabled
-        ):
+        if self._materialize is not None and settings.materialize_subscribe_enabled:
             self._health_check_task = asyncio.create_task(
                 self._materialize_health_loop()
             )
@@ -149,9 +146,7 @@ class LiveDataService:
             self._start_poll_mode(sub)
 
         self._subscriptions[widget_id] = sub
-        logger.info(
-            "Subscribed to live widget %s (mode=%s)", widget_id, sub.mode
-        )
+        logger.info("Subscribed to live widget %s (mode=%s)", widget_id, sub.mode)
 
     def unsubscribe_widget(self, widget_id: UUID) -> None:
         """Stop polling/subscribing for a widget."""
@@ -190,9 +185,7 @@ class LiveDataService:
         view_sub.widget_ids.add(sub.widget_id)
         view_sub.ref_count += 1
 
-    def _release_view_subscription(
-        self, view_name: str, widget_id: UUID
-    ) -> None:
+    def _release_view_subscription(self, view_name: str, widget_id: UUID) -> None:
         """Decrement ref count on a shared view subscription."""
         view_sub = self._view_subscriptions.get(view_name)
         if view_sub is None:
@@ -245,9 +238,7 @@ class LiveDataService:
 
             await asyncio.sleep(backoff)
 
-    async def _subscribe_loop(
-        self, view_name: str, tenant_id: UUID
-    ) -> None:
+    async def _subscribe_loop(self, view_name: str, tenant_id: UUID) -> None:
         """Background task that SUBSCRIBEs to a Materialize view.
 
         Publishes changes to all widgets watching this view.

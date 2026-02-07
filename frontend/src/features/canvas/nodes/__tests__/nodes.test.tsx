@@ -42,6 +42,9 @@ const makeNodeProps = (config: Record<string, unknown> = {}, selected = false) =
   yPos: 0,
   zIndex: 0,
   dragging: false,
+  draggable: true,
+  selectable: true,
+  deletable: true,
   positionAbsoluteX: 0,
   positionAbsoluteY: 0,
 });

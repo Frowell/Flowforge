@@ -27,7 +27,7 @@ describe("propagateSchemas (used by useSchemaEngine)", () => {
     ];
     const result = propagateSchemas(nodes, []);
     expect(result.get("src")).toHaveLength(2);
-    expect(result.get("src")![0].name).toBe("id");
+    expect(result.get("src")![0]!.name).toBe("id");
   });
 
   it("propagates filter as passthrough", () => {
@@ -76,8 +76,8 @@ describe("propagateSchemas (used by useSchemaEngine)", () => {
     const edges = [{ source: "src", target: "sel" }];
     const result = propagateSchemas(nodes, edges);
     expect(result.get("sel")).toHaveLength(2);
-    expect(result.get("sel")![0].name).toBe("a");
-    expect(result.get("sel")![1].name).toBe("c");
+    expect(result.get("sel")![0]!.name).toBe("a");
+    expect(result.get("sel")![1]!.name).toBe("c");
   });
 
   it("formula adds a column", () => {
@@ -106,7 +106,7 @@ describe("propagateSchemas (used by useSchemaEngine)", () => {
     const edges = [{ source: "src", target: "f" }];
     const result = propagateSchemas(nodes, edges);
     expect(result.get("f")).toHaveLength(2);
-    expect(result.get("f")![1].name).toBe("doubled");
+    expect(result.get("f")![1]!.name).toBe("doubled");
   });
 
   it("throws on cycle", () => {
@@ -165,7 +165,7 @@ describe("propagateSchemas (used by useSchemaEngine)", () => {
     ];
     const edges = [{ source: "src", target: "ren" }];
     const result = propagateSchemas(nodes, edges);
-    expect(result.get("ren")![0].name).toBe("new_name");
+    expect(result.get("ren")![0]!.name).toBe("new_name");
   });
 
   it("terminal nodes return empty schema", () => {
