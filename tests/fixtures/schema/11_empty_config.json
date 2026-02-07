@@ -1,0 +1,28 @@
+{
+  "description": "Edge case: empty config on select, empty columns on data_source",
+  "nodes": [
+    {
+      "id": "src",
+      "type": "data_source",
+      "data": {
+        "config": {
+          "columns": []
+        }
+      }
+    },
+    {
+      "id": "sel",
+      "type": "select",
+      "data": {
+        "config": {"columns": []}
+      }
+    }
+  ],
+  "edges": [
+    {"source": "src", "target": "sel"}
+  ],
+  "expected": {
+    "src": [],
+    "sel": []
+  }
+}

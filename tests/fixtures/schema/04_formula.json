@@ -1,0 +1,42 @@
+{
+  "description": "Formula: add calculated column",
+  "nodes": [
+    {
+      "id": "src",
+      "type": "data_source",
+      "data": {
+        "config": {
+          "columns": [
+            {"name": "price", "dtype": "float64", "nullable": false},
+            {"name": "quantity", "dtype": "int64", "nullable": false}
+          ]
+        }
+      }
+    },
+    {
+      "id": "formula",
+      "type": "formula",
+      "data": {
+        "config": {
+          "expression": "[price] * [quantity]",
+          "output_column": "notional",
+          "output_dtype": "float64"
+        }
+      }
+    }
+  ],
+  "edges": [
+    {"source": "src", "target": "formula"}
+  ],
+  "expected": {
+    "src": [
+      {"name": "price", "dtype": "float64", "nullable": false},
+      {"name": "quantity", "dtype": "int64", "nullable": false}
+    ],
+    "formula": [
+      {"name": "price", "dtype": "float64", "nullable": false},
+      {"name": "quantity", "dtype": "int64", "nullable": false},
+      {"name": "notional", "dtype": "float64", "nullable": true}
+    ]
+  }
+}

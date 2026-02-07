@@ -1,0 +1,66 @@
+version: 2
+
+models:
+  - name: stg_trades
+    description: Staged raw trades from the Redpanda stream
+    columns:
+      - name: trade_id
+        description: Unique trade identifier
+        tests:
+          - unique
+          - not_null
+      - name: symbol
+        description: Trading instrument symbol
+        tests:
+          - not_null
+      - name: price
+        description: Trade execution price
+        tests:
+          - not_null
+
+  - name: stg_instruments
+    description: Staged instrument reference data
+    columns:
+      - name: symbol
+        description: Unique instrument symbol
+        tests:
+          - unique
+          - not_null
+
+  - name: int_trades_enriched
+    description: Trades enriched with instrument metadata
+    columns:
+      - name: trade_id
+        tests:
+          - unique
+          - not_null
+
+  - name: int_clearing_matched
+    description: Trades matched with clearing counterparties
+    columns:
+      - name: trade_id
+        tests:
+          - unique
+          - not_null
+
+  - name: fct_trades
+    description: Fact table for trade analytics
+    columns:
+      - name: trade_id
+        tests:
+          - unique
+          - not_null
+
+  - name: dim_instruments
+    description: Instrument dimension table
+    columns:
+      - name: symbol
+        tests:
+          - unique
+          - not_null
+
+seeds:
+  - name: instruments
+    description: Reference data for trading instruments
+  - name: counterparties
+    description: Clearing counterparty reference data

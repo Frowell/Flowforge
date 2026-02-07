@@ -1,0 +1,55 @@
+{
+  "description": "Passthrough nodes: unique → sample → limit",
+  "nodes": [
+    {
+      "id": "src",
+      "type": "data_source",
+      "data": {
+        "config": {
+          "columns": [
+            {"name": "id", "dtype": "string", "nullable": false},
+            {"name": "value", "dtype": "float64", "nullable": true}
+          ]
+        }
+      }
+    },
+    {
+      "id": "uniq",
+      "type": "unique",
+      "data": {"config": {}}
+    },
+    {
+      "id": "samp",
+      "type": "sample",
+      "data": {"config": {"fraction": 0.5}}
+    },
+    {
+      "id": "lim",
+      "type": "limit",
+      "data": {"config": {"limit": 10, "offset": 0}}
+    }
+  ],
+  "edges": [
+    {"source": "src", "target": "uniq"},
+    {"source": "uniq", "target": "samp"},
+    {"source": "samp", "target": "lim"}
+  ],
+  "expected": {
+    "src": [
+      {"name": "id", "dtype": "string", "nullable": false},
+      {"name": "value", "dtype": "float64", "nullable": true}
+    ],
+    "uniq": [
+      {"name": "id", "dtype": "string", "nullable": false},
+      {"name": "value", "dtype": "float64", "nullable": true}
+    ],
+    "samp": [
+      {"name": "id", "dtype": "string", "nullable": false},
+      {"name": "value", "dtype": "float64", "nullable": true}
+    ],
+    "lim": [
+      {"name": "id", "dtype": "string", "nullable": false},
+      {"name": "value", "dtype": "float64", "nullable": true}
+    ]
+  }
+}

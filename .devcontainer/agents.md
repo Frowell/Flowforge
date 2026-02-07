@@ -14,6 +14,44 @@
 | `materialize` | Materialize | Streaming SQL materialized views |
 | `init-materialize` | PostgreSQL 16 (one-shot) | Creates Materialize sources, views |
 | `pgadmin` | pgAdmin (optional) | Database administration UI |
+| `keycloak` | Keycloak 26 (`auth` profile) | OIDC identity provider for SSO |
+
+## Docker Compose Profiles
+
+| Profile | Services | Usage |
+|---------|----------|-------|
+| (default) | app, db, redis, clickhouse, redpanda | Core development |
+| `streaming` | + materialize, init-materialize | Adds live streaming SQL |
+| `auth` | + keycloak | Adds Keycloak OIDC authentication |
+
+To start with Keycloak authentication:
+
+```bash
+docker compose --profile auth up
+```
+
+To start with both streaming and auth:
+
+```bash
+docker compose --profile streaming --profile auth up
+```
+
+### Keycloak Dev Setup
+
+When running with `--profile auth`, Keycloak starts on port **8081** and auto-imports the realm from `.devcontainer/keycloak/flowforge-realm.json`.
+
+**Pre-configured test users:**
+
+| Email | Password | Tenant | Role |
+|-------|----------|--------|------|
+| admin@tenant-a.test | admin123 | tenant-a | admin |
+| analyst@tenant-a.test | analyst123 | tenant-a | analyst |
+| admin@tenant-b.test | admin123 | tenant-b | admin |
+| viewer@tenant-b.test | viewer123 | tenant-b | viewer |
+
+**Keycloak admin console:** `http://localhost:8081/admin` (admin/admin)
+
+Without the `auth` profile, set `VITE_DEV_AUTH=true` in `frontend/.env` to use the mock dev user (all roles, `dev-tenant-001`).
 
 ## Environment Variables
 

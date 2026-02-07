@@ -1,0 +1,44 @@
+{
+  "description": "Pivot: pivot trades by symbol",
+  "nodes": [
+    {
+      "id": "src",
+      "type": "data_source",
+      "data": {
+        "config": {
+          "columns": [
+            {"name": "date", "dtype": "datetime", "nullable": false},
+            {"name": "symbol", "dtype": "string", "nullable": false},
+            {"name": "volume", "dtype": "int64", "nullable": false}
+          ]
+        }
+      }
+    },
+    {
+      "id": "pivot",
+      "type": "pivot",
+      "data": {
+        "config": {
+          "row_columns": ["date"],
+          "pivot_column": "symbol",
+          "value_column": "volume",
+          "aggregation": "SUM"
+        }
+      }
+    }
+  ],
+  "edges": [
+    {"source": "src", "target": "pivot"}
+  ],
+  "expected": {
+    "src": [
+      {"name": "date", "dtype": "datetime", "nullable": false},
+      {"name": "symbol", "dtype": "string", "nullable": false},
+      {"name": "volume", "dtype": "int64", "nullable": false}
+    ],
+    "pivot": [
+      {"name": "date", "dtype": "datetime", "nullable": false},
+      {"name": "volume_sum", "dtype": "float64", "nullable": true}
+    ]
+  }
+}

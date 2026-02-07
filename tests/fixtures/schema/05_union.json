@@ -1,0 +1,52 @@
+{
+  "description": "Union: two compatible sources unioned",
+  "nodes": [
+    {
+      "id": "src_a",
+      "type": "data_source",
+      "data": {
+        "config": {
+          "columns": [
+            {"name": "id", "dtype": "string", "nullable": false},
+            {"name": "value", "dtype": "float64", "nullable": false}
+          ]
+        }
+      }
+    },
+    {
+      "id": "src_b",
+      "type": "data_source",
+      "data": {
+        "config": {
+          "columns": [
+            {"name": "id", "dtype": "string", "nullable": false},
+            {"name": "value", "dtype": "float64", "nullable": false}
+          ]
+        }
+      }
+    },
+    {
+      "id": "union",
+      "type": "union",
+      "data": {"config": {}}
+    }
+  ],
+  "edges": [
+    {"source": "src_a", "target": "union"},
+    {"source": "src_b", "target": "union"}
+  ],
+  "expected": {
+    "src_a": [
+      {"name": "id", "dtype": "string", "nullable": false},
+      {"name": "value", "dtype": "float64", "nullable": false}
+    ],
+    "src_b": [
+      {"name": "id", "dtype": "string", "nullable": false},
+      {"name": "value", "dtype": "float64", "nullable": false}
+    ],
+    "union": [
+      {"name": "id", "dtype": "string", "nullable": false},
+      {"name": "value", "dtype": "float64", "nullable": false}
+    ]
+  }
+}

@@ -4,6 +4,8 @@ Thin controllers: validate -> call service -> return Pydantic response.
 All queries are scoped by tenant_id from the JWT.
 """
 
+import uuid as _uuid
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -20,6 +22,9 @@ from app.models.audit_log import AuditAction, AuditResourceType
 from app.models.workflow import Workflow, WorkflowVersion
 from app.schemas.workflow import (
     WorkflowCreate,
+    WorkflowExportMetadata,
+    WorkflowExportResponse,
+    WorkflowImportRequest,
     WorkflowListResponse,
     WorkflowResponse,
     WorkflowUpdate,
@@ -204,6 +209,114 @@ async def delete_workflow(
 
     await db.delete(workflow)
     await db.commit()
+
+
+# --- Export/Import endpoints ---
+
+
+@router.get("/{workflow_id}/export", response_model=WorkflowExportResponse)
+async def export_workflow(
+    workflow_id: UUID,
+    tenant_id: UUID = Depends(get_current_tenant_id),
+    user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_role("admin", "analyst")),
+):
+    result = await db.execute(
+        select(Workflow).where(
+            Workflow.id == workflow_id,
+            Workflow.tenant_id == tenant_id,
+        )
+    )
+    workflow = result.scalar_one_or_none()
+    if not workflow:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found"
+        )
+
+    audit = AuditService(db)
+    await audit.log(
+        tenant_id=tenant_id,
+        user_id=user_id,
+        action=AuditAction.EXPORTED,
+        resource_type=AuditResourceType.WORKFLOW,
+        resource_id=workflow.id,
+        metadata={"name": workflow.name},
+    )
+    await db.commit()
+
+    return WorkflowExportResponse(
+        metadata=WorkflowExportMetadata(
+            version="1.0",
+            exported_at=datetime.now(UTC),
+            source_workflow_id=workflow.id,
+        ),
+        name=workflow.name,
+        description=workflow.description,
+        graph_json=workflow.graph_json,
+    )
+
+
+@router.post(
+    "/import",
+    response_model=WorkflowResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def import_workflow(
+    body: WorkflowImportRequest,
+    tenant_id: UUID = Depends(get_current_tenant_id),
+    user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_role("admin", "analyst")),
+):
+    # Regenerate all node and edge IDs to prevent collisions
+    graph = body.graph_json.copy()
+    id_mapping: dict[str, str] = {}
+
+    nodes = graph.get("nodes", [])
+    for node in nodes:
+        old_id = node.get("id", "")
+        new_id = str(_uuid.uuid4())
+        id_mapping[old_id] = new_id
+        node["id"] = new_id
+
+    edges = graph.get("edges", [])
+    for edge in edges:
+        edge["id"] = str(_uuid.uuid4())
+        old_source = edge.get("source", "")
+        old_target = edge.get("target", "")
+        edge["source"] = id_mapping.get(old_source, old_source)
+        edge["target"] = id_mapping.get(old_target, old_target)
+
+    graph["nodes"] = nodes
+    graph["edges"] = edges
+
+    workflow = Workflow(
+        name=body.name,
+        description=body.description,
+        graph_json=graph,
+        tenant_id=tenant_id,
+        created_by=user_id,
+    )
+    db.add(workflow)
+    await db.flush()
+
+    audit = AuditService(db)
+    await audit.log(
+        tenant_id=tenant_id,
+        user_id=user_id,
+        action=AuditAction.IMPORTED,
+        resource_type=AuditResourceType.WORKFLOW,
+        resource_id=workflow.id,
+        metadata={
+            "name": body.name,
+            "source_workflow_id": str(body.metadata.source_workflow_id),
+        },
+    )
+
+    await db.commit()
+    await db.refresh(workflow)
+    return WorkflowResponse.model_validate(workflow)
 
 
 # --- Version endpoints ---

@@ -1,0 +1,46 @@
+{
+  "description": "GroupBy: aggregate trades by symbol",
+  "nodes": [
+    {
+      "id": "src",
+      "type": "data_source",
+      "data": {
+        "config": {
+          "columns": [
+            {"name": "symbol", "dtype": "string", "nullable": false},
+            {"name": "quantity", "dtype": "int64", "nullable": false},
+            {"name": "price", "dtype": "float64", "nullable": false}
+          ]
+        }
+      }
+    },
+    {
+      "id": "grp",
+      "type": "group_by",
+      "data": {
+        "config": {
+          "group_columns": ["symbol"],
+          "aggregations": [
+            {"column": "quantity", "function": "SUM", "alias": "total_qty", "output_dtype": "int64"},
+            {"column": "price", "function": "AVG", "alias": "avg_price", "output_dtype": "float64"}
+          ]
+        }
+      }
+    }
+  ],
+  "edges": [
+    {"source": "src", "target": "grp"}
+  ],
+  "expected": {
+    "src": [
+      {"name": "symbol", "dtype": "string", "nullable": false},
+      {"name": "quantity", "dtype": "int64", "nullable": false},
+      {"name": "price", "dtype": "float64", "nullable": false}
+    ],
+    "grp": [
+      {"name": "symbol", "dtype": "string", "nullable": false},
+      {"name": "total_qty", "dtype": "int64", "nullable": true},
+      {"name": "avg_price", "dtype": "float64", "nullable": true}
+    ]
+  }
+}

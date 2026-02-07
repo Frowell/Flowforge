@@ -39,6 +39,11 @@ services:
       # Redpanda (Kafka-compatible broker)
       REDPANDA_BROKERS: redpanda:29092
 
+      # Keycloak (OIDC)
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: flowforge
+      KEYCLOAK_CLIENT_ID: flowforge-app
+
       # App
       APP_ENV: development
       SECRET_KEY: dev-secret-change-in-prod
@@ -186,6 +191,31 @@ services:
       REDPANDA_HOST: redpanda
       REDPANDA_KAFKA_PORT: "29092"
     restart: "no"
+    networks:
+      - flowforge
+
+  # ── Keycloak (OIDC Identity Provider) ──────────────────────────────
+  keycloak:
+    profiles:
+      - auth
+    image: quay.io/keycloak/keycloak:26.0
+    command: start-dev --import-realm
+    restart: unless-stopped
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    volumes:
+      - ./keycloak/flowforge-realm.json:/opt/keycloak/data/import/flowforge-realm.json:ro
+    ports:
+      - "8081:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
     networks:
       - flowforge
 

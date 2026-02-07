@@ -1,0 +1,6 @@
+counterparty_id,name,type,region,risk_rating
+CP001,Goldman Sachs,Broker-Dealer,North America,A
+CP002,JPMorgan Chase,Bank,North America,AA
+CP003,Morgan Stanley,Broker-Dealer,North America,A
+CP004,Citadel Securities,Market Maker,North America,A+
+CP005,Jane Street,Market Maker,North America,A+
