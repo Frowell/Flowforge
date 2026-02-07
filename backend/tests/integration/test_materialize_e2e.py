@@ -100,8 +100,10 @@ class TestMaterializeE2E:
             )
             try:
                 rows = await conn.fetch(
-                    "SELECT o.name FROM mz_objects o JOIN mz_schemas s ON o.schema_id = s.id "
-                    "WHERE s.name = 'public' AND o.type = 'materialized-view'"
+                    "SELECT o.name FROM mz_objects o "
+                    "JOIN mz_schemas s ON o.schema_id = s.id "
+                    "WHERE s.name = 'public' "
+                    "AND o.type = 'materialized-view'"
                 )
                 # May be empty if init-materialize has not run; that is OK
                 assert isinstance(rows, list)

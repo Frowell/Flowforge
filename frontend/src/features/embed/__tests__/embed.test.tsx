@@ -1,7 +1,7 @@
 /**
  * Embed component tests.
  */
-import { render, screen } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 // Mock react-router-dom

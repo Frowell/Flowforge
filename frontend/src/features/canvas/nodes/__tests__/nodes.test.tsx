@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 
 // Mock @xyflow/react to avoid ReactFlow context requirement
 vi.mock("@xyflow/react", () => ({
-  Handle: ({ type, position, id }: { type: string; position: string; id: string }) => (
+  Handle: ({ type, position: _position, id }: { type: string; position: string; id: string }) => (
     <div data-testid={`handle-${type}-${id}`} />
   ),
   Position: { Left: "left", Right: "right", Top: "top", Bottom: "bottom" },

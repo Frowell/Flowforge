@@ -1,10 +1,9 @@
 """Tests for preview cache key computation and invalidation behavior."""
 
-import pytest
 from unittest.mock import MagicMock
-from uuid import uuid4, UUID
+from uuid import uuid4
 
-from app.services.preview_service import PreviewService, CACHE_KEY_PREFIX, CACHE_TTL
+from app.services.preview_service import CACHE_KEY_PREFIX, CACHE_TTL, PreviewService
 
 # Fixtures for consistent test data
 TENANT_A = uuid4()
@@ -68,7 +67,8 @@ class TestPreviewCacheKey:
         assert key1 != key2
 
     def test_position_change_produces_same_key(self):
-        """UI-only fields (position, selected, dragging) must not affect the cache key."""
+        """UI-only fields (position, selected, dragging)
+        must not affect the cache key."""
         svc = make_preview_service()
         key1 = svc._compute_cache_key(TENANT_A, "flt", NODES, EDGES)
 
@@ -109,8 +109,12 @@ class TestPreviewCacheKey:
     def test_different_offset_produces_different_key(self):
         """Different offsets must produce different cache keys."""
         svc = make_preview_service()
-        key1 = svc._compute_cache_key(TENANT_A, "flt", NODES, EDGES, offset=0, limit=100)
-        key2 = svc._compute_cache_key(TENANT_A, "flt", NODES, EDGES, offset=100, limit=100)
+        key1 = svc._compute_cache_key(
+            TENANT_A, "flt", NODES, EDGES, offset=0, limit=100
+        )
+        key2 = svc._compute_cache_key(
+            TENANT_A, "flt", NODES, EDGES, offset=100, limit=100
+        )
 
         assert key1 != key2
 
@@ -118,7 +122,9 @@ class TestPreviewCacheKey:
         """Different limits must produce different cache keys."""
         svc = make_preview_service()
         key1 = svc._compute_cache_key(TENANT_A, "flt", NODES, EDGES, offset=0, limit=50)
-        key2 = svc._compute_cache_key(TENANT_A, "flt", NODES, EDGES, offset=0, limit=100)
+        key2 = svc._compute_cache_key(
+            TENANT_A, "flt", NODES, EDGES, offset=0, limit=100
+        )
 
         assert key1 != key2
 

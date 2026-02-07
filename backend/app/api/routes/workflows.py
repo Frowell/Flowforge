@@ -5,7 +5,7 @@ All queries are scoped by tenant_id from the JWT.
 """
 
 import uuid as _uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -248,7 +248,7 @@ async def export_workflow(
     return WorkflowExportResponse(
         metadata=WorkflowExportMetadata(
             version="1.0",
-            exported_at=datetime.now(timezone.utc),
+            exported_at=datetime.now(UTC),
             source_workflow_id=workflow.id,
         ),
         name=workflow.name,

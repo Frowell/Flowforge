@@ -12,7 +12,12 @@ import pytest
 
 from app.services.schema_engine import SchemaEngine
 
-FIXTURES_DIR = Path(__file__).resolve().parent.parent.parent.parent / "tests" / "fixtures" / "schema"
+FIXTURES_DIR = (
+    Path(__file__).resolve().parent.parent.parent.parent
+    / "tests"
+    / "fixtures"
+    / "schema"
+)
 
 engine = SchemaEngine()
 
@@ -41,11 +46,13 @@ def _schema_to_comparable(schema_list: list) -> list[dict]:
         else:
             d = {"name": str(item)}
         # Only compare name, dtype, nullable
-        result.append({
-            "name": d["name"],
-            "dtype": d["dtype"],
-            "nullable": d["nullable"],
-        })
+        result.append(
+            {
+                "name": d["name"],
+                "dtype": d["dtype"],
+                "nullable": d["nullable"],
+            }
+        )
     return result
 
 

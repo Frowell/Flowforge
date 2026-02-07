@@ -1,4 +1,5 @@
-"""Tests for LiveDataService subscribe/poll mode, ref counting, and health-check mode switching."""
+"""Tests for LiveDataService subscribe/poll mode, ref counting,
+and health-check mode switching."""
 
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -62,7 +63,12 @@ class TestSubscribeWidgetModeSelection:
     @patch("app.services.live_data_service.settings")
     @patch("app.services.live_data_service.asyncio.create_task")
     def test_subscribe_widget_poll_mode_when_materialize_unavailable(
-        self, mock_create_task, mock_settings, ws_manager, widget_data_service, materialize_client
+        self,
+        mock_create_task,
+        mock_settings,
+        ws_manager,
+        widget_data_service,
+        materialize_client,
     ):
         """When materialize is not available, subscribe_widget should use poll mode."""
         mock_settings.materialize_subscribe_enabled = True
@@ -87,9 +93,15 @@ class TestSubscribeWidgetModeSelection:
     @patch("app.services.live_data_service.settings")
     @patch("app.services.live_data_service.asyncio.create_task")
     def test_subscribe_widget_subscribe_mode_when_materialize_available(
-        self, mock_create_task, mock_settings, ws_manager, widget_data_service, materialize_client
+        self,
+        mock_create_task,
+        mock_settings,
+        ws_manager,
+        widget_data_service,
+        materialize_client,
     ):
-        """When materialize is available and view_name provided, should use subscribe mode."""
+        """When materialize is available and view_name provided,
+        should use subscribe mode."""
         mock_settings.materialize_subscribe_enabled = True
         mock_create_task.return_value = _make_mock_task()
         svc = _make_service(ws_manager, widget_data_service, materialize_client)
@@ -112,7 +124,12 @@ class TestSubscribeWidgetModeSelection:
     @patch("app.services.live_data_service.settings")
     @patch("app.services.live_data_service.asyncio.create_task")
     def test_subscribe_widget_fallback_to_poll_without_view_name(
-        self, mock_create_task, mock_settings, ws_manager, widget_data_service, materialize_client
+        self,
+        mock_create_task,
+        mock_settings,
+        ws_manager,
+        widget_data_service,
+        materialize_client,
     ):
         """Even with materialize available, no view_name means poll mode."""
         mock_settings.materialize_subscribe_enabled = True
@@ -139,7 +156,12 @@ class TestRefCounting:
     @patch("app.services.live_data_service.settings")
     @patch("app.services.live_data_service.asyncio.create_task")
     def test_ref_counting_shared_view_subscription(
-        self, mock_create_task, mock_settings, ws_manager, widget_data_service, materialize_client
+        self,
+        mock_create_task,
+        mock_settings,
+        ws_manager,
+        widget_data_service,
+        materialize_client,
     ):
         """Two widgets on same view share one ViewSubscription, ref_count = 2."""
         mock_settings.materialize_subscribe_enabled = True
@@ -164,7 +186,12 @@ class TestRefCounting:
     @patch("app.services.live_data_service.settings")
     @patch("app.services.live_data_service.asyncio.create_task")
     def test_unsubscribe_decrements_ref_count(
-        self, mock_create_task, mock_settings, ws_manager, widget_data_service, materialize_client
+        self,
+        mock_create_task,
+        mock_settings,
+        ws_manager,
+        widget_data_service,
+        materialize_client,
     ):
         """Unsubscribing one widget decrements ref_count."""
         mock_settings.materialize_subscribe_enabled = True
@@ -191,9 +218,15 @@ class TestRefCounting:
     @patch("app.services.live_data_service.settings")
     @patch("app.services.live_data_service.asyncio.create_task")
     def test_unsubscribe_last_widget_cancels_view_task(
-        self, mock_create_task, mock_settings, ws_manager, widget_data_service, materialize_client
+        self,
+        mock_create_task,
+        mock_settings,
+        ws_manager,
+        widget_data_service,
+        materialize_client,
     ):
-        """When ref_count reaches 0, the view task is cancelled and view sub is removed."""
+        """When ref_count reaches 0, the view task is cancelled
+        and view sub is removed."""
         mock_settings.materialize_subscribe_enabled = True
         mock_task = _make_mock_task()
         mock_create_task.return_value = mock_task
@@ -220,9 +253,15 @@ class TestHealthCheckModeSwitching:
     @patch("app.services.live_data_service.settings")
     @patch("app.services.live_data_service.asyncio.create_task")
     def test_health_check_upgrades_to_subscribe(
-        self, mock_create_task, mock_settings, ws_manager, widget_data_service, materialize_client
+        self,
+        mock_create_task,
+        mock_settings,
+        ws_manager,
+        widget_data_service,
+        materialize_client,
     ):
-        """When materialize becomes available, poll-mode widgets with view_name switch to subscribe."""
+        """When materialize becomes available, poll-mode widgets
+        with view_name switch to subscribe."""
         mock_settings.materialize_subscribe_enabled = True
         mock_create_task.return_value = _make_mock_task()
         svc = _make_service(ws_manager, widget_data_service, materialize_client)
@@ -246,9 +285,15 @@ class TestHealthCheckModeSwitching:
     @patch("app.services.live_data_service.settings")
     @patch("app.services.live_data_service.asyncio.create_task")
     def test_health_check_downgrades_to_poll(
-        self, mock_create_task, mock_settings, ws_manager, widget_data_service, materialize_client
+        self,
+        mock_create_task,
+        mock_settings,
+        ws_manager,
+        widget_data_service,
+        materialize_client,
     ):
-        """When materialize becomes unavailable, subscribe-mode widgets switch to poll."""
+        """When materialize becomes unavailable,
+        subscribe-mode widgets switch to poll."""
         mock_settings.materialize_subscribe_enabled = True
         mock_create_task.return_value = _make_mock_task()
         svc = _make_service(ws_manager, widget_data_service, materialize_client)
@@ -279,7 +324,12 @@ class TestStop:
     @patch("app.services.live_data_service.settings")
     @patch("app.services.live_data_service.asyncio.create_task")
     def test_stop_cancels_all_tasks(
-        self, mock_create_task, mock_settings, ws_manager, widget_data_service, materialize_client
+        self,
+        mock_create_task,
+        mock_settings,
+        ws_manager,
+        widget_data_service,
+        materialize_client,
     ):
         """stop() cancels all poll tasks, subscribe tasks, and health check task."""
         mock_settings.materialize_subscribe_enabled = True

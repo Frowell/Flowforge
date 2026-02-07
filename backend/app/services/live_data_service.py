@@ -1,4 +1,4 @@
-"""Live data service — polls or subscribes to widget data and publishes changes via WebSocket.
+"""Live data service — polls or subscribes to widget data via WebSocket.
 
 For widgets with auto_refresh_interval == -1 (live mode), this service
 periodically fetches data (poll mode) or uses Materialize SUBSCRIBE
@@ -309,10 +309,16 @@ class LiveDataService:
 
                 # Mode switching
                 if self._materialize_available and not was_available:
-                    logger.info("Materialize became available, switching eligible widgets to subscribe mode")
+                    logger.info(
+                        "Materialize became available, "
+                        "switching eligible widgets to subscribe mode"
+                    )
                     self._upgrade_to_subscribe()
                 elif not self._materialize_available and was_available:
-                    logger.info("Materialize became unavailable, falling back all widgets to poll mode")
+                    logger.info(
+                        "Materialize became unavailable, "
+                        "falling back all widgets to poll mode"
+                    )
                     self._downgrade_to_poll()
 
             except asyncio.CancelledError:

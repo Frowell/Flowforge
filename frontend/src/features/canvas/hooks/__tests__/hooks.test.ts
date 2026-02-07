@@ -1,8 +1,8 @@
 /**
  * Canvas hook tests (non-DOM hooks).
  */
-import { describe, expect, it, vi } from "vitest";
-import { propagateSchemas } from "@/shared/schema/propagation";
+import { describe, expect, it } from "vitest";
+import { propagateSchemas, type WorkflowNode } from "@/shared/schema/propagation";
 
 describe("propagateSchemas (used by useSchemaEngine)", () => {
   it("returns empty map for empty graph", () => {
@@ -123,7 +123,7 @@ describe("propagateSchemas (used by useSchemaEngine)", () => {
 
   it("throws on unknown node type", () => {
     const nodes = [
-      { id: "x", type: "unknown_type" as any, data: { config: {} } },
+      { id: "x", type: "unknown_type" as unknown as WorkflowNode["type"], data: { config: {} } },
     ];
     expect(() => propagateSchemas(nodes, [])).toThrow(/unknown/i);
   });

@@ -42,7 +42,13 @@ async def _create_workflow(
                 {
                     "id": "flt-1",
                     "type": "filter",
-                    "data": {"config": {"column": "symbol", "operator": "=", "value": "AAPL"}},
+                    "data": {
+                        "config": {
+                            "column": "symbol",
+                            "operator": "=",
+                            "value": "AAPL",
+                        }
+                    },
                 },
             ],
             "edges": [
@@ -98,7 +104,9 @@ async def test_export_workflow_cross_tenant_returns_404(
     """Exporting a workflow from another tenant returns 404."""
     app.dependency_overrides[get_user_claims] = _make_claims(user_id, tenant_id)
     try:
-        wf = await _create_workflow(db_session, tenant_id_b, user_id_b, "Other Tenant WF")
+        wf = await _create_workflow(
+            db_session, tenant_id_b, user_id_b, "Other Tenant WF"
+        )
         response = await client.get(f"/api/v1/workflows/{wf.id}/export")
         assert response.status_code == 404
     finally:
@@ -154,8 +162,16 @@ async def test_import_workflow_creates_new_workflow(
             "description": "Imported from export",
             "graph_json": {
                 "nodes": [
-                    {"id": "old-src", "type": "data_source", "data": {"config": {"table": "trades"}}},
-                    {"id": "old-flt", "type": "filter", "data": {"config": {"column": "x"}}},
+                    {
+                        "id": "old-src",
+                        "type": "data_source",
+                        "data": {"config": {"table": "trades"}},
+                    },
+                    {
+                        "id": "old-flt",
+                        "type": "filter",
+                        "data": {"config": {"column": "x"}},
+                    },
                 ],
                 "edges": [
                     {"id": "old-e1", "source": "old-src", "target": "old-flt"},
