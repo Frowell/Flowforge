@@ -8,15 +8,15 @@
 
 ## Component Catalog
 
-| Component | File | Chart Library | Use Case |
-|-----------|------|--------------|----------|
-| Bar Chart | `BarChart.tsx` | Recharts `<BarChart>` | Horizontal/vertical bars, stacked, grouped |
-| Line Chart | `LineChart.tsx` | Recharts `<LineChart>` | Time-series, multi-series, area fill |
-| Candlestick | `CandlestickChart.tsx` | Recharts (custom) | OHLC with volume subplot (fintech-specific) |
-| Scatter Plot | `ScatterPlot.tsx` | Recharts `<ScatterChart>` | X/Y scatter with size/color dimensions |
-| KPI Card | `KPICard.tsx` | Custom (no Recharts) | Single-value metric with threshold coloring |
-| Pivot Table | `PivotTable.tsx` | Custom (no Recharts) | Row/column pivot crosstab |
-| Chart Renderer | `ChartRenderer.tsx` | Dispatch | Routes chart type string to correct component |
+| Component      | File                   | Chart Library             | Use Case                                      |
+| -------------- | ---------------------- | ------------------------- | --------------------------------------------- |
+| Bar Chart      | `BarChart.tsx`         | Recharts `<BarChart>`     | Horizontal/vertical bars, stacked, grouped    |
+| Line Chart     | `LineChart.tsx`        | Recharts `<LineChart>`    | Time-series, multi-series, area fill          |
+| Candlestick    | `CandlestickChart.tsx` | Recharts (custom)         | OHLC with volume subplot (fintech-specific)   |
+| Scatter Plot   | `ScatterPlot.tsx`      | Recharts `<ScatterChart>` | X/Y scatter with size/color dimensions        |
+| KPI Card       | `KPICard.tsx`          | Custom (no Recharts)      | Single-value metric with threshold coloring   |
+| Pivot Table    | `PivotTable.tsx`       | Custom (no Recharts)      | Row/column pivot crosstab                     |
+| Chart Renderer | `ChartRenderer.tsx`    | Dispatch                  | Routes chart type string to correct component |
 
 ## Props Contract
 
@@ -24,10 +24,10 @@ All chart components follow the same props interface:
 
 ```typescript
 interface ChartComponentProps {
-  data: ChartData;           // Array of row objects
-  config: ChartConfig;       // Axis mappings, colors, options
-  interactive?: boolean;     // Enable click handlers (default: true)
-  onDrillDown?: (filters: FilterChip[]) => void;  // Click → drill-down
+  data: ChartData; // Array of row objects
+  config: ChartConfig; // Axis mappings, colors, options
+  interactive?: boolean; // Enable click handlers (default: true)
+  onDrillDown?: (filters: FilterChip[]) => void; // Click → drill-down
 }
 ```
 

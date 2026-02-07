@@ -8,8 +8,8 @@ WebSocket connection manager for real-time execution status updates and live dat
 
 ## File
 
-| File | Purpose |
-|------|---------|
+| File         | Purpose                                                                          |
+| ------------ | -------------------------------------------------------------------------------- |
 | `manager.ts` | `WebSocketManager` class — connection lifecycle, message routing, auto-reconnect |
 
 ## Connection Lifecycle
@@ -24,12 +24,12 @@ WebSocket connection manager for real-time execution status updates and live dat
 
 ## Message Types
 
-| Type | Direction | Payload | Use Case |
-|------|-----------|---------|----------|
-| `execution_status` | Server → Client | `{ node_id, status, progress }` | Node status during workflow execution |
-| `live_data` | Server → Client | `{ view_name, rows, timestamp }` | Materialize SUBSCRIBE or poll results |
-| `subscribe` | Client → Server | `{ action, channel }` | Subscribe to a Redis pub/sub channel |
-| `unsubscribe` | Client → Server | `{ action, channel }` | Unsubscribe from a channel |
+| Type               | Direction       | Payload                          | Use Case                              |
+| ------------------ | --------------- | -------------------------------- | ------------------------------------- |
+| `execution_status` | Server → Client | `{ node_id, status, progress }`  | Node status during workflow execution |
+| `live_data`        | Server → Client | `{ view_name, rows, timestamp }` | Materialize SUBSCRIBE or poll results |
+| `subscribe`        | Client → Server | `{ action, channel }`            | Subscribe to a Redis pub/sub channel  |
+| `unsubscribe`      | Client → Server | `{ action, channel }`            | Unsubscribe from a channel            |
 
 ## Auto-Reconnect
 

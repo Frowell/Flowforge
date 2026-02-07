@@ -8,29 +8,29 @@ Keycloak OIDC authentication adapter for Canvas and Dashboard routes. Embed rout
 
 ## File
 
-| File | Purpose |
-|------|---------|
+| File          | Purpose                                                                        |
+| ------------- | ------------------------------------------------------------------------------ |
 | `keycloak.ts` | Keycloak OIDC adapter — init, login, logout, token management, user extraction |
 
 ## Key Exports
 
-| Function | Returns | Purpose |
-|----------|---------|---------|
-| `initKeycloak()` | `Promise<boolean>` | Initialize OIDC — call once at app startup |
-| `getCurrentUser()` | `CurrentUser` | Extract user from JWT: `{ id, tenantId, email, name, roles }` |
-| `getAccessToken()` | `Promise<string>` | Get Bearer token for API requests |
-| `logout()` | `void` | End session and redirect to Keycloak logout |
-| `hasRole(role)` | `boolean` | Check if current user has a specific role |
+| Function           | Returns            | Purpose                                                       |
+| ------------------ | ------------------ | ------------------------------------------------------------- |
+| `initKeycloak()`   | `Promise<boolean>` | Initialize OIDC — call once at app startup                    |
+| `getCurrentUser()` | `CurrentUser`      | Extract user from JWT: `{ id, tenantId, email, name, roles }` |
+| `getAccessToken()` | `Promise<string>`  | Get Bearer token for API requests                             |
+| `logout()`         | `void`             | End session and redirect to Keycloak logout                   |
+| `hasRole(role)`    | `boolean`          | Check if current user has a specific role                     |
 
 ## CurrentUser Interface
 
 ```typescript
 interface CurrentUser {
-  id: string;        // Keycloak subject (sub claim)
-  tenantId: string;  // Custom JWT claim — CRITICAL for multi-tenancy
+  id: string; // Keycloak subject (sub claim)
+  tenantId: string; // Custom JWT claim — CRITICAL for multi-tenancy
   email: string;
   name: string;
-  roles: string[];   // ["admin"], ["analyst"], ["viewer"], etc.
+  roles: string[]; // ["admin"], ["analyst"], ["viewer"], etc.
 }
 ```
 

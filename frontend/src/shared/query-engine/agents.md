@@ -8,10 +8,10 @@ Centralized HTTP client for all backend API communication. Handles auth token in
 
 ## File Catalog
 
-| File | Purpose |
-|------|---------|
+| File        | Purpose                                                                  |
+| ----------- | ------------------------------------------------------------------------ |
 | `client.ts` | `APIClient` class — GET, POST, PATCH, DELETE with Bearer token injection |
-| `types.ts` | Request/response TypeScript types mirroring backend Pydantic schemas |
+| `types.ts`  | Request/response TypeScript types mirroring backend Pydantic schemas     |
 
 ## APIClient
 
@@ -28,15 +28,15 @@ All endpoints are prefixed with `/api/v1/`.
 
 `types.ts` mirrors the backend Pydantic schemas:
 
-| TypeScript Type | Backend Schema | Used By |
-|----------------|---------------|---------|
-| `Workflow` | `WorkflowResponse` | Canvas, workflow hooks |
-| `WorkflowCreate` | `WorkflowCreate` | Canvas save |
-| `Dashboard` | `DashboardResponse` | Dashboard hooks |
-| `Widget` | `WidgetResponse` | Widget hooks |
-| `PreviewRequest` | `PreviewRequest` | Data preview |
-| `PreviewResponse` | `PreviewResponse` | Data preview |
-| `TableSchema` | `TableSchema` | Schema registry |
+| TypeScript Type   | Backend Schema      | Used By                |
+| ----------------- | ------------------- | ---------------------- |
+| `Workflow`        | `WorkflowResponse`  | Canvas, workflow hooks |
+| `WorkflowCreate`  | `WorkflowCreate`    | Canvas save            |
+| `Dashboard`       | `DashboardResponse` | Dashboard hooks        |
+| `Widget`          | `WidgetResponse`    | Widget hooks           |
+| `PreviewRequest`  | `PreviewRequest`    | Data preview           |
+| `PreviewResponse` | `PreviewResponse`   | Data preview           |
+| `TableSchema`     | `TableSchema`       | Schema registry        |
 
 **Keep these in sync with the backend Pydantic schemas.** When a field is added to a backend schema, add it to the corresponding TypeScript type.
 

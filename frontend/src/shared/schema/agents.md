@@ -8,11 +8,11 @@ This directory contains the client-side schema catalog and propagation engine �
 
 ## File Catalog
 
-| File | Purpose |
-|------|---------|
-| `propagation.ts` | Synchronous schema propagation engine — computes output schemas for entire DAG |
-| `registry.ts` | Schema catalog cache — wraps TanStack Query, fetches from `/api/v1/schema` |
-| `types.ts` | `ColumnSchema`, `TableSchema`, `NodeType`, `SchemaTransformFn` type definitions |
+| File             | Purpose                                                                         |
+| ---------------- | ------------------------------------------------------------------------------- |
+| `propagation.ts` | Synchronous schema propagation engine — computes output schemas for entire DAG  |
+| `registry.ts`    | Schema catalog cache — wraps TanStack Query, fetches from `/api/v1/schema`      |
+| `types.ts`       | `ColumnSchema`, `TableSchema`, `NodeType`, `SchemaTransformFn` type definitions |
 
 ## Critical Invariant: Python Parity
 
@@ -34,32 +34,32 @@ Every node type registers a transform function:
 
 ```typescript
 type SchemaTransformFn = (
-  config: Record<string, unknown>,   // Node configuration
-  inputs: ColumnSchema[][],          // Input schemas (1 for most nodes, 2 for Join/Union)
-) => ColumnSchema[];                 // Output schema
+  config: Record<string, unknown>, // Node configuration
+  inputs: ColumnSchema[][], // Input schemas (1 for most nodes, 2 for Join/Union)
+) => ColumnSchema[]; // Output schema
 ```
 
 ### Registered Transforms (17)
 
-| Transform | Behavior |
-|-----------|----------|
-| `data_source` | Returns columns from catalog config |
-| `filter` | Passthrough (same columns) |
-| `select` | Subset of input columns in specified order |
-| `rename` | Input columns with name substitutions |
-| `sort` | Passthrough |
-| `limit` | Passthrough |
-| `sample` | Passthrough |
-| `unique` | Passthrough |
-| `group_by` | Group keys + aggregate output columns |
-| `join` | Merged schemas from both inputs |
-| `union` | Aligned schemas from both inputs |
-| `pivot` | Group keys + pivoted value columns |
-| `formula` | Input columns + new calculated column |
-| `window` | Input columns + new window function column |
-| `chart_output` | Terminal (empty output) |
-| `table_output` | Terminal (empty output) |
-| `kpi_output` | Terminal (empty output) |
+| Transform      | Behavior                                   |
+| -------------- | ------------------------------------------ |
+| `data_source`  | Returns columns from catalog config        |
+| `filter`       | Passthrough (same columns)                 |
+| `select`       | Subset of input columns in specified order |
+| `rename`       | Input columns with name substitutions      |
+| `sort`         | Passthrough                                |
+| `limit`        | Passthrough                                |
+| `sample`       | Passthrough                                |
+| `unique`       | Passthrough                                |
+| `group_by`     | Group keys + aggregate output columns      |
+| `join`         | Merged schemas from both inputs            |
+| `union`        | Aligned schemas from both inputs           |
+| `pivot`        | Group keys + pivoted value columns         |
+| `formula`      | Input columns + new calculated column      |
+| `window`       | Input columns + new window function column |
+| `chart_output` | Terminal (empty output)                    |
+| `table_output` | Terminal (empty output)                    |
+| `kpi_output`   | Terminal (empty output)                    |
 
 ## Schema Registry
 

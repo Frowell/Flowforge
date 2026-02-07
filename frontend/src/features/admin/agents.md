@@ -8,8 +8,8 @@ Admin-only pages accessible to users with the `admin` role. Currently contains t
 
 ## Pages
 
-| Page | Route | Role | Purpose |
-|------|-------|------|---------|
+| Page               | Route          | Role  | Purpose                                    |
+| ------------------ | -------------- | ----- | ------------------------------------------ |
 | `AuditLogPage.tsx` | `/admin/audit` | admin | Queryable audit trail — who did what, when |
 
 ## Rules
