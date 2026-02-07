@@ -46,10 +46,12 @@ vi.mock("@/features/canvas/hooks/useSchemaEngine", () => ({
     { name: "price", dtype: "float64", nullable: false },
     { name: "quantity", dtype: "int64", nullable: false },
   ],
-  useNodeInputSchemas: () => [[
-    { name: "symbol", dtype: "string", nullable: false },
-    { name: "price", dtype: "float64", nullable: false },
-  ]],
+  useNodeInputSchemas: () => [
+    [
+      { name: "symbol", dtype: "string", nullable: false },
+      { name: "price", dtype: "float64", nullable: false },
+    ],
+  ],
   useNodeOutputSchema: () => [
     { name: "symbol", dtype: "string", nullable: false },
     { name: "price", dtype: "float64", nullable: false },
@@ -73,7 +75,9 @@ describe("DataSourcePanel", () => {
   it("renders table selector", () => {
     render(<DataSourcePanel nodeId="test-node" />);
     // Should show a select element or table list
-    expect(screen.getByRole("combobox") || screen.getByText(/trades/i) || screen.getByText(/table/i)).toBeTruthy();
+    expect(
+      screen.getByRole("combobox") || screen.getByText(/trades/i) || screen.getByText(/table/i),
+    ).toBeTruthy();
   });
 
   it("shows available tables from catalog", () => {
@@ -89,7 +93,12 @@ describe("FilterPanel", () => {
     render(<FilterPanel nodeId="test-node" />);
     // Should show column options from upstream schema
     const text = document.body.textContent ?? "";
-    expect(text.includes("symbol") || text.includes("price") || text.includes("Column") || text.includes("column")).toBeTruthy();
+    expect(
+      text.includes("symbol") ||
+        text.includes("price") ||
+        text.includes("Column") ||
+        text.includes("column"),
+    ).toBeTruthy();
   });
 });
 

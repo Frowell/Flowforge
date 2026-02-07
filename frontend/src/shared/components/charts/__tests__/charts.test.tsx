@@ -57,7 +57,7 @@ describe("BarChart", () => {
           xAxis: { column: "symbol" },
           yAxis: [{ column: "price" }],
         }}
-      />
+      />,
     );
     expect(screen.getByTestId("recharts-bar")).toBeInTheDocument();
   });
@@ -71,7 +71,7 @@ describe("BarChart", () => {
           yAxis: [{ column: "price" }],
           orientation: "horizontal",
         }}
-      />
+      />,
     );
     expect(screen.getByTestId("recharts-bar")).toBeInTheDocument();
   });
@@ -84,7 +84,7 @@ describe("BarChart", () => {
           xAxis: { column: "symbol" },
           yAxis: [{ column: "price" }, { column: "volume" }],
         }}
-      />
+      />,
     );
     const bars = screen.getAllByTestId("bar");
     expect(bars.length).toBe(2);
@@ -100,7 +100,7 @@ describe("LineChart", () => {
           xAxis: { column: "symbol" },
           yAxis: [{ column: "price" }],
         }}
-      />
+      />,
     );
     expect(screen.getByTestId("recharts-line")).toBeInTheDocument();
   });
@@ -114,7 +114,7 @@ describe("LineChart", () => {
           yAxis: [{ column: "price" }],
           areaFill: true,
         }}
-      />
+      />,
     );
     expect(screen.getByTestId("recharts-area")).toBeInTheDocument();
   });
@@ -127,7 +127,7 @@ describe("ChartRenderer", () => {
         chartType="bar"
         data={sampleData}
         config={{ xAxis: { column: "symbol" }, yAxis: [{ column: "price" }] }}
-      />
+      />,
     );
     // ChartRenderer uses lazy loading, so check for suspense fallback or chart
     expect(document.body.textContent !== null).toBe(true);
@@ -139,21 +139,20 @@ describe("ChartRenderer", () => {
         chartType="line"
         data={sampleData}
         config={{ xAxis: { column: "symbol" }, yAxis: [{ column: "price" }] }}
-      />
+      />,
     );
     expect(document.body.textContent !== null).toBe(true);
   });
 
   it("renders error for unknown chart type", () => {
-    render(
-      <ChartRenderer
-        chartType="unknown_type"
-        data={sampleData}
-        config={{}}
-      />
-    );
+    render(<ChartRenderer chartType="unknown_type" data={sampleData} config={{}} />);
     const text = document.body.textContent ?? "";
-    expect(text.includes("unknown") || text.includes("Unsupported") || text.includes("error") || text.length > 0).toBeTruthy();
+    expect(
+      text.includes("unknown") ||
+        text.includes("Unsupported") ||
+        text.includes("error") ||
+        text.length > 0,
+    ).toBeTruthy();
   });
 
   it("renders table chart type", () => {
@@ -166,7 +165,7 @@ describe("ChartRenderer", () => {
           { name: "symbol", dtype: "string" },
           { name: "price", dtype: "float64" },
         ]}
-      />
+      />,
     );
     expect(document.body.textContent !== null).toBe(true);
   });
