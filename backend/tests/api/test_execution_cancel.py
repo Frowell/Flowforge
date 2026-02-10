@@ -138,9 +138,7 @@ async def test_cancel_failed_execution_returns_409(
 ):
     redis = override_redis
     key = f"flowforge:{TENANT_A}:execution:{EXEC_ID}"
-    redis._store[key] = json.dumps(
-        _make_execution_record(EXEC_ID, TENANT_A, "failed")
-    )
+    redis._store[key] = json.dumps(_make_execution_record(EXEC_ID, TENANT_A, "failed"))
 
     response = await client.post(f"/api/v1/executions/{EXEC_ID}/cancel")
     assert response.status_code == 409

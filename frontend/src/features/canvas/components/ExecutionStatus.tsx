@@ -14,8 +14,7 @@ interface ExecutionStatusProps {
 export default function ExecutionStatus({ workflowId }: ExecutionStatusProps) {
   const { execute, isExecuting, status, error } = useExecution(workflowId);
 
-  const isRunning =
-    isExecuting || status?.status === "pending" || status?.status === "running";
+  const isRunning = isExecuting || status?.status === "pending" || status?.status === "running";
   const isFailed = status?.status === "failed";
   const isCompleted = status?.status === "completed";
   const isCancelled = status?.status === "cancelled";

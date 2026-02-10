@@ -55,7 +55,14 @@ describe("ExecutionStatus", () => {
     mockedUseExecution.mockReturnValue({
       execute: mockExecute,
       isExecuting: true,
-      status: { id: "exec-1", workflow_id: "wf-1", status: "running", started_at: null, completed_at: null, node_statuses: {} },
+      status: {
+        id: "exec-1",
+        workflow_id: "wf-1",
+        status: "running",
+        started_at: null,
+        completed_at: null,
+        node_statuses: {},
+      },
       error: null,
     });
 
@@ -68,7 +75,14 @@ describe("ExecutionStatus", () => {
     mockedUseExecution.mockReturnValue({
       execute: mockExecute,
       isExecuting: true,
-      status: { id: "exec-1", workflow_id: "wf-1", status: "running", started_at: null, completed_at: null, node_statuses: {} },
+      status: {
+        id: "exec-1",
+        workflow_id: "wf-1",
+        status: "running",
+        started_at: null,
+        completed_at: null,
+        node_statuses: {},
+      },
       error: null,
     });
 
@@ -81,7 +95,14 @@ describe("ExecutionStatus", () => {
     mockedUseExecution.mockReturnValue({
       execute: mockExecute,
       isExecuting: false,
-      status: { id: "exec-1", workflow_id: "wf-1", status: "completed", started_at: null, completed_at: null, node_statuses: {} },
+      status: {
+        id: "exec-1",
+        workflow_id: "wf-1",
+        status: "completed",
+        started_at: null,
+        completed_at: null,
+        node_statuses: {},
+      },
       error: null,
     });
 
@@ -94,7 +115,14 @@ describe("ExecutionStatus", () => {
     mockedUseExecution.mockReturnValue({
       execute: mockExecute,
       isExecuting: false,
-      status: { id: "exec-1", workflow_id: "wf-1", status: "failed", started_at: null, completed_at: null, node_statuses: {} },
+      status: {
+        id: "exec-1",
+        workflow_id: "wf-1",
+        status: "failed",
+        started_at: null,
+        completed_at: null,
+        node_statuses: {},
+      },
       error: new Error("Query timeout"),
     });
 
@@ -107,7 +135,14 @@ describe("ExecutionStatus", () => {
     mockedUseExecution.mockReturnValue({
       execute: mockExecute,
       isExecuting: false,
-      status: { id: "exec-1", workflow_id: "wf-1", status: "cancelled", started_at: null, completed_at: null, node_statuses: {} },
+      status: {
+        id: "exec-1",
+        workflow_id: "wf-1",
+        status: "cancelled",
+        started_at: null,
+        completed_at: null,
+        node_statuses: {},
+      },
       error: null,
     });
 

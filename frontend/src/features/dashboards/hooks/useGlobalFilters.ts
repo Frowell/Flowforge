@@ -39,9 +39,7 @@ export function useGlobalFilters() {
   });
 
   const availableColumns = useMemo<AvailableColumn[]>(() => {
-    const loaded = widgetQueries
-      .filter((q) => q.data?.columns)
-      .map((q) => q.data!.columns);
+    const loaded = widgetQueries.filter((q) => q.data?.columns).map((q) => q.data!.columns);
 
     const firstCols = loaded[0];
     if (!firstCols) return [];
@@ -60,8 +58,7 @@ export function useGlobalFilters() {
       .map((c) => ({
         name: c.name,
         dtype: c.dtype,
-        suggestedFilterType:
-          c.dtype === "datetime" ? ("date_range" as const) : ("text" as const),
+        suggestedFilterType: c.dtype === "datetime" ? ("date_range" as const) : ("text" as const),
       }));
   }, [widgetQueries]);
 
