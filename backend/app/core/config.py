@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     clickhouse_database: str = "default"
     clickhouse_user: str = "default"
     clickhouse_password: str = ""
+    clickhouse_databases: list[str] = ["flowforge", "metrics"]
 
     # Materialize — live data queries (read-only, PG wire protocol)
     materialize_host: str = "localhost"
