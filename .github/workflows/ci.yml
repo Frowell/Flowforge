@@ -75,7 +75,6 @@ jobs:
   integration:
     name: Integration Tests
     runs-on: ubuntu-latest
-    continue-on-error: true  # Optional: doesn't block PR merge
 
     services:
       db:
@@ -169,3 +168,25 @@ jobs:
       - name: Test
         run: npx vitest run --passWithNoTests
         working-directory: frontend
+
+  gate:
+    name: CI Gate
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [backend, frontend, integration]
+    steps:
+      - name: Check all jobs passed
+        run: |
+          if [[ "${{ needs.backend.result }}" != "success" ]]; then
+            echo "Backend failed: ${{ needs.backend.result }}"
+            exit 1
+          fi
+          if [[ "${{ needs.frontend.result }}" != "success" ]]; then
+            echo "Frontend failed: ${{ needs.frontend.result }}"
+            exit 1
+          fi
+          if [[ "${{ needs.integration.result }}" != "success" ]]; then
+            echo "Integration Tests failed: ${{ needs.integration.result }}"
+            exit 1
+          fi
+          echo "All CI checks passed"
