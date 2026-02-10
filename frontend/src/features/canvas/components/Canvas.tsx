@@ -127,7 +127,7 @@ function CanvasInner({ workflowId }: { workflowId: string }) {
           >
             {saveWorkflow.isPending ? "Saving..." : "Save"}
           </button>
-          <ExecutionStatus />
+          <ExecutionStatus workflowId={workflowId} />
         </div>
       </div>
 

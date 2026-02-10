@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 import { useGlobalFilters } from "../hooks/useGlobalFilters";
+import type { AvailableColumn } from "../hooks/useGlobalFilters";
 
 interface AddFilterForm {
   column: string;
@@ -13,9 +14,19 @@ interface AddFilterForm {
 }
 
 export default function GlobalFilters() {
-  const { activeFilters, setFilter, clearFilters } = useGlobalFilters();
+  const { activeFilters, setFilter, clearFilters, availableColumns } = useGlobalFilters();
   const [showPopover, setShowPopover] = useState(false);
   const [newFilter, setNewFilter] = useState<AddFilterForm>({ column: "", type: "date_range" });
+
+  const hasAvailableColumns = availableColumns.length > 0;
+
+  const handleColumnSelect = (columnName: string) => {
+    const col = availableColumns.find((c: AvailableColumn) => c.name === columnName);
+    setNewFilter({
+      column: columnName,
+      type: col?.suggestedFilterType ?? "text",
+    });
+  };
 
   const handleAddFilter = () => {
     if (!newFilter.column) return;
@@ -113,13 +124,28 @@ export default function GlobalFilters() {
             <div className="space-y-2">
               <div>
                 <label className="text-xs text-white/50 block mb-1">Column</label>
-                <input
-                  type="text"
-                  value={newFilter.column}
-                  onChange={(e) => setNewFilter({ ...newFilter, column: e.target.value })}
-                  placeholder="Column name"
-                  className="w-full bg-canvas-bg border border-white/10 rounded px-2 py-1 text-xs text-white"
-                />
+                {hasAvailableColumns ? (
+                  <select
+                    value={newFilter.column}
+                    onChange={(e) => handleColumnSelect(e.target.value)}
+                    className="w-full bg-canvas-bg border border-white/10 rounded px-2 py-1 text-xs text-white"
+                  >
+                    <option value="">Select column...</option>
+                    {availableColumns.map((col: AvailableColumn) => (
+                      <option key={col.name} value={col.name}>
+                        {col.name} ({col.dtype})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={newFilter.column}
+                    onChange={(e) => setNewFilter({ ...newFilter, column: e.target.value })}
+                    placeholder="Column name"
+                    className="w-full bg-canvas-bg border border-white/10 rounded px-2 py-1 text-xs text-white"
+                  />
+                )}
               </div>
               <div>
                 <label className="text-xs text-white/50 block mb-1">Type</label>

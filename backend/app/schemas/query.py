@@ -14,14 +14,14 @@ class ExecutionRequest(BaseModel):
 class ExecutionStatusResponse(BaseModel):
     id: UUID
     workflow_id: UUID
-    status: str  # pending | running | completed | failed
+    status: str  # pending | running | completed | failed | cancelled
     started_at: str | None = None
     completed_at: str | None = None
     node_statuses: dict[str, "NodeStatusResponse"] = {}
 
 
 class NodeStatusResponse(BaseModel):
-    status: str  # pending | running | completed | failed | skipped
+    status: str  # pending | running | completed | failed | skipped | cancelled
     started_at: str | None = None
     completed_at: str | None = None
     rows_processed: int | None = None

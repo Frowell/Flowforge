@@ -159,6 +159,15 @@ async def execute_workflow(
 
     # Execute each segment, publishing per-node status updates
     for segment in segments:
+        # Check for cancellation between segments
+        raw_check = await redis.get(redis_key)
+        if raw_check:
+            current = json.loads(raw_check)
+            if current.get("status") == "cancelled":
+                execution_record["status"] = "cancelled"
+                execution_record["completed_at"] = current.get("completed_at")
+                break
+
         for node_id in segment.source_node_ids:
             execution_record["node_statuses"][node_id] = {
                 "status": "running",
@@ -271,10 +280,37 @@ async def get_execution_status(
 async def cancel_execution(
     execution_id: UUID,
     tenant_id: UUID = Depends(get_current_tenant_id),
+    redis=Depends(get_redis),
+    ws_manager: WebSocketManager = Depends(get_websocket_manager),
 ):
-    """Cancel a running workflow execution."""
-    # TODO: Signal cancellation to running tasks (verify tenant ownership)
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Execution cancellation not yet implemented",
+    """Cancel a running or pending workflow execution.
+
+    Sets a cancelled flag in Redis. The segment execution loop checks this
+    flag between segments and breaks early if set.
+    """
+    redis_key = f"flowforge:{tenant_id}:execution:{execution_id}"
+    raw = await redis.get(redis_key)
+    if not raw:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Execution not found",
+        )
+
+    record = json.loads(raw)
+    if record["status"] not in ("pending", "running"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Execution already finished with status: {record['status']}",
+        )
+
+    record["status"] = "cancelled"
+    record["completed_at"] = datetime.now(UTC).isoformat()
+    await redis.set(redis_key, json.dumps(record), ex=EXECUTION_TTL)
+
+    await ws_manager.publish_execution_status(
+        tenant_id=tenant_id,
+        execution_id=execution_id,
+        node_id="__workflow__",
+        status="cancelled",
     )
+    return {"id": str(execution_id), "status": "cancelled"}
