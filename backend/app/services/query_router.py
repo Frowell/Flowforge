@@ -139,17 +139,17 @@ class QueryRouter:
         if lookup_type == "SCAN_HASH":
             # Scan for keys matching pattern, HGETALL each hash
             pattern = params.get("pattern", "*")
-            cursor: int | str = 0
+            scan_cursor: int = 0
             all_keys: list[str] = []
             while True:
-                cursor, found_keys = await self._redis.scan(
-                    cursor, match=pattern, count=100
+                scan_cursor, found_keys = await self._redis.scan(
+                    scan_cursor, match=pattern, count=100
                 )
                 all_keys.extend(found_keys)
-                if cursor == 0:
+                if scan_cursor == 0:
                     break
             for key_str in all_keys:
-                hash_data = await self._redis.hgetall(key_str)
+                hash_data: dict[str, str] = await self._redis.hgetall(key_str)  # type: ignore[assignment]
                 if hash_data:
                     row: dict[str, str] = {}
                     # Extract identifier from key name
