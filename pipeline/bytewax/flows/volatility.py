@@ -150,14 +150,31 @@ def should_emit(symbol_state):
     return False
 
 
+VOLATILITY_COLUMNS = [
+    {"name": "symbol", "dtype": "String"},
+    {"name": "window_end", "dtype": "DateTime64"},
+    {"name": "volatility_1h", "dtype": "Float64"},
+    {"name": "volatility_24h", "dtype": "Float64"},
+    {"name": "return_pct", "dtype": "Float64"},
+]
+
+
 def emit_volatility(symbol_state):
-    """Write volatility result to ClickHouse and Redis."""
+    """Write volatility result to ClickHouse, Redis, and broadcast via pub/sub."""
     symbol, state = symbol_state
 
     vol_1h = state.vol_1h.volatility
     vol_24h = state.vol_24h.volatility
     return_pct = state.vol_1h.return_pct
     window_end = datetime.now(timezone.utc)
+
+    row = {
+        "symbol": symbol,
+        "window_end": window_end.isoformat(),
+        "volatility_1h": round(vol_1h, 6),
+        "volatility_24h": round(vol_24h, 6),
+        "return_pct": round(return_pct, 4),
+    }
 
     # Write to ClickHouse
     ch_client.insert(
@@ -181,6 +198,17 @@ def emit_volatility(symbol_state):
             "return_pct": f"{return_pct:.4f}",
             "window_end": window_end.isoformat(),
         },
+    )
+
+    # Broadcast row data to dashboards
+    r_client.publish(
+        "flowforge:broadcast:table_rows",
+        json.dumps({
+            "type": "table_rows",
+            "table": "rolling_volatility",
+            "columns": VOLATILITY_COLUMNS,
+            "rows": [row],
+        }),
     )
 
     return (symbol, {"vol_1h": vol_1h, "vol_24h": vol_24h})
