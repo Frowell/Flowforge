@@ -166,6 +166,8 @@ class WorkflowCompiler:
         # Track whether a node's expression has GROUP BY
         # (prevents further merging of certain ops)
         has_group_by: dict[str, bool] = {}
+        # Map node_id -> (target, dialect) for backing store routing
+        target_map: dict[str, tuple[str, str]] = {}
 
         mergeable_types = {
             "filter",
@@ -213,6 +215,7 @@ class WorkflowCompiler:
                 source_ids_map[node_id] = [node_id]
                 root_map[node_id] = node_id
                 has_group_by[node_id] = False
+                target_map[node_id] = self._detect_target(table_name)
 
             elif node_type in mergeable_types:
                 parent_ids = parents.get(node_id, [])
@@ -249,6 +252,9 @@ class WorkflowCompiler:
                 source_ids_map[node_id] = parent_source_ids + [node_id]
                 root_map[node_id] = root_map.get(parent_id, parent_id)
                 has_group_by[node_id] = has_group_by.get(parent_id, False)
+                target_map[node_id] = target_map.get(
+                    parent_id, ("clickhouse", "clickhouse")
+                )
 
             elif node_type == "group_by":
                 parent_ids = parents.get(node_id, [])
@@ -264,6 +270,9 @@ class WorkflowCompiler:
                 source_ids_map[node_id] = source_ids_map[parent_id] + [node_id]
                 root_map[node_id] = node_id  # new segment root
                 has_group_by[node_id] = True
+                target_map[node_id] = target_map.get(
+                    parent_ids[0], ("clickhouse", "clickhouse")
+                )
 
             elif node_type == "join":
                 parent_ids = parents.get(node_id, [])
@@ -282,6 +291,7 @@ class WorkflowCompiler:
                 )
                 root_map[node_id] = node_id  # new segment root
                 has_group_by[node_id] = False
+                target_map[node_id] = ("clickhouse", "clickhouse")
 
             elif node_type == "union":
                 parent_ids = parents.get(node_id, [])
@@ -300,6 +310,7 @@ class WorkflowCompiler:
                 )
                 root_map[node_id] = node_id  # new segment root
                 has_group_by[node_id] = False
+                target_map[node_id] = ("clickhouse", "clickhouse")
 
         # Collect final segments: find terminal expressions
         # (nodes with no downstream merge)
@@ -336,17 +347,42 @@ class WorkflowCompiler:
             if node_id in merged_into:
                 continue
 
-            expression = expr_map[node_id]
-            sql = expression.sql(dialect="clickhouse")
-
-            segments.append(
-                CompiledSegment(
-                    sql=sql,
-                    dialect="clickhouse",
-                    target="clickhouse",
-                    source_node_ids=source_ids_map.get(node_id, [node_id]),
-                )
+            target, dialect = target_map.get(
+                node_id, ("clickhouse", "clickhouse")
             )
+
+            if target == "redis":
+                # Redis segments skip SQL — pass key pattern via params
+                root_id = root_map.get(node_id, node_id)
+                root_node = node_map.get(root_id)
+                key_pattern = (
+                    root_node.get("data", {}).get("config", {}).get("table", "")
+                    if root_node
+                    else ""
+                )
+                segments.append(
+                    CompiledSegment(
+                        sql="",
+                        dialect="",
+                        target="redis",
+                        source_node_ids=source_ids_map.get(node_id, [node_id]),
+                        params={
+                            "lookup_type": "SCAN_HASH",
+                            "pattern": key_pattern,
+                        },
+                    )
+                )
+            else:
+                expression = expr_map[node_id]
+                sql = expression.sql(dialect=dialect or "clickhouse")
+                segments.append(
+                    CompiledSegment(
+                        sql=sql,
+                        dialect=dialect or "clickhouse",
+                        target=target,
+                        source_node_ids=source_ids_map.get(node_id, [node_id]),
+                    )
+                )
 
         return segments
 
@@ -365,6 +401,15 @@ class WorkflowCompiler:
             if len(time_parts) == 2:
                 s = f"{parts[0]} {parts[1]}:00"
         return s
+
+    @staticmethod
+    def _detect_target(table_name: str) -> tuple[str, str]:
+        """Detect backing store target and SQL dialect from table name."""
+        if table_name.startswith("latest:"):
+            return ("redis", "")
+        if table_name.startswith("live_"):
+            return ("materialize", "postgres")
+        return ("clickhouse", "clickhouse")
 
     @staticmethod
     def _apply_filter(expression: exp.Expression, config: dict) -> exp.Expression:
@@ -808,6 +853,9 @@ class WorkflowCompiler:
         # Inject LIMIT into SQL AST via SQLGlot
         result = []
         for idx, seg in enumerate(segments):
+            if seg.target == "redis":
+                result.append(seg)
+                continue
             limit_val = segments_with_limit.get(idx)
             if limit_val is not None:
                 parsed = sqlglot.parse_one(seg.sql, read=seg.dialect)

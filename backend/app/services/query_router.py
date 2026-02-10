@@ -136,7 +136,30 @@ class QueryRouter:
 
         rows: list[dict] = []
 
-        if lookup_type == "MGET" and keys:
+        if lookup_type == "SCAN_HASH":
+            # Scan for keys matching pattern, HGETALL each hash
+            pattern = params.get("pattern", "*")
+            cursor: int | str = 0
+            all_keys: list[str] = []
+            while True:
+                cursor, found_keys = await self._redis.scan(
+                    cursor, match=pattern, count=100
+                )
+                all_keys.extend(found_keys)
+                if cursor == 0:
+                    break
+            for key_str in all_keys:
+                hash_data = await self._redis.hgetall(key_str)
+                if hash_data:
+                    row: dict[str, str] = {}
+                    # Extract identifier from key name
+                    # e.g. "latest:vwap:AAPL" → symbol = "AAPL"
+                    key_parts = key_str.split(":")
+                    if len(key_parts) >= 3:
+                        row["symbol"] = key_parts[-1]
+                    row.update(hash_data)
+                    rows.append(row)
+        elif lookup_type == "MGET" and keys:
             values = await self._redis.mget(keys)
             for k, v in zip(keys, values, strict=False):
                 if v is not None:

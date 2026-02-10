@@ -17,6 +17,7 @@ The data pipeline generates synthetic market data and transforms it into the ser
 | `generator/` | Data Generator | Python | Synthetic trades + quotes → Redpanda topics |
 | `bytewax/flows/vwap.py` | VWAP Flow | Bytewax | 5-min VWAP windows → ClickHouse + Redis |
 | `bytewax/flows/volatility.py` | Volatility Flow | Bytewax | Rolling 1h/24h volatility → ClickHouse + Redis |
+| `bytewax/flows/positions.py` | Positions Flow | Bytewax | Net position per symbol → Redis |
 | `bytewax/flows/raw_sink.py` | Raw Sink | Bytewax | Raw trades + quotes → ClickHouse + Redis broadcast |
 | `bytewax/flows/anomaly.py` | Anomaly Flow | Bytewax | Spread/volume/price anomaly detection → alerts |
 | `dbt/` | Batch Transforms | dbt | Staging → intermediate → mart models in ClickHouse |
