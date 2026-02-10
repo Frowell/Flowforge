@@ -347,9 +347,7 @@ class WorkflowCompiler:
             if node_id in merged_into:
                 continue
 
-            target, dialect = target_map.get(
-                node_id, ("clickhouse", "clickhouse")
-            )
+            target, dialect = target_map.get(node_id, ("clickhouse", "clickhouse"))
 
             if target == "redis":
                 # Redis segments skip SQL — pass key pattern via params
