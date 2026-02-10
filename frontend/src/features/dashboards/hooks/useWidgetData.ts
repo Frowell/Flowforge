@@ -16,10 +16,7 @@
 import { useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/shared/query-engine/client";
-import type {
-  WidgetDataResponse,
-  TableRowsMessage,
-} from "@/shared/query-engine/types";
+import type { WidgetDataResponse, TableRowsMessage } from "@/shared/query-engine/types";
 import { wsManager } from "@/shared/websocket/manager";
 import { useDashboardStore } from "../stores/dashboardStore";
 
@@ -40,17 +37,13 @@ interface FilterValue {
  * Supports "equals" and "in" filter types (covers symbol/side filters).
  * Returns true if the row passes all filters.
  */
-function applyClientFilters(
-  row: Record<string, unknown>,
-  filters: FilterValue[],
-): boolean {
+function applyClientFilters(row: Record<string, unknown>, filters: FilterValue[]): boolean {
   for (const filter of filters) {
     const cellValue = row[filter.column];
     if (filter.type === "equals" || filter.type === "drilldown") {
       if (cellValue !== filter.value) return false;
     } else if (filter.type === "in") {
-      if (!Array.isArray(filter.value) || !filter.value.includes(cellValue))
-        return false;
+      if (!Array.isArray(filter.value) || !filter.value.includes(cellValue)) return false;
     }
     // Other filter types (range, date_range, text) are too complex for
     // client-side matching — the 30s backstop refetch will correct.
@@ -94,20 +87,27 @@ export function useWidgetData(widgetId: string, options?: UseWidgetDataOptions) 
       if (offset !== 0) return;
 
       const msg = data as TableRowsMessage;
-      const msgColNames = msg.columns.map((c) => c.name).sort().join(",");
+      const msgColNames = msg.columns
+        .map((c) => c.name)
+        .sort()
+        .join(",");
 
       queryClient.setQueryData<WidgetDataResponse>(queryKey, (prev) => {
         if (!prev) return prev;
 
         // Only merge if pushed columns match the widget's schema —
         // prevents raw_quotes rows merging into a raw_trades widget, etc.
-        const prevColNames = prev.columns.map((c) => c.name).sort().join(",");
+        const prevColNames = prev.columns
+          .map((c) => c.name)
+          .sort()
+          .join(",");
         if (msgColNames !== prevColNames) return prev;
 
         // Filter new rows client-side
-        const matchingRows = allFilters.length > 0
-          ? msg.rows.filter((row) => applyClientFilters(row, allFilters))
-          : msg.rows;
+        const matchingRows =
+          allFilters.length > 0
+            ? msg.rows.filter((row) => applyClientFilters(row, allFilters))
+            : msg.rows;
 
         if (matchingRows.length === 0) return prev;
 
@@ -142,10 +142,7 @@ export function useWidgetData(widgetId: string, options?: UseWidgetDataOptions) 
     });
 
     // Listen for table_rows broadcasts with pushed row data
-    const unsubscribeTableRows = wsManager.subscribe(
-      "table_rows",
-      handleTableRows,
-    );
+    const unsubscribeTableRows = wsManager.subscribe("table_rows", handleTableRows);
 
     return () => {
       wsManager.unsubscribeChannel(channel);

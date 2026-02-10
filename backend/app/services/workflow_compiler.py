@@ -358,7 +358,7 @@ class WorkflowCompiler:
         (missing seconds). ClickHouse DateTime64 requires full ISO format.
         """
         s = str(value).replace("T", " ")
-        # Append :00 seconds if missing (e.g. '2026-02-10 11:48' -> '2026-02-10 11:48:00')
+        # Append :00 if seconds missing (e.g. '2026-02-10 11:48')
         parts = s.split(" ")
         if len(parts) == 2:
             time_parts = parts[1].split(":")
