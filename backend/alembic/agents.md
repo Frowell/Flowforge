@@ -1,6 +1,6 @@
 # Alembic Migrations — Agent Rules
 
-> Parent rules: [`/workspace/backend/agents.md`](../agents.md) | Architecture: [`/workspace/planning.md`](../../planning.md)
+> Parent rules: [`/workspace/backend/agents.md`](../agents.md)
 
 ## Generating Migrations
 
