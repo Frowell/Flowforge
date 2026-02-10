@@ -52,9 +52,7 @@ export default function WorkflowPicker() {
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-canvas-node border border-canvas-border rounded-lg p-4 w-80">
-            <h3 className="text-sm font-medium text-white mb-3">
-              Create Workflow
-            </h3>
+            <h3 className="text-sm font-medium text-white mb-3">Create Workflow</h3>
             <input
               autoFocus
               type="text"
