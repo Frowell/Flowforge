@@ -56,16 +56,22 @@ export function useWidgetData(widgetId: string, options?: UseWidgetDataOptions) 
     const channel = `widget:${widgetId}`;
     wsManager.subscribeChannel(channel);
 
-    const unsubscribe = wsManager.subscribe("live_data", (data) => {
+    const unsubscribeLive = wsManager.subscribe("live_data", (data) => {
       const msg = data as { widget_id?: string };
       if (msg.widget_id === widgetId) {
         queryClient.invalidateQueries({ queryKey: ["widgetData", widgetId] });
       }
     });
 
+    // Also listen for table_update broadcasts (raw_trades, raw_quotes, etc.)
+    const unsubscribeTable = wsManager.subscribe("table_update", () => {
+      queryClient.invalidateQueries({ queryKey: ["widgetData", widgetId] });
+    });
+
     return () => {
       wsManager.unsubscribeChannel(channel);
-      unsubscribe();
+      unsubscribeLive();
+      unsubscribeTable();
     };
   }, [widgetId, refreshInterval, queryClient]);
 

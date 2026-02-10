@@ -135,6 +135,19 @@ class WebSocketManager:
         for ws in dead:
             connections.discard(ws)
 
+    async def _broadcast_to_all(self, message: str) -> None:
+        """Send a message to every connected WebSocket client."""
+        dead: set[WebSocket] = set()
+
+        for ws in self._ws_channels:
+            try:
+                await ws.send_text(message)
+            except Exception:
+                dead.add(ws)
+
+        for ws in dead:
+            await self.disconnect_all(ws)
+
     async def start_subscriber(self) -> None:
         """Start the Redis pub/sub subscriber loop.
 
@@ -152,4 +165,9 @@ class WebSocketManager:
                 data = message["data"]
                 if isinstance(data, bytes):
                     data = data.decode()
-                await self._broadcast_to_channel(channel, data)
+
+                # Broadcast channels go to ALL connected clients
+                if ":broadcast:" in channel:
+                    await self._broadcast_to_all(data)
+                else:
+                    await self._broadcast_to_channel(channel, data)

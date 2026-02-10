@@ -198,6 +198,18 @@ start_bytewax_volatility() {
     log_success "Bytewax Volatility started (PID $(cat $PID_DIR/bytewax-volatility.pid))"
 }
 
+start_bytewax_raw_sink() {
+    log_info "Starting Bytewax Raw Sink flow..."
+    cd "$WORKSPACE_DIR/pipeline/bytewax"
+
+    REDPANDA_BROKERS="${REDPANDA_BROKERS}" \
+    CLICKHOUSE_HOST="${CLICKHOUSE_HOST}" \
+    python3 -m bytewax.run flows.raw_sink > "$PID_DIR/bytewax-raw-sink.log" 2>&1 &
+    echo $! > "$PID_DIR/bytewax-raw-sink.pid"
+
+    log_success "Bytewax Raw Sink started (PID $(cat $PID_DIR/bytewax-raw-sink.pid))"
+}
+
 start_backend() {
     log_info "Starting FastAPI backend..."
     cd "$WORKSPACE_DIR/backend"
@@ -304,6 +316,7 @@ main() {
 
     start_bytewax_vwap
     start_bytewax_volatility
+    start_bytewax_raw_sink
 
     start_backend
     start_frontend
