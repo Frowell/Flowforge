@@ -83,13 +83,14 @@ FlowForge is an Alteryx-style visual analytics platform purpose-built for fintec
 │  │ workspace         │     │ widget grid           │   │ single widget    │  │
 │  │                   │     │                       │   │                  │  │
 │  │ 18 node types     │     │ Global filters        │   │ API key auth     │  │
-│  │ Schema-aware      │     │ Auto-refresh          │   │ URL param        │  │
-│  │ config panels     │     │ Drill-down            │   │ filter overrides │  │
+│  │ Schema-aware      │     │ Live WebSocket push   │   │ URL param        │  │
+│  │ config panels     │     │ In-memory cache merge │   │ filter overrides │  │
 │  └───────────────────┘     └──────────────────────┘   └──────────────────┘  │
 │                                                                             │
 │  ┌────────────── Shared layer (used by all three modes) ──────────────────┐ │
 │  │  Schema Engine (TS)  │  Chart Components (Recharts)  │  WebSocket Mgr  │ │
 │  │  TanStack Query      │  Zustand (UI state)           │  Keycloak Auth  │ │
+│  │  DataGrid (auto-format UUIDs, timestamps, decimals)                    │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────┬───────────────────────────────────────────┘
                                   │
@@ -103,25 +104,27 @@ FlowForge is an Alteryx-style visual analytics platform purpose-built for fintec
 │  │              │  │                   │  │                              │  │
 │  │ Save, load,  │  │ Canvas DAG →      │  │ Redis pub/sub fan-out,      │  │
 │  │ version,     │  │ Topological sort → │  │ Materialize SUBSCRIBE,     │  │
-│  │ export/import│  │ Query merge →      │  │ dashboard live push         │  │
-│  └──────────────┘  │ SQLGlot SQL        │  └──────────────────────────────┘  │
+│  │ export/import│  │ Query merge →      │  │ row-level live push to     │  │
+│  └──────────────┘  │ Target detection → │  │ dashboard clients          │  │
+│                    │ SQLGlot SQL        │  └──────────────────────────────┘  │
 │                    └───────────────────┘                                     │
 │  ┌──────────────┐  ┌───────────────────┐  ┌──────────────────────────────┐  │
 │  │ Schema       │  │ Query Router      │  │ Live Data Service            │  │
 │  │ Registry     │  │                   │  │                              │  │
-│  │              │  │ Dispatches by     │  │ Materialize SUBSCRIBE with   │  │
-│  │ Discovers    │  │ data freshness    │  │ poll-mode fallback,          │  │
-│  │ tables from  │  │ to the right      │  │ ref-counted shared views,    │  │
-│  │ CH + MZ      │  │ backing store     │  │ health-check mode switching  │  │
-│  └──────────────┘  └────────┬──────────┘  └──────────────────────────────┘  │
-│                             │                                               │
-│  ┌──────────────┐  ┌───────┴───────────┐  ┌──────────────────────────────┐  │
-│  │ Preview      │  │ Formula Parser    │  │ Audit Service                │  │
-│  │ Service      │  │                   │  │                              │  │
-│  │ Redis-cached │  │ [column] bracket  │  │ Who did what, when.          │  │
-│  │ content-hash │  │ notation → AST →  │  │ CRUD, export, import,       │  │
-│  │ first 100    │  │ ClickHouse SQL    │  │ role-gated admin panel.      │  │
-│  │ rows         │  └───────────────────┘  └──────────────────────────────┘  │
+│  │              │  │ Auto-detects      │  │ Materialize SUBSCRIBE with   │  │
+│  │ Discovers    │  │ target from table │  │ poll-mode fallback,          │  │
+│  │ tables from  │  │ name patterns:    │  │ ref-counted shared views,    │  │
+│  │ CH + MZ      │  │  latest:* → Redis │  │ health-check mode switching  │  │
+│  └──────────────┘  │  live_*  → MZ    │  └──────────────────────────────┘  │
+│                    │  else   → CH     │                                    │
+│  ┌──────────────┐  └────────┬──────────┘  ┌──────────────────────────────┐  │
+│  │ Preview      │           │             │ Audit Service                │  │
+│  │ Service      │  ┌───────┴───────────┐  │                              │  │
+│  │ Redis-cached │  │ Formula Parser    │  │ Who did what, when.          │  │
+│  │ content-hash │  │ [column] bracket  │  │ CRUD, export, import,       │  │
+│  │ first 100    │  │ notation → AST →  │  │ role-gated admin panel.      │  │
+│  │ rows         │  │ ClickHouse SQL    │  └──────────────────────────────┘  │
+│  └──────────────┘  └───────────────────┘                                    │
 └─────────────────────────────────┬───────────────────────────────────────────┘
                                   │
                 ┌─────────────────┼──────────────────┐
@@ -129,19 +132,48 @@ FlowForge is an Alteryx-style visual analytics platform purpose-built for fintec
         ┌──────────────┐  ┌────────────┐  ┌────────────────────┐
         │  ClickHouse  │  │   Redis    │  │   Materialize      │
         │              │  │            │  │                    │
-        │  Analytical  │  │  Schema    │  │  Streaming SQL     │
-        │  queries on  │  │  cache,    │  │  materialized      │
-        │  mart tables │  │  pub/sub,  │  │  views for live    │
-        │  + rollups   │  │  rate      │  │  positions, P&L,   │
-        │              │  │  limiting  │  │  quotes            │
+        │  Analytical  │  │  Point     │  │  Streaming SQL     │
+        │  queries on  │  │  lookups   │  │  materialized      │
+        │  mart tables │  │  (VWAP,    │  │  views for live    │
+        │  + rollups   │  │  position, │  │  positions, P&L,   │
+        │  + raw data  │  │  volatil.) │  │  quotes            │
+        │              │  │  pub/sub,  │  │                    │
+        │              │  │  cache     │  │                    │
         └──────────────┘  └────────────┘  └────────────────────┘
                 ▲                 ▲                   ▲
                 └─────────────────┴───────────────────┘
                                   │
-                         DATA PIPELINE
-                         (Redpanda → Bytewax → serving layer)
-                         Separate workstream. Owns ingestion,
-                         transformation, and shaping.
+┌─────────────────────────────────┴───────────────────────────────────────────┐
+│                        DATA PIPELINE (separate workstream)                   │
+│                                                                             │
+│  ┌──────────────┐    ┌─────────────────────────────────────────────────┐    │
+│  │ Data         │    │              Bytewax Streaming Flows            │    │
+│  │ Generator    │    │                                                 │    │
+│  │              │    │  ┌──────────┐  ┌────────────┐  ┌────────────┐  │    │
+│  │ Synthetic    │───→│  │ VWAP     │  │ Volatility │  │ Positions  │  │    │
+│  │ trades +     │    │  │ 5-min    │  │ 1h/24h     │  │ Net qty    │  │    │
+│  │ quotes       │    │  │ windows  │  │ rolling    │  │ per symbol │  │    │
+│  │              │    │  └─────┬────┘  └─────┬──────┘  └─────┬──────┘  │    │
+│  │  10 trades/s │    │        │             │               │         │    │
+│  │  50 quotes/s │    │        ▼             ▼               ▼         │    │
+│  └──────┬───────┘    │   CH + Redis    CH + Redis       Redis hash   │    │
+│         │            │                                                │    │
+│         ▼            │  ┌──────────┐  ┌────────────────────────────┐  │    │
+│    ┌──────────┐      │  │ Raw Sink │  │ Anomaly Detection          │  │    │
+│    │ Redpanda │      │  │ (200ms   │  │ Spread/volume/price spikes │  │    │
+│    │ (Kafka)  │─────→│  │  flush)  │  └────────────────────────────┘  │    │
+│    └──────────┘      │  └────┬─────┘                                  │    │
+│                      │       │                                        │    │
+│                      │       ▼                                        │    │
+│                      │  CH INSERT + Redis PUBLISH (row data)          │    │
+│                      │  → WebSocket push → dashboard cache merge      │    │
+│                      └─────────────────────────────────────────────────┘    │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ dbt Batch Transforms               │ Airflow Orchestration         │    │
+│  │ stg_ → int_ → fct_/dim_/rpt_      │ DAG scheduling for dbt runs   │    │
+│  └─────────────────────────────────────┴───────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Three Modes, One Backend
@@ -261,7 +293,7 @@ docker compose --profile streaming --profile auth up -d
 | Profile | Service | Port | Purpose |
 |---------|---------|------|---------|
 | *(core)* | PostgreSQL | 5432 | App metadata (workflows, dashboards, users) |
-| *(core)* | Redis | 6379 | Schema cache, WebSocket pub/sub, rate limiting |
+| *(core)* | Redis | 6379 | Point lookups (VWAP, positions, volatility), WebSocket pub/sub, schema cache |
 | *(core)* | ClickHouse | 8123 | Analytical queries on mart tables and rollups |
 | *(core)* | Redpanda | 9092 | Kafka-compatible event streaming |
 | `streaming` | Materialize | 6875 | Streaming SQL materialized views |
@@ -396,11 +428,13 @@ Step 2: Schema Validation
 Step 3: Query Merging ← THIS IS THE CRITICAL OPTIMIZATION
    Adjacent compatible nodes collapse into single SQL queries
 
-Step 4: Target Selection
-   Query router picks ClickHouse, Materialize, or Redis per segment
+Step 4: Target Detection
+   Compiler auto-detects backing store from table name patterns:
+   latest:* → Redis (SCAN_HASH), live_* → Materialize, else → ClickHouse
 
 Step 5: Execution
-   Run compiled queries, return results via REST or stream via WebSocket
+   Query router dispatches each segment to its target store,
+   returns results via REST or streams via WebSocket
 ```
 
 **Query merging in practice:**
@@ -440,19 +474,26 @@ All SQL is generated via **SQLGlot** — never string concatenation. User-suppli
 
 ### Query Router
 
-The query router is the only component that knows about the backing stores. Canvas nodes express intent ("I need the positions table with real-time freshness"), and the router dispatches to the right database:
+The query router is the only component that knows about the backing stores. The workflow compiler detects the target backing store automatically from table name patterns, and the router dispatches accordingly:
 
 ```
-Intent                          Target              Latency
-──────────────────────────      ─────────────────   ──────────
-Live data (positions, P&L)      Materialize         < 10ms
-Point lookup (latest quote)     Redis               < 1ms
-Ad-hoc analytical query         ClickHouse          < 500ms
-Historical time-range query     ClickHouse rollups  < 500ms
-App metadata / catalog          PostgreSQL          < 50ms
+Table Name Pattern              Target              Method          Latency
+──────────────────────────      ─────────────────   ──────────      ──────────
+latest:vwap:*, latest:pos:*     Redis               SCAN + HGETALL  < 1ms
+latest:volatility:*             Redis               SCAN + HGETALL  < 1ms
+live_positions, live_pnl        Materialize         SQL query       < 10ms
+live_quotes                     Materialize         SQL query       < 10ms
+raw_trades, raw_quotes          ClickHouse          SQL query       < 500ms
+fct_trades, dim_instruments     ClickHouse          SQL query       < 500ms
+vwap_5min, rolling_volatility   ClickHouse          SQL query       < 500ms
+hourly_rollup, daily_rollup     ClickHouse          SQL query       < 500ms
 ```
 
-SQL dialect is set per target: `dialect="clickhouse"` for ClickHouse (HTTP protocol, port 8123), `dialect="postgres"` for Materialize (PG wire protocol, port 6875).
+**Automatic target detection**: The compiler inspects the data source table name to determine routing. `latest:*` prefix routes to Redis (point lookups stored as hashes by the pipeline). `live_*` prefix routes to Materialize (streaming SQL views). Everything else routes to ClickHouse (analytical queries). This means users never need to think about which database holds their data — they just pick a table from the catalog.
+
+**Redis SCAN_HASH**: For Redis-backed data sources (VWAP, positions, volatility), the router does a `SCAN` for keys matching the pattern, then `HGETALL` on each key to retrieve the hash fields. The symbol is extracted from the key name (e.g., `latest:vwap:AAPL` → `symbol = "AAPL"`).
+
+SQL dialect is set per target: `dialect="clickhouse"` for ClickHouse (HTTP protocol, port 8123), `dialect="postgres"` for Materialize (PG wire protocol, port 6875). Redis segments carry no SQL.
 
 ### Preview System
 
@@ -497,28 +538,62 @@ Layer 3: Live Execution (on cache miss)
 
 ### Live Data Flow
 
-For real-time dashboard updates, FlowForge supports two modes with automatic health-check switching:
+FlowForge uses a sub-200ms live update architecture that pushes actual row data through WebSockets, avoiding the latency of invalidate-and-refetch patterns.
 
 ```
-Mode 1: Materialize SUBSCRIBE (preferred, < 100ms latency)
+Path 1: Pipeline Row Push (primary, ~210ms end-to-end)
+
+  ┌───────────┐    Redpanda    ┌────────────┐   200ms    ┌─────────────────┐
+  │ Generator │ ── topics ──→ │ Raw Sink   │ ─ flush ─→ │ ClickHouse      │
+  │ (trades,  │               │ (Bytewax)  │            │ INSERT          │
+  │  quotes)  │               └─────┬──────┘            └─────────────────┘
+  └───────────┘                     │
+                                    │ Redis PUBLISH (includes row data)
+                                    ▼
+                              ┌──────────────┐
+                              │ WebSocket    │  Broadcasts to all connected
+                              │ Manager      │  dashboard clients
+                              └──────┬───────┘
+                                     │
+                                     ▼
+                              ┌──────────────┐
+                              │ Frontend     │  setQueryData() — prepends new
+                              │ Cache Merge  │  rows into TanStack Query cache
+                              └──────────────┘  (no HTTP round trip)
+
+Path 2: Materialize SUBSCRIBE (for live_* views, < 100ms)
+
   ┌────────────┐    SUBSCRIBE TO    ┌──────────────┐    Redis     ┌────────────┐
   │ Materialize │ ─── live_pnl ───→ │ LiveData     │ ── pub/sub → │ WebSocket  │
   │ (streaming  │    WITH (SNAPSHOT  │ Service      │              │ Manager    │
   │  SQL view)  │     = false)       │ (backend)    │              │ → clients  │
   └────────────┘                    └──────────────┘              └────────────┘
 
-Mode 2: Poll Fallback (when Materialize is unavailable)
+Path 3: Poll Fallback (when Materialize is unavailable)
+
   ┌────────────┐    SELECT * FROM    ┌──────────────┐    Redis     ┌────────────┐
   │ ClickHouse │ ── fct_trades ───→ │ LiveData     │ ── pub/sub → │ WebSocket  │
   │ (or other  │    every 5s         │ Service      │              │ Manager    │
   │  source)   │                     │ (backend)    │              │ → clients  │
   └────────────┘                    └──────────────┘              └────────────┘
-
-Health Check (every 30s):
-  - Materialize up?   → upgrade poll-mode widgets to SUBSCRIBE
-  - Materialize down? → downgrade SUBSCRIBE widgets to poll
-  - Multiple widgets on same view share one SUBSCRIBE connection (ref-counted)
 ```
+
+**Latency breakdown (Path 1):**
+
+| Step | Time |
+|------|------|
+| Batch accumulation (time-based flush) | 200ms max |
+| Redis PUBLISH | ~1ms |
+| WebSocket delivery to browser | ~1ms |
+| Frontend cache merge + re-render | ~5ms |
+| **Total** | **~210ms** |
+
+**Key design decisions:**
+
+- **Row push, not invalidate-and-refetch.** The pipeline publishes actual row data in the Redis PUBLISH message. The frontend prepends rows directly into the TanStack Query cache via `setQueryData()`, avoiding an HTTP round trip per update.
+- **Client-side filter matching.** Live-mode widgets apply `equals`/`in` filters client-side to determine which pushed rows match. A 30-second `refetchInterval` backstop corrects any drift.
+- **Time-based flush.** The raw sink Bytewax flow flushes every 200ms (or at batch size 50, whichever comes first), replacing the previous count-only trigger that caused 1-5s delays.
+- **Health-check switching.** Every 30s the backend checks Materialize availability. If down, SUBSCRIBE widgets downgrade to poll mode. If back up, they upgrade. Multiple widgets on the same view share one SUBSCRIBE connection (ref-counted).
 
 ### Formula Builder
 
@@ -632,7 +707,7 @@ See [`docs/multi-tenancy.md`](./docs/multi-tenancy.md) for the complete set of i
 | **App DB** | PostgreSQL 16 | App metadata only (workflows, dashboards, users) |
 | **Analytical** | ClickHouse | Columnar OLAP for mart tables and rollups |
 | **Streaming** | Materialize | Streaming SQL materialized views |
-| **Cache** | Redis 7 | Schema cache, pub/sub for WebSocket fan-out, rate limiting |
+| **Cache + Point Lookups** | Redis 7 | VWAP/position/volatility hashes, pub/sub for WebSocket row push, schema cache |
 | **Events** | Redpanda | Kafka-compatible streaming (pipeline ingestion) |
 | **Auth (server)** | Keycloak 26 (OIDC) | SSO identity provider with multi-tenant support |
 | **Pipeline** | Bytewax, dbt, Airflow | Streaming + batch transformation (separate workstream) |
@@ -693,7 +768,7 @@ flowforge/
 │   │       └── template_registry.py # Workflow template management
 │   ├── alembic/                     # Database migrations
 │   │   └── versions/               # 2 migrations (initial + audit logs)
-│   ├── tests/                       # 234 tests (mirrors app/ structure)
+│   ├── tests/                       # 268 tests (mirrors app/ structure)
 │   │   ├── api/                     # Route integration tests
 │   │   ├── services/                # Service unit tests
 │   │   └── integration/             # Tests requiring real services
@@ -727,7 +802,7 @@ flowforge/
 │   │   │   │   │   ├── KPICard.tsx
 │   │   │   │   │   ├── PivotTable.tsx
 │   │   │   │   │   └── ChartRenderer.tsx  # Dispatch by chart type
-│   │   │   │   ├── DataGrid.tsx     # TanStack Table wrapper
+│   │   │   │   ├── DataGrid.tsx     # TanStack Table + auto-format (UUIDs, timestamps, decimals)
 │   │   │   │   └── FormulaEditor.tsx # Expression input + highlighting
 │   │   │   ├── schema/
 │   │   │   │   ├── propagation.ts   # Client-side schema engine (17 transforms)
@@ -754,7 +829,13 @@ flowforge/
 │
 ├── pipeline/                        # Data pipeline (separate workstream)
 │   ├── generator/                   # Synthetic trade/quote generator → Redpanda
-│   ├── bytewax/                     # Streaming flows (VWAP, volatility, anomaly)
+│   ├── bytewax/                     # Streaming flows
+│   │   └── flows/
+│   │       ├── vwap.py              # 5-min VWAP windows → CH + Redis
+│   │       ├── volatility.py        # Rolling 1h/24h volatility → CH + Redis
+│   │       ├── positions.py         # Net position per symbol → Redis hashes
+│   │       ├── raw_sink.py          # Raw trades/quotes → CH + WebSocket row push
+│   │       └── anomaly.py           # Spread/volume/price anomaly detection
 │   ├── dbt/                         # Batch transformations (staging → marts)
 │   └── airflow/                     # dbt orchestration DAG
 │
@@ -965,8 +1046,8 @@ make clean            # Remove build artifacts, caches, dist
 
 | Suite | Framework | Tests | Coverage |
 |-------|-----------|-------|----------|
-| Backend unit + integration | pytest (async) | 234 | API routes, services, tenant isolation |
-| Frontend unit | Vitest + happy-dom | 101 | Nodes, panels, charts, hooks, schema engine, stores |
+| Backend unit + integration | pytest (async) | 268 | API routes, services, tenant isolation |
+| Frontend unit | Vitest + happy-dom | 115 | Nodes, panels, charts, hooks, schema engine, stores |
 | Schema cross-validation | pytest + Vitest | 22 (11 per engine) | Python/TypeScript parity across 11 fixtures |
 | E2E | Playwright (Chromium) | 5 flows | Workflow creation, save/load, dashboards, embed, live data |
 
