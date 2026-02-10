@@ -2,8 +2,12 @@
  * KPI Output config panel — value column, title, format, comparison.
  */
 
+import { useState } from "react";
+import { useParams } from "react-router-dom";
+
 import { useWorkflowStore } from "../stores/workflowStore";
 import { useNodeInputSchema } from "../hooks/useSchemaEngine";
+import PinToDialog from "@/features/dashboards/components/PinToDialog";
 
 interface Props {
   nodeId: string;
@@ -18,9 +22,11 @@ const FORMAT_OPTIONS = [
 ];
 
 export default function KPIPanel({ nodeId }: Props) {
+  const { workflowId } = useParams<{ workflowId: string }>();
   const updateNodeConfig = useWorkflowStore((s) => s.updateNodeConfig);
   const node = useWorkflowStore((s) => s.nodes.find((n) => n.id === nodeId));
   const inputSchema = useNodeInputSchema(nodeId);
+  const [showPinDialog, setShowPinDialog] = useState(false);
   const config = node?.data.config ?? {};
 
   const valueColumn = (config.value_column as string) ?? "";
@@ -119,6 +125,27 @@ export default function KPIPanel({ nodeId }: Props) {
         </select>
         <p className="text-xs text-white/30 mt-1">Shows % change vs comparison value</p>
       </div>
+
+      {/* Pin to Dashboard */}
+      {workflowId && (
+        <div className="pt-2 border-t border-canvas-border">
+          <button
+            onClick={() => setShowPinDialog(true)}
+            className="w-full px-3 py-2 text-xs bg-canvas-accent text-white rounded hover:opacity-80"
+          >
+            Pin to Dashboard
+          </button>
+        </div>
+      )}
+
+      {showPinDialog && workflowId && (
+        <PinToDialog
+          workflowId={workflowId}
+          nodeId={nodeId}
+          onClose={() => setShowPinDialog(false)}
+          onPin={() => setShowPinDialog(false)}
+        />
+      )}
     </div>
   );
 }
