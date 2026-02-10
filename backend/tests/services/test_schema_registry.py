@@ -154,9 +154,7 @@ class TestDiscoverClickHouse:
             redis=mock_redis, clickhouse=mock_clickhouse, cache_ttl=300
         )
 
-        with patch(
-            "app.services.schema_registry.settings"
-        ) as mock_settings:
+        with patch("app.services.schema_registry.settings") as mock_settings:
             mock_settings.clickhouse_databases = ["flowforge", "metrics", "marts"]
             tables = await registry._discover_clickhouse()
 
@@ -187,9 +185,7 @@ class TestDiscoverClickHouse:
             redis=mock_redis, clickhouse=mock_clickhouse, cache_ttl=300
         )
 
-        with patch(
-            "app.services.schema_registry.settings"
-        ) as mock_settings:
+        with patch("app.services.schema_registry.settings") as mock_settings:
             mock_settings.clickhouse_databases = ["test_db"]
             tables = await registry._discover_clickhouse()
 
@@ -213,9 +209,7 @@ class TestDiscoverClickHouse:
             redis=mock_redis, clickhouse=mock_clickhouse, cache_ttl=300
         )
 
-        with patch(
-            "app.services.schema_registry.settings"
-        ) as mock_settings:
+        with patch("app.services.schema_registry.settings") as mock_settings:
             mock_settings.clickhouse_databases = ["empty_db"]
             tables = await registry._discover_clickhouse()
 
@@ -469,9 +463,7 @@ class TestFallbackBehavior:
             cache_ttl=300,
         )
 
-        with patch(
-            "app.services.schema_registry.settings"
-        ) as mock_settings:
+        with patch("app.services.schema_registry.settings") as mock_settings:
             mock_settings.clickhouse_databases = ["flowforge"]
             result = await registry._discover()
 
