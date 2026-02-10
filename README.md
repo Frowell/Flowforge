@@ -773,7 +773,10 @@ flowforge/
 ├── .github/workflows/               # CI/CD (7 workflows)
 ├── .devcontainer/                   # Docker Compose + init scripts + Keycloak realm
 ├── scripts/                         # Dev utilities (start-pipeline, seed, etc.)
-├── docs/                            # Focused guides
+├── docs/                            # Documentation
+│   ├── decisions/                   # Architecture Decision Records (ADRs)
+│   ├── rfcs/                        # Proposals for significant changes
+│   ├── archive/                     # Completed planning docs (historical)
 │   ├── node-type-guide.md           # Node type checklist + query merging rules
 │   ├── multi-tenancy.md             # Tenant isolation patterns
 │   └── serving-layer.md             # Table catalog + query router dispatch
@@ -1090,6 +1093,8 @@ In production, PostgreSQL and Redis are GCP managed services (Cloud SQL, Memorys
 | Document | Description |
 |----------|-------------|
 | [CLAUDE.md](./CLAUDE.md) | Agent coding rules (architectural constraints, conventions) |
+| [docs/decisions/](./docs/decisions/) | Architecture Decision Records — why key technical decisions were made |
+| [docs/rfcs/](./docs/rfcs/) | Proposals for significant changes (pre-decision) |
 | [docs/node-type-guide.md](./docs/node-type-guide.md) | Node type checklist, schema propagation rules, query merging |
 | [docs/multi-tenancy.md](./docs/multi-tenancy.md) | Tenant isolation patterns, code examples, test requirements |
 | [docs/serving-layer.md](./docs/serving-layer.md) | Table catalog, query router dispatch rules, SQL dialects |
@@ -1097,6 +1102,7 @@ In production, PostgreSQL and Redis are GCP managed services (Cloud SQL, Memorys
 | [backend/app/api/CLAUDE.md](./backend/app/api/CLAUDE.md) | API route conventions, endpoint catalog, auth patterns |
 | [terraform/agents.md](./terraform/agents.md) | Terraform module structure and GCP infrastructure |
 | [.github/workflows/agents.md](./.github/workflows/agents.md) | CI/CD workflow documentation |
+| [docs/archive/](./docs/archive/) | Completed planning docs (historical reference) |
 
 ---
 

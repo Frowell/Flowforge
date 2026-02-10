@@ -1,6 +1,6 @@
 # FlowForge — Agent Rules
 
-> Architecture (archived): [`docs/archive/planning.md`](./docs/archive/planning.md) | Spec (archived): [`docs/archive/Application plan.md`](./docs/archive/Application%20plan.md)
+> Decisions: [`docs/decisions/`](./docs/decisions/) | RFCs: [`docs/rfcs/`](./docs/rfcs/) | Archive: [`docs/archive/`](./docs/archive/)
 > Every agent in this repo MUST follow these rules without exception.
 
 ## Project Identity
