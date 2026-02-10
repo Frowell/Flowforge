@@ -149,7 +149,7 @@ class QueryRouter:
                 if scan_cursor == 0:
                     break
             for key_str in all_keys:
-                hash_data: dict[str, str] = await self._redis.hgetall(key_str)  # type: ignore[assignment]
+                hash_data: dict[str, str] = await self._redis.hgetall(key_str)  # type: ignore[misc]
                 if hash_data:
                     row: dict[str, str] = {}
                     # Extract identifier from key name
