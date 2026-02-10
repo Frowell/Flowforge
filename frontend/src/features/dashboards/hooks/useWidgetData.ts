@@ -121,6 +121,9 @@ export function useWidgetData(widgetId: string, options?: UseWidgetDataOptions) 
   useEffect(() => {
     if (refreshInterval !== "live") return;
 
+    // Ensure WebSocket is connected before subscribing
+    wsManager.connect();
+
     const channel = `widget:${widgetId}`;
     wsManager.subscribeChannel(channel);
 
