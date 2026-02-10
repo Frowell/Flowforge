@@ -73,6 +73,8 @@ Compiles workflows to SQL against a **read-only** serving layer (ClickHouse, Mat
 
 | Topic | Document |
 |-------|----------|
+| Architecture decisions (ADRs) — why key choices were made | [`docs/decisions/`](./docs/decisions/) |
+| Proposals for significant changes (RFCs) | [`docs/rfcs/`](./docs/rfcs/) |
 | Node types, checklist, schema propagation, query merging | [`docs/node-type-guide.md`](./docs/node-type-guide.md) |
 | Multi-tenancy rules, code patterns, tenant isolation | [`docs/multi-tenancy.md`](./docs/multi-tenancy.md) |
 | Serving layer tables, query router, SQL dialects | [`docs/serving-layer.md`](./docs/serving-layer.md) |
