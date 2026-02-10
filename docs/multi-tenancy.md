@@ -1,6 +1,6 @@
 # Multi-Tenancy Guide
 
-> Parent: [`/workspace/agents.md`](../agents.md) | Architecture: [`/workspace/Application plan.md`](../Application%20plan.md)
+> Parent: [`/workspace/agents.md`](../agents.md) | Architecture (archived): [`/workspace/docs/archive/Application plan.md`](./archive/Application%20plan.md)
 
 FlowForge is **multi-tenant from day one**. Every tenant-scoped resource is isolated by a `tenant_id` UUID column. Tenant identity is derived from Keycloak JWT claims — never from client-supplied headers or URL parameters.
 

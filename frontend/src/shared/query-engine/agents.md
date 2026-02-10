@@ -1,6 +1,6 @@
 # Query Engine (API Client) — Agent Rules
 
-> Parent rules: [`/workspace/frontend/src/shared/agents.md`](../../agents.md) | Architecture: [`/workspace/planning.md`](../../../../../../planning.md)
+> Parent rules: [`/workspace/frontend/src/shared/agents.md`](../../agents.md)
 
 ## Purpose
 

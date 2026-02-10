@@ -1,6 +1,6 @@
 # FlowForge — Agent Rules
 
-> Architecture: [`planning.md`](./planning.md) | Spec: [`Application plan.md`](./Application%20plan.md)
+> Architecture (archived): [`docs/archive/planning.md`](./docs/archive/planning.md) | Spec (archived): [`docs/archive/Application plan.md`](./docs/archive/Application%20plan.md)
 > Every agent in this repo MUST follow these rules without exception.
 
 ## Project Identity
@@ -166,7 +166,7 @@ Node types require changes in both backend and frontend. These can be developed 
 These must be done sequentially — do NOT parallelize:
 - Database migrations (Alembic head conflicts)
 - Changes to shared type definitions that both agents consume
-- Modifications to `planning.md` or this `agents.md`
+- Modifications to this `agents.md`
 
 ---
 
@@ -246,7 +246,7 @@ Each agent commits only files within its scope. The synthesis step (human or coo
 ### Must Be Serial
 
 - Alembic migrations (only one branch at a time)
-- Changes to `agents.md`, `planning.md`, or `Application plan.md`
+- Changes to `agents.md`
 - Shared type definitions consumed by both backend and frontend
 - CI/CD workflow changes that depend on each other (build → deploy)
 

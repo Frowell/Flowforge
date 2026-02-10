@@ -1,6 +1,6 @@
 # Terraform Infrastructure — Agent Rules
 
-> Parent rules: [`/workspace/agents.md`](../agents.md) | Architecture: [`/workspace/planning.md`](../planning.md)
+> Parent rules: [`/workspace/agents.md`](../agents.md)
 
 ## Overview
 

@@ -1,6 +1,6 @@
 # Embed Feature — Agent Rules
 
-> Parent rules: [`/workspace/frontend/agents.md`](../../../agents.md) | Architecture: [`/workspace/planning.md`](../../../../../planning.md)
+> Parent rules: [`/workspace/frontend/agents.md`](../../../agents.md)
 
 ## Route
 

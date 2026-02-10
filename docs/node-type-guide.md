@@ -1,6 +1,6 @@
 # Node Type Guide
 
-> Parent: [`/workspace/agents.md`](../agents.md) | Architecture: [`/workspace/Application plan.md`](../Application%20plan.md)
+> Parent: [`/workspace/agents.md`](../agents.md) | Architecture (archived): [`/workspace/docs/archive/Application plan.md`](./archive/Application%20plan.md)
 
 ## New Node Type Checklist
 

@@ -779,8 +779,6 @@ flowforge/
 │   └── serving-layer.md             # Table catalog + query router dispatch
 ├── tests/fixtures/schema/           # Shared cross-validation JSON fixtures
 ├── Makefile                         # Development commands
-├── planning.md                      # Product scope + phase breakdown
-├── Application plan.md              # Implementation status + remaining work
 └── CLAUDE.md                        # Agent coding rules
 ```
 
@@ -1091,8 +1089,6 @@ In production, PostgreSQL and Redis are GCP managed services (Cloud SQL, Memorys
 
 | Document | Description |
 |----------|-------------|
-| [Application Plan](./Application%20plan.md) | Implementation status, known gaps, remaining work |
-| [Planning](./planning.md) | Product scope, phase breakdown, success criteria |
 | [CLAUDE.md](./CLAUDE.md) | Agent coding rules (architectural constraints, conventions) |
 | [docs/node-type-guide.md](./docs/node-type-guide.md) | Node type checklist, schema propagation rules, query merging |
 | [docs/multi-tenancy.md](./docs/multi-tenancy.md) | Tenant isolation patterns, code examples, test requirements |
