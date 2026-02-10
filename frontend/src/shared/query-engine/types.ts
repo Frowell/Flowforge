@@ -90,6 +90,13 @@ export interface PreviewResponse {
   limit: number;
 }
 
+export interface TableRowsMessage {
+  type: "table_rows";
+  table: string;
+  columns: Array<{ name: string; dtype: string }>;
+  rows: Record<string, unknown>[];
+}
+
 export interface ExecutionStatusResponse {
   id: string;
   workflow_id: string;
