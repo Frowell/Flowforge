@@ -91,10 +91,29 @@ def merge_accs(acc1, acc2):
     return acc1
 
 
+VWAP_COLUMNS = [
+    {"name": "symbol", "dtype": "String"},
+    {"name": "window_end", "dtype": "DateTime64"},
+    {"name": "vwap", "dtype": "Float64"},
+    {"name": "volume", "dtype": "Float64"},
+    {"name": "trade_count", "dtype": "Int64"},
+    {"name": "spread_bps", "dtype": "Float64"},
+]
+
+
 def emit_vwap(symbol_window):
-    """Write VWAP result to ClickHouse and Redis."""
+    """Write VWAP result to ClickHouse, Redis, and broadcast via pub/sub."""
     symbol, (_window_id, acc) = symbol_window
     window_end = datetime.now(timezone.utc)
+
+    row = {
+        "symbol": symbol,
+        "window_end": window_end.isoformat(),
+        "vwap": round(acc.vwap, 6),
+        "volume": round(acc.total_volume, 4),
+        "trade_count": acc.trade_count,
+        "spread_bps": round(acc.spread_bps, 4),
+    }
 
     # Write to ClickHouse
     ch_client.insert(
@@ -111,6 +130,17 @@ def emit_vwap(symbol_window):
         "spread_bps": str(acc.spread_bps),
         "window_end": window_end.isoformat(),
     })
+
+    # Broadcast row data to dashboards
+    r_client.publish(
+        "flowforge:broadcast:table_rows",
+        json.dumps({
+            "type": "table_rows",
+            "table": "vwap_5min",
+            "columns": VWAP_COLUMNS,
+            "rows": [row],
+        }),
+    )
 
     return (symbol, acc.vwap)
 

@@ -351,6 +351,22 @@ class WorkflowCompiler:
         return segments
 
     @staticmethod
+    def _normalize_datetime(value: str) -> str:
+        """Normalize datetime strings for ClickHouse compatibility.
+
+        HTML datetime-local inputs produce values like '2026-02-10T11:48'
+        (missing seconds). ClickHouse DateTime64 requires full ISO format.
+        """
+        s = str(value).replace("T", " ")
+        # Append :00 if seconds missing (e.g. '2026-02-10 11:48')
+        parts = s.split(" ")
+        if len(parts) == 2:
+            time_parts = parts[1].split(":")
+            if len(time_parts) == 2:
+                s = f"{parts[0]} {parts[1]}:00"
+        return s
+
+    @staticmethod
     def _apply_filter(expression: exp.Expression, config: dict) -> exp.Expression:
         """Merge a WHERE clause into the expression based on filter config."""
         column = config.get("column")
@@ -361,6 +377,16 @@ class WorkflowCompiler:
             return expression
 
         col_expr = exp.Column(this=exp.to_identifier(column))
+
+        # Normalize datetime values for ClickHouse compatibility
+        if operator in ("before", "after", "between", ">", "<", ">=", "<="):
+            if isinstance(value, str) and ("T" in value or "-" in value.split(" ")[0]):
+                value = WorkflowCompiler._normalize_datetime(value)
+            elif isinstance(value, (list, tuple)):
+                value = [
+                    WorkflowCompiler._normalize_datetime(v) if isinstance(v, str) else v
+                    for v in value
+                ]
 
         val_expr = exp.Literal.string(str(value))
 
@@ -405,8 +431,12 @@ class WorkflowCompiler:
             if len(parts) == 2:
                 condition = exp.Between(
                     this=col_expr,
-                    low=exp.Literal.string(parts[0]),
-                    high=exp.Literal.string(parts[1]),
+                    low=exp.Literal.string(
+                        WorkflowCompiler._normalize_datetime(parts[0])
+                    ),
+                    high=exp.Literal.string(
+                        WorkflowCompiler._normalize_datetime(parts[1])
+                    ),
                 )
             else:
                 return expression
