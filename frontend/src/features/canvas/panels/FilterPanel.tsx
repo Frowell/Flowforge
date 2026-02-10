@@ -78,13 +78,17 @@ export default function FilterPanel({ nodeId }: Props) {
           <input
             type="datetime-local"
             value={betweenParts[0]}
-            onChange={(e) => updateNodeConfig(nodeId, { value: `${e.target.value},${betweenParts[1]}` })}
+            onChange={(e) =>
+              updateNodeConfig(nodeId, { value: `${e.target.value},${betweenParts[1]}` })
+            }
             className="w-full bg-canvas-bg border border-white/10 rounded px-2 py-1.5 text-sm text-white"
           />
           <input
             type="datetime-local"
             value={betweenParts[1]}
-            onChange={(e) => updateNodeConfig(nodeId, { value: `${betweenParts[0]},${e.target.value}` })}
+            onChange={(e) =>
+              updateNodeConfig(nodeId, { value: `${betweenParts[0]},${e.target.value}` })
+            }
             className="w-full bg-canvas-bg border border-white/10 rounded px-2 py-1.5 text-sm text-white"
           />
         </div>
