@@ -23,6 +23,7 @@ import SamplePanel from "../panels/SamplePanel";
 import LimitPanel from "../panels/LimitPanel";
 import WindowPanel from "../panels/WindowPanel";
 import KPIPanel from "../panels/KPIPanel";
+import TableOutputPanel from "../panels/TableOutputPanel";
 
 interface ConfigPanelProps {
   nodeId: string;
@@ -45,6 +46,7 @@ const PANEL_MAP: Record<string, React.FC<{ nodeId: string }>> = {
   limit: LimitPanel,
   window: WindowPanel,
   kpi_output: KPIPanel,
+  table_output: TableOutputPanel,
 };
 
 export default function ConfigPanel({ nodeId }: ConfigPanelProps) {
