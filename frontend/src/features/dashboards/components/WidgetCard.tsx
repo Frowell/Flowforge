@@ -4,7 +4,7 @@
  * The chart inside is imported from shared/components/charts/, never duplicated.
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/shared/lib/cn";
 import ChartRenderer from "@/shared/components/charts/ChartRenderer";
 import { useToastStore } from "@/shared/components/Toast";
@@ -13,6 +13,8 @@ import WidgetSettingsMenu from "./WidgetSettingsMenu";
 import type { WidgetResponse } from "@/shared/query-engine/types";
 import type { ChartDataPoint } from "@/shared/components/charts/types";
 import { APIError } from "@/shared/query-engine/client";
+
+const PAGE_SIZE = 1000;
 
 interface WidgetCardProps {
   widget: WidgetResponse;
@@ -46,15 +48,26 @@ export default function WidgetCard({ widget, className, onUnpin, onDrillDown }: 
   const refreshInterval: number | "live" | undefined =
     ari === -1 ? "live" : ari != null && ari > 0 ? ari : undefined;
 
+  const [page, setPage] = useState(0);
+  const offset = page * PAGE_SIZE;
+
   const { data, isLoading, error, refetch, isFetching } = useWidgetData(widget.id, {
     refreshInterval,
+    offset,
+    limit: PAGE_SIZE,
   });
 
   const chartType = (data?.chart_config?.chart_type as string) ?? "bar";
   const chartConfig = data?.chart_config ?? {};
+  const isTable = chartType === "table";
   const isLive = refreshInterval === "live" || typeof refreshInterval === "number";
   const addToast = useToastStore((s) => s.addToast);
   const prevErrorRef = useRef<unknown>(null);
+
+  // Reset page when widget changes
+  useEffect(() => {
+    setPage(0);
+  }, [widget.id]);
 
   // Show toast for transient errors (in addition to inline display)
   useEffect(() => {
@@ -64,6 +77,11 @@ export default function WidgetCard({ widget, className, onUnpin, onDrillDown }: 
     }
     prevErrorRef.current = error;
   }, [error, addToast, widget.title]);
+
+  const totalRows = data?.total_rows ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
+  const hasNextPage = page < totalPages - 1;
+  const hasPrevPage = page > 0;
 
   return (
     <div
@@ -164,6 +182,46 @@ export default function WidgetCard({ widget, className, onUnpin, onDrillDown }: 
           />
         )}
       </div>
+
+      {/* Pagination controls for table widgets */}
+      {isTable && data && !error && (
+        <div className="flex items-center justify-between px-3 py-1.5 border-t border-canvas-border text-[11px] text-white/50">
+          <span>
+            {totalRows > 0
+              ? `${offset + 1}\u2013${Math.min(offset + PAGE_SIZE, totalRows)} of ${totalRows.toLocaleString()} rows`
+              : "0 rows"}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage((p) => p - 1)}
+              disabled={!hasPrevPage}
+              className={cn(
+                "px-2 py-0.5 rounded text-[11px]",
+                hasPrevPage
+                  ? "text-white/60 hover:bg-white/10 hover:text-white"
+                  : "text-white/20 cursor-not-allowed",
+              )}
+            >
+              Previous
+            </button>
+            <span className="px-1">
+              {page + 1} / {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => p + 1)}
+              disabled={!hasNextPage}
+              className={cn(
+                "px-2 py-0.5 rounded text-[11px]",
+                hasNextPage
+                  ? "text-white/60 hover:bg-white/10 hover:text-white"
+                  : "text-white/20 cursor-not-allowed",
+              )}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

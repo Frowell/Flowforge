@@ -30,6 +30,10 @@ export default function FilterPanel({ nodeId }: Props) {
   const operators = selectedColumnSchema
     ? (OPERATORS_BY_TYPE[selectedColumnSchema.dtype] ?? ["=", "!="])
     : [];
+  const operator = (config.operator as string) ?? "=";
+  const valueStr = (config.value as string) ?? "";
+  const rawParts = valueStr.split(",").map((s) => s.trim());
+  const betweenParts = [rawParts[0] ?? "", rawParts[1] ?? ""];
 
   return (
     <div className="space-y-3">
@@ -68,7 +72,37 @@ export default function FilterPanel({ nodeId }: Props) {
         </div>
       )}
 
-      {selectedColumn && (
+      {selectedColumn && selectedColumnSchema?.dtype === "datetime" && operator === "between" && (
+        <div className="space-y-2">
+          <label className="text-xs text-white/50 block">Range</label>
+          <input
+            type="datetime-local"
+            value={betweenParts[0]}
+            onChange={(e) => updateNodeConfig(nodeId, { value: `${e.target.value},${betweenParts[1]}` })}
+            className="w-full bg-canvas-bg border border-white/10 rounded px-2 py-1.5 text-sm text-white"
+          />
+          <input
+            type="datetime-local"
+            value={betweenParts[1]}
+            onChange={(e) => updateNodeConfig(nodeId, { value: `${betweenParts[0]},${e.target.value}` })}
+            className="w-full bg-canvas-bg border border-white/10 rounded px-2 py-1.5 text-sm text-white"
+          />
+        </div>
+      )}
+
+      {selectedColumn && selectedColumnSchema?.dtype === "datetime" && operator !== "between" && (
+        <div>
+          <label className="text-xs text-white/50 block mb-1">Value</label>
+          <input
+            type="datetime-local"
+            value={(config.value as string) ?? ""}
+            onChange={(e) => updateNodeConfig(nodeId, { value: e.target.value })}
+            className="w-full bg-canvas-bg border border-white/10 rounded px-2 py-1.5 text-sm text-white"
+          />
+        </div>
+      )}
+
+      {selectedColumn && selectedColumnSchema?.dtype !== "datetime" && (
         <div>
           <label className="text-xs text-white/50 block mb-1">Value</label>
           <input

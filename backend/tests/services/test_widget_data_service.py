@@ -94,7 +94,7 @@ async def test_cache_hit_returns_cached_data():
         "execution_ms": 5.0,
         "cache_hit": False,
         "offset": 0,
-        "limit": 10000,
+        "limit": 1000,
     }
     svc = _make_service(redis_get_return=cached_data)
 
@@ -151,7 +151,7 @@ async def test_different_config_overrides_produce_different_cache_keys():
         {"filter": "A"},
         {},
         0,
-        10000,
+        1000,
     )
     key_b = svc._compute_cache_key(
         tenant_id,
@@ -161,7 +161,7 @@ async def test_different_config_overrides_produce_different_cache_keys():
         {"filter": "B"},
         {},
         0,
-        10000,
+        1000,
     )
 
     assert key_a != key_b

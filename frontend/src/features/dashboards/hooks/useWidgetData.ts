@@ -6,6 +6,7 @@
  *
  * Supports auto-refresh via interval or live data via WebSocket.
  * Includes drill-down filters in query params for cache invalidation.
+ * Supports pagination via offset/limit params.
  */
 
 import { useEffect } from "react";
@@ -17,6 +18,8 @@ import { useDashboardStore } from "../stores/dashboardStore";
 
 interface UseWidgetDataOptions {
   refreshInterval?: number | "live";
+  offset?: number;
+  limit?: number;
 }
 
 export function useWidgetData(widgetId: string, options?: UseWidgetDataOptions) {
@@ -24,6 +27,8 @@ export function useWidgetData(widgetId: string, options?: UseWidgetDataOptions) 
   const drillDownFilters = useDashboardStore((s) => s.drillDownFilters);
   const queryClient = useQueryClient();
   const refreshInterval = options?.refreshInterval;
+  const offset = options?.offset ?? 0;
+  const limit = options?.limit ?? 1000;
 
   const params: Record<string, string> = {};
 
@@ -40,6 +45,9 @@ export function useWidgetData(widgetId: string, options?: UseWidgetDataOptions) 
   if (allFilters.length > 0) {
     params.filters = JSON.stringify(allFilters);
   }
+
+  params.offset = String(offset);
+  params.limit = String(limit);
 
   // Subscribe to live data channel when refreshInterval is "live"
   useEffect(() => {
@@ -62,7 +70,7 @@ export function useWidgetData(widgetId: string, options?: UseWidgetDataOptions) 
   }, [widgetId, refreshInterval, queryClient]);
 
   return useQuery({
-    queryKey: ["widgetData", widgetId, activeFilters, drillDownFilters],
+    queryKey: ["widgetData", widgetId, activeFilters, drillDownFilters, offset, limit],
     queryFn: () => apiClient.get<WidgetDataResponse>(`/api/v1/widgets/${widgetId}/data`, params),
     staleTime: 30_000,
     refetchInterval: typeof refreshInterval === "number" ? refreshInterval : undefined,
