@@ -46,7 +46,7 @@ class WidgetDataService:
         config_overrides: dict | None = None,
         filter_params: dict | None = None,
         offset: int = 0,
-        limit: int = 10_000,
+        limit: int = 1_000,
     ) -> dict:
         """Fetch data for a widget's source node with caching.
 

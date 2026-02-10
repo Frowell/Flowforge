@@ -3,9 +3,10 @@
  *
  * Used by Table Output nodes and data preview panels.
  * Built on @tanstack/react-table for sortable headers and column resizing.
+ * Uses @tanstack/react-virtual for row virtualization to handle large datasets.
  */
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -15,6 +16,7 @@ import {
   type SortingState,
   type ColumnDef,
 } from "@tanstack/react-table";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { cn } from "@/shared/lib/cn";
 
 interface DataGridProps {
@@ -23,8 +25,11 @@ interface DataGridProps {
   className?: string;
 }
 
+const ROW_HEIGHT = 35;
+
 export default function DataGrid({ columns, rows, className }: DataGridProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const columnDefs = useMemo<ColumnDef<Record<string, unknown>, unknown>[]>(() => {
     const helper = createColumnHelper<Record<string, unknown>>();
@@ -54,8 +59,17 @@ export default function DataGrid({ columns, rows, className }: DataGridProps) {
     columnResizeMode: "onChange",
   });
 
+  const { rows: tableRows } = table.getRowModel();
+
+  const virtualizer = useVirtualizer({
+    count: tableRows.length,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 10,
+  });
+
   return (
-    <div className={cn("w-full h-full overflow-auto", className)}>
+    <div ref={scrollContainerRef} className={cn("w-full h-full overflow-auto", className)}>
       <table className="w-full text-sm text-left" style={{ width: table.getCenterTotalSize() }}>
         <thead className="sticky top-0 bg-canvas-node border-b border-white/10 z-10">
           {table.getHeaderGroups().map((headerGroup) => (
@@ -92,20 +106,36 @@ export default function DataGrid({ columns, rows, className }: DataGridProps) {
             </tr>
           ))}
         </thead>
-        <tbody>
-          {table.getRowModel().rows.map((row) => (
-            <tr key={row.id} className="border-b border-white/5 hover:bg-white/5">
-              {row.getVisibleCells().map((cell) => (
-                <td
-                  key={cell.id}
-                  className="px-3 py-1.5 text-white/80 whitespace-nowrap"
-                  style={{ width: cell.column.getSize() }}
-                >
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </td>
-              ))}
-            </tr>
-          ))}
+        <tbody
+          style={{
+            height: `${virtualizer.getTotalSize()}px`,
+            position: "relative",
+          }}
+        >
+          {virtualizer.getVirtualItems().map((virtualRow) => {
+            const row = tableRows[virtualRow.index];
+            if (!row) return null;
+            return (
+              <tr
+                key={row.id}
+                className="border-b border-white/5 hover:bg-white/5 absolute w-full"
+                style={{
+                  height: `${virtualRow.size}px`,
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              >
+                {row.getVisibleCells().map((cell) => (
+                  <td
+                    key={cell.id}
+                    className="px-3 py-1.5 text-white/80 whitespace-nowrap"
+                    style={{ width: cell.column.getSize() }}
+                  >
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       {rows.length === 0 && <div className="text-center py-8 text-white/30 text-sm">No data</div>}

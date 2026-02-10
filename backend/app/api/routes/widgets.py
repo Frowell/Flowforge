@@ -115,8 +115,8 @@ async def update_widget(
 @router.get("/{widget_id}/data", response_model=WidgetDataResponse)
 async def get_widget_data(
     widget_id: UUID,
-    offset: int = 0,
-    limit: int = 10_000,
+    offset: int = Query(0, ge=0, description="Row offset for pagination"),
+    limit: int = Query(1_000, ge=1, le=5_000, description="Max rows to return"),
     filters: str | None = Query(None, description="JSON-encoded filter parameters"),
     tenant_id: UUID = Depends(get_current_tenant_id),
     db: AsyncSession = Depends(get_db),
