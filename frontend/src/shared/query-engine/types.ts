@@ -93,7 +93,7 @@ export interface PreviewResponse {
 export interface ExecutionStatusResponse {
   id: string;
   workflow_id: string;
-  status: "pending" | "running" | "completed" | "failed";
+  status: "pending" | "running" | "completed" | "failed" | "cancelled";
   started_at: string | null;
   completed_at: string | null;
   node_statuses: Record<

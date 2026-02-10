@@ -74,6 +74,7 @@ vi.mock("@/features/dashboards/hooks/useGlobalFilters", () => ({
     activeFilters: [],
     setFilter: vi.fn(),
     clearFilters: vi.fn(),
+    availableColumns: [],
   }),
 }));
 
