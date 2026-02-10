@@ -10,8 +10,9 @@
 #   1. Data generator (trades + quotes → Redpanda)
 #   2. Bytewax VWAP flow (Redpanda → ClickHouse + Redis)
 #   3. Bytewax Volatility flow (Redpanda → ClickHouse + Redis)
-#   4. Backend (FastAPI)
-#   5. Frontend (Vite dev server)
+#   4. Bytewax Positions flow (Redpanda → Redis)
+#   5. Backend (FastAPI)
+#   6. Frontend (Vite dev server)
 
 set -e
 
@@ -198,6 +199,18 @@ start_bytewax_volatility() {
     log_success "Bytewax Volatility started (PID $(cat $PID_DIR/bytewax-volatility.pid))"
 }
 
+start_bytewax_positions() {
+    log_info "Starting Bytewax Positions flow..."
+    cd "$WORKSPACE_DIR/pipeline/bytewax"
+
+    REDPANDA_BROKERS="${REDPANDA_BROKERS}" \
+    REDIS_HOST="${REDIS_HOST}" \
+    python3 -m bytewax.run flows.positions > "$PID_DIR/bytewax-positions.log" 2>&1 &
+    echo $! > "$PID_DIR/bytewax-positions.pid"
+
+    log_success "Bytewax Positions started (PID $(cat $PID_DIR/bytewax-positions.pid))"
+}
+
 start_bytewax_raw_sink() {
     log_info "Starting Bytewax Raw Sink flow..."
     cd "$WORKSPACE_DIR/pipeline/bytewax"
@@ -316,6 +329,7 @@ main() {
 
     start_bytewax_vwap
     start_bytewax_volatility
+    start_bytewax_positions
     start_bytewax_raw_sink
 
     start_backend

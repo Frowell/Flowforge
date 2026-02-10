@@ -27,6 +27,65 @@ interface DataGridProps {
 
 const ROW_HEIGHT = 35;
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/;
+const LONG_DECIMAL_RE = /^-?\d+\.\d{5,}$/;
+
+function formatDateTime(d: Date): string {
+  return d.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
+
+function formatNumber(n: number): string {
+  const abs = Math.abs(n);
+  if (abs >= 1000) return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  if (abs >= 1) return n.toLocaleString(undefined, { maximumFractionDigits: 4 });
+  return n.toLocaleString(undefined, { maximumFractionDigits: 6 });
+}
+
+/**
+ * Format cell values for display based on dtype and value patterns.
+ * Handles: ISO datetimes, UUIDs, floats, integers.
+ */
+function formatCellValue(value: unknown, dtype: string): string {
+  if (value == null || value === "") return "";
+  const str = String(value);
+
+  // Explicit dtype-based formatting
+  if (dtype.startsWith("DateTime")) {
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) return formatDateTime(d);
+  }
+  if (dtype.startsWith("Float")) {
+    const n = Number(str);
+    if (!isNaN(n)) return formatNumber(n);
+  }
+  if (dtype.startsWith("Int") || dtype.startsWith("UInt")) {
+    const n = Number(str);
+    if (!isNaN(n)) return n.toLocaleString();
+  }
+  if (dtype === "UUID") return str.slice(0, 8) + "\u2026";
+
+  // Pattern-based detection for untyped / "String" columns
+  if (UUID_RE.test(str)) return str.slice(0, 8) + "\u2026";
+  if (ISO_DATE_RE.test(str)) {
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) return formatDateTime(d);
+  }
+  if (LONG_DECIMAL_RE.test(str)) {
+    const n = Number(str);
+    if (!isNaN(n)) return formatNumber(n);
+  }
+
+  return str;
+}
+
 export default function DataGrid({ columns, rows, className }: DataGridProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -42,7 +101,7 @@ export default function DataGrid({ columns, rows, className }: DataGridProps) {
             <span className="ml-1 text-xs text-white/30">{col.dtype}</span>
           </span>
         ),
-        cell: (info) => String(info.getValue() ?? ""),
+        cell: (info) => formatCellValue(info.getValue(), col.dtype),
         size: 150,
         minSize: 60,
       }),
