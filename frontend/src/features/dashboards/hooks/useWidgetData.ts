@@ -94,16 +94,23 @@ export function useWidgetData(widgetId: string, options?: UseWidgetDataOptions) 
       if (offset !== 0) return;
 
       const msg = data as TableRowsMessage;
-
-      // Filter new rows client-side
-      const matchingRows = allFilters.length > 0
-        ? msg.rows.filter((row) => applyClientFilters(row, allFilters))
-        : msg.rows;
-
-      if (matchingRows.length === 0) return;
+      const msgColNames = msg.columns.map((c) => c.name).sort().join(",");
 
       queryClient.setQueryData<WidgetDataResponse>(queryKey, (prev) => {
         if (!prev) return prev;
+
+        // Only merge if pushed columns match the widget's schema —
+        // prevents raw_quotes rows merging into a raw_trades widget, etc.
+        const prevColNames = prev.columns.map((c) => c.name).sort().join(",");
+        if (msgColNames !== prevColNames) return prev;
+
+        // Filter new rows client-side
+        const matchingRows = allFilters.length > 0
+          ? msg.rows.filter((row) => applyClientFilters(row, allFilters))
+          : msg.rows;
+
+        if (matchingRows.length === 0) return prev;
+
         // Prepend new rows and slice to limit to prevent unbounded growth
         const merged = [...matchingRows, ...prev.rows].slice(0, limit);
         return {
