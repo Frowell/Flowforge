@@ -111,12 +111,12 @@ export function useWidgetData(widgetId: string, options?: UseWidgetDataOptions) 
 
         if (matchingRows.length === 0) return prev;
 
-        // Prepend new rows and slice to limit to prevent unbounded growth
+        // Prepend new rows and purge beyond limit to cap at 1k rows
         const merged = [...matchingRows, ...prev.rows].slice(0, limit);
         return {
           ...prev,
           rows: merged,
-          total_rows: prev.total_rows + matchingRows.length,
+          total_rows: Math.min(prev.total_rows + matchingRows.length, limit),
         };
       });
     },
