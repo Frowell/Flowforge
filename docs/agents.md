@@ -4,9 +4,31 @@
 
 ## Purpose
 
-Focused technical guides for specific cross-cutting concerns. These supplement the per-directory `agents.md` files with deeper dives.
+Technical reference guides, architecture decision records, and proposal documents. Organized into four categories with distinct lifecycles.
 
-## Document Catalog
+## Directory Structure
+
+```
+docs/
+├── decisions/       # ADRs — immutable records of key technical decisions
+├── rfcs/            # Proposals for significant changes (pre-decision)
+├── archive/         # Completed planning docs (legacy reference only)
+├── node-type-guide.md
+├── multi-tenancy.md
+├── serving-layer.md
+└── agents.md
+```
+
+## Document Types
+
+| Type | Location | Lifecycle | Purpose |
+|------|----------|-----------|---------|
+| **Reference Guides** | `docs/*.md` | Living — edited in place | Cross-cutting technical patterns (node types, tenancy, serving layer) |
+| **ADRs** | `docs/decisions/` | Immutable — superseded, never edited | Record *why* key technical decisions were made |
+| **RFCs** | `docs/rfcs/` | Proposed -> Accepted/Rejected | Proposals for significant changes needing discussion |
+| **Archive** | `docs/archive/` | Frozen | Legacy planning docs, historical reference only |
+
+## Reference Guides
 
 | Document | Audience | Covers |
 |----------|----------|--------|
@@ -27,3 +49,5 @@ Focused technical guides for specific cross-cutting concerns. These supplement t
 - **Do not duplicate `agents.md` content** — docs complement agents.md, they don't replace it. If a rule belongs in a directory's agents.md, put it there.
 - **Do not create new docs without clear need** — every doc should answer a specific question that multiple agents encounter. One-off notes belong in the relevant agents.md.
 - **No auto-generated API docs** — the Swagger UI at `/docs` is the API reference. These docs cover architectural patterns, not endpoint signatures.
+- **ADRs are immutable** — never edit an accepted ADR. Write a new one that supersedes it.
+- **RFCs produce ADRs** — when an RFC is accepted, extract key decisions into `docs/decisions/`.
