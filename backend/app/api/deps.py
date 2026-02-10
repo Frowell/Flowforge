@@ -44,9 +44,11 @@ async def get_schema_registry(
     redis=Depends(get_redis),
 ) -> SchemaRegistry:
     clickhouse = get_clickhouse_client()
+    materialize = get_materialize_client()
     return SchemaRegistry(
         redis=redis,
         clickhouse=clickhouse,
+        materialize=materialize,
         cache_ttl=settings.schema_cache_ttl,
     )
 
