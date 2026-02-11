@@ -23,8 +23,7 @@ from common.auth import DEV_TENANT_ID, get_auth_headers
 from common.ws_client import BenchWebSocket
 from shapes.step_shape import StepShape
 
-WS_BASE = os.environ.get("BENCH_WS_BASE", "ws://app:8000")
-DASHBOARD_ID = os.environ.get("BENCH_DASHBOARD_ID", "test-dashboard")
+WS_BASE = os.environ.get("BENCH_WS_BASE", "ws://localhost:8000")
 
 
 class WebSocketViewerShape(StepShape):
@@ -51,7 +50,7 @@ class WebSocketViewer(User):
 
     def on_start(self) -> None:
         """Connect to WebSocket on user start."""
-        url = f"{WS_BASE}/ws/dashboard/{DASHBOARD_ID}"
+        url = f"{WS_BASE}/ws"
         headers = get_auth_headers()
 
         self._ws = BenchWebSocket(
