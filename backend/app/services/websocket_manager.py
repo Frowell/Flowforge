@@ -9,12 +9,17 @@ All channels are tenant-scoped: flowforge:{tenant_id}:{channel_type}:{id}
 
 import json
 import logging
+import time
 from uuid import UUID
 
 from fastapi import WebSocket
 from redis.asyncio import Redis
 
-from app.core.metrics import websocket_connections_active, websocket_messages_sent_total
+from app.core.metrics import (
+    websocket_connections_active,
+    websocket_message_delivery_seconds,
+    websocket_messages_sent_total,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -126,9 +131,15 @@ class WebSocketManager:
         connections = self._connections.get(channel, set())
         dead: set[WebSocket] = set()
 
+        channel_type = self._extract_channel_type(channel)
         for ws in connections:
             try:
+                start = time.monotonic()
                 await ws.send_text(message)
+                elapsed = time.monotonic() - start
+                websocket_message_delivery_seconds.labels(
+                    channel_type=channel_type,
+                ).observe(elapsed)
             except Exception:
                 dead.add(ws)
 
@@ -141,12 +152,28 @@ class WebSocketManager:
 
         for ws in self._ws_channels:
             try:
+                start = time.monotonic()
                 await ws.send_text(message)
+                elapsed = time.monotonic() - start
+                websocket_message_delivery_seconds.labels(
+                    channel_type="broadcast",
+                ).observe(elapsed)
             except Exception:
                 dead.add(ws)
 
         for ws in dead:
             await self.disconnect_all(ws)
+
+    @staticmethod
+    def _extract_channel_type(channel: str) -> str:
+        """Extract the channel type from a channel name.
+
+        Channel format: flowforge:{tenant_id}:{channel_type}:{id}
+        """
+        parts = channel.split(":")
+        if len(parts) >= 3:
+            return parts[2]
+        return "unknown"
 
     async def start_subscriber(self) -> None:
         """Start the Redis pub/sub subscriber loop.

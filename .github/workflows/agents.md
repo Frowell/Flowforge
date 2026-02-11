@@ -21,6 +21,7 @@ This document defines the CI/CD pipeline requirements. It does NOT contain workf
 | Deploy Prod | `deploy-prod.yml` | Manual dispatch (approval required) | Deploy to prod GKE cluster |
 | Terraform Plan | `terraform-plan.yml` | PR modifying `terraform/**` | Run `terraform plan` on all environments |
 | Terraform Apply | `terraform-apply.yml` | Push to `main` modifying `terraform/**` | `terraform apply` on dev; manual for staging/prod |
+| Benchmarks | `bench.yml` | Nightly 03:00 UTC + manual dispatch | Run load tests, check SLO compliance, upload results |
 
 ---
 

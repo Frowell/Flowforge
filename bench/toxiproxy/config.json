@@ -1,0 +1,26 @@
+[
+  {
+    "name": "clickhouse",
+    "listen": "0.0.0.0:18123",
+    "upstream": "clickhouse:8123",
+    "enabled": true
+  },
+  {
+    "name": "redis",
+    "listen": "0.0.0.0:16379",
+    "upstream": "redis:6379",
+    "enabled": true
+  },
+  {
+    "name": "materialize",
+    "listen": "0.0.0.0:16875",
+    "upstream": "materialize:6875",
+    "enabled": true
+  },
+  {
+    "name": "postgresql",
+    "listen": "0.0.0.0:15432",
+    "upstream": "db:5432",
+    "enabled": true
+  }
+]
