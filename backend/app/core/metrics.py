@@ -56,6 +56,39 @@ cache_operations_total = Counter(
     ["cache_type", "operation", "status"],
 )
 
+# --- WebSocket delivery ---
+websocket_message_delivery_seconds = Histogram(
+    "flowforge_websocket_message_delivery_seconds",
+    "Time from Redis message receipt to WebSocket send_text() completion",
+    ["channel_type"],
+)
+
+# --- Cache duration ---
+cache_operation_duration_seconds = Histogram(
+    "flowforge_cache_operation_duration_seconds",
+    "Duration of cache get/set operations in seconds",
+    ["cache_type", "operation"],
+)
+
+# --- Live data mode ---
+live_data_mode = Gauge(
+    "flowforge_live_data_mode",
+    "Current live data mode for a widget (1=poll, 2=subscribe)",
+    ["widget_id"],
+)
+
+# --- Store health ---
+store_health_check_duration_seconds = Histogram(
+    "flowforge_store_health_check_duration_seconds",
+    "Duration of store health check pings in seconds",
+    ["store"],
+)
+store_health_status = Gauge(
+    "flowforge_store_health_status",
+    "Store health status (1=healthy, 0=unhealthy)",
+    ["store"],
+)
+
 # --- Rate limiting ---
 rate_limit_checks_total = Counter(
     "flowforge_rate_limit_checks_total",

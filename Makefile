@@ -1,4 +1,5 @@
-.PHONY: dev backend frontend test migrate scaffold db-shell lint clean help
+.PHONY: dev backend frontend test migrate scaffold db-shell lint clean help \
+       bench-up bench-down bench-run bench-event-rate bench-widgets bench-ws bench-chaos bench-slo
 
 # ── Colors ────────────────────────────────────────────────────────────
 CYAN  := \033[36m
@@ -87,6 +88,39 @@ check: ## Run connectivity check against all services
 
 generator: ## Start the synthetic data generator
 	cd pipeline/generator && python generator.py
+
+# ── Benchmarks ───────────────────────────────────────────────────────
+
+BENCH_COMPOSE := docker compose -f .devcontainer/docker-compose.yml -f bench/docker-compose.bench.yml --profile bench
+
+bench-up: ## Start bench infra (toxiproxy + prometheus + grafana)
+	@echo "$(CYAN)Starting benchmark infrastructure...$(RESET)"
+	$(BENCH_COMPOSE) up -d toxiproxy prometheus grafana
+	@echo "$(GREEN)Bench infra up. Grafana: http://localhost:3001 | Prometheus: http://localhost:9090$(RESET)"
+
+bench-down: ## Stop bench infra
+	@echo "$(CYAN)Stopping benchmark infrastructure...$(RESET)"
+	$(BENCH_COMPOSE) down
+	@echo "$(GREEN)Bench infra stopped.$(RESET)"
+
+bench-run: ## Run all 4 benchmark scenarios sequentially
+	@echo "$(CYAN)Running all benchmark scenarios...$(RESET)"
+	bash bench/scripts/run-bench.sh all
+
+bench-event-rate: ## Run event rate sweep scenario
+	bash bench/scripts/run-bench.sh event_rate
+
+bench-widgets: ## Run widget count scenario
+	bash bench/scripts/run-bench.sh widgets
+
+bench-ws: ## Run WebSocket viewers scenario
+	bash bench/scripts/run-bench.sh ws
+
+bench-chaos: ## Run store failure chaos scenario
+	bash bench/scripts/run-bench.sh chaos
+
+bench-slo: ## Check SLO compliance against running Prometheus
+	python3 bench/scripts/check-slo.py --prometheus http://localhost:9090
 
 # ── Cleanup ───────────────────────────────────────────────────────────
 

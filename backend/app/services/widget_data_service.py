@@ -16,7 +16,7 @@ from uuid import UUID
 from redis.asyncio import Redis
 
 from app.core.config import settings
-from app.core.metrics import cache_operations_total
+from app.core.metrics import cache_operation_duration_seconds, cache_operations_total
 from app.services.query_router import QueryRouter
 from app.services.workflow_compiler import CompiledSegment, WorkflowCompiler
 
@@ -225,7 +225,12 @@ class WidgetDataService:
     async def _cache_get(self, key: str) -> dict | None:
         """Read from Redis cache. Returns None on miss or error (fail-open)."""
         try:
+            start = time.monotonic()
             raw = await self._redis.get(key)
+            elapsed = time.monotonic() - start
+            cache_operation_duration_seconds.labels(
+                cache_type="widget", operation="get"
+            ).observe(elapsed)
             if raw is not None:
                 cache_operations_total.labels(
                     cache_type="widget", operation="get", status="hit"
@@ -244,7 +249,12 @@ class WidgetDataService:
     async def _cache_set(self, key: str, value: dict, ttl: int) -> None:
         """Write to Redis cache with TTL. Errors logged, not raised."""
         try:
+            start = time.monotonic()
             await self._redis.set(key, json.dumps(value), ex=ttl)
+            elapsed = time.monotonic() - start
+            cache_operation_duration_seconds.labels(
+                cache_type="widget", operation="set"
+            ).observe(elapsed)
             cache_operations_total.labels(
                 cache_type="widget", operation="set", status="hit"
             ).inc()

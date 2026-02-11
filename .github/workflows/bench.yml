@@ -1,0 +1,198 @@
+name: Benchmarks
+
+on:
+  schedule:
+    # Nightly at 03:00 UTC
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: "Benchmark scenario to run"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - all
+          - event_rate
+          - widgets
+          - ws
+          - chaos
+
+concurrency:
+  group: bench-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BENCH_API_BASE: http://localhost:8000
+  APP_ENV: development
+
+jobs:
+  benchmark:
+    name: Run Benchmarks
+    runs-on: ubuntu-latest-16-cores
+    timeout-minutes: 45
+
+    services:
+      db:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: flowforge
+          POSTGRES_PASSWORD: flowforge
+          POSTGRES_DB: flowforge
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U flowforge"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      clickhouse:
+        image: clickhouse/clickhouse-server:latest
+        ports:
+          - 8123:8123
+        env:
+          CLICKHOUSE_DB: flowforge
+          CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+        options: >-
+          --health-cmd "wget --spider -q http://localhost:8123/ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      toxiproxy:
+        image: ghcr.io/shopify/toxiproxy:2.9.0
+        ports:
+          - 8474:8474
+          - 18123:18123
+          - 16379:16379
+          - 16875:16875
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          pip install -e ".[dev]"
+
+      - name: Install bench dependencies
+        run: pip install -r bench/requirements.txt
+
+      - name: Run Alembic migrations
+        env:
+          DATABASE_URL: postgresql+asyncpg://flowforge:flowforge@localhost:5432/flowforge
+          DATABASE_URL_SYNC: postgresql://flowforge:flowforge@localhost:5432/flowforge
+        run: cd backend && alembic upgrade head
+
+      - name: Configure Toxiproxy proxies
+        run: |
+          # Wait for Toxiproxy API
+          for i in $(seq 1 15); do
+            curl -sf http://localhost:8474/version && break
+            sleep 2
+          done
+
+          # Create proxies (ClickHouse and Redis)
+          curl -sf -X POST http://localhost:8474/proxies \
+            -H "Content-Type: application/json" \
+            -d '{"name":"clickhouse","listen":"0.0.0.0:18123","upstream":"localhost:8123","enabled":true}'
+
+          curl -sf -X POST http://localhost:8474/proxies \
+            -H "Content-Type: application/json" \
+            -d '{"name":"redis","listen":"0.0.0.0:16379","upstream":"localhost:6379","enabled":true}'
+
+      - name: Start backend
+        env:
+          DATABASE_URL: postgresql+asyncpg://flowforge:flowforge@localhost:5432/flowforge
+          DATABASE_URL_SYNC: postgresql://flowforge:flowforge@localhost:5432/flowforge
+          REDIS_URL: redis://localhost:6379/0
+          CLICKHOUSE_HOST: localhost
+          CLICKHOUSE_PORT: "8123"
+          CLICKHOUSE_DATABASE: flowforge
+          CLICKHOUSE_USER: default
+          CLICKHOUSE_PASSWORD: ""
+          MATERIALIZE_HOST: localhost
+          MATERIALIZE_PORT: "6875"
+          REDPANDA_BROKERS: localhost:29092
+          APP_ENV: development
+          SECRET_KEY: ci-bench-secret
+          CORS_ORIGINS: '["http://localhost:5173"]'
+        run: |
+          cd backend
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          # Wait for backend readiness
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8000/health/ready && break
+            sleep 2
+          done
+
+      - name: Start Prometheus
+        run: |
+          docker run -d \
+            --name prometheus \
+            --network host \
+            -v ${{ github.workspace }}/bench/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro \
+            prom/prometheus:v2.51.0 \
+            --config.file=/etc/prometheus/prometheus.yml \
+            --storage.tsdb.path=/prometheus \
+            --web.enable-admin-api
+
+          # Wait for Prometheus
+          for i in $(seq 1 15); do
+            curl -sf http://localhost:9090/-/healthy && break
+            sleep 2
+          done
+
+      - name: Seed benchmark data
+        run: |
+          python3 bench/scripts/seed-bench-data.py \
+            --api-base http://localhost:8000 \
+            --output /tmp/bench-env.sh
+          source /tmp/bench-env.sh
+          echo "BENCH_WIDGET_ID=$BENCH_WIDGET_ID" >> $GITHUB_ENV
+          echo "BENCH_WORKFLOW_ID=$BENCH_WORKFLOW_ID" >> $GITHUB_ENV
+          echo "BENCH_DASHBOARD_ID=$BENCH_DASHBOARD_ID" >> $GITHUB_ENV
+
+      - name: Run benchmarks
+        env:
+          BENCH_API_BASE: http://localhost:8000
+          TOXIPROXY_HOST: localhost
+        run: |
+          SCENARIO="${{ inputs.scenario || 'all' }}"
+          bash bench/scripts/run-bench.sh "$SCENARIO"
+
+      - name: Check SLO compliance
+        if: always()
+        run: python3 bench/scripts/check-slo.py --prometheus http://localhost:9090
+
+      - name: Create Prometheus snapshot
+        if: always()
+        run: |
+          curl -sf -X POST http://localhost:9090/api/v1/admin/tsdb/snapshot || true
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-${{ github.run_id }}
+          path: |
+            bench/results/
+          retention-days: 30

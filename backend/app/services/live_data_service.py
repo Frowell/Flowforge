@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from app.core.config import settings
+from app.core.metrics import live_data_mode
 
 if TYPE_CHECKING:
     from app.core.materialize import MaterializeClient
@@ -164,11 +165,13 @@ class LiveDataService:
     def _start_poll_mode(self, sub: _WidgetSubscription) -> None:
         """Start the poll loop for a widget."""
         sub.mode = "poll"
+        live_data_mode.labels(widget_id=str(sub.widget_id)).set(1)
         sub.task = asyncio.create_task(self._poll_loop(sub))
 
     def _start_subscribe_mode(self, sub: _WidgetSubscription) -> None:
         """Start or join a shared SUBSCRIBE for the widget's view."""
         sub.mode = "subscribe"
+        live_data_mode.labels(widget_id=str(sub.widget_id)).set(2)
         view_name = sub.view_name
         if not view_name:
             self._start_poll_mode(sub)

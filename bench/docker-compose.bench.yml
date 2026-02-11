@@ -1,0 +1,136 @@
+## Benchmark infrastructure — extends .devcontainer/docker-compose.yml
+##
+## Usage:
+##   docker compose -f .devcontainer/docker-compose.yml -f bench/docker-compose.bench.yml --profile bench up -d
+##
+## When the bench profile is active, the backend should be configured to route
+## through Toxiproxy by setting these env vars:
+##   CLICKHOUSE_HOST=toxiproxy  CLICKHOUSE_PORT=18123
+##   REDIS_URL=redis://toxiproxy:16379/0
+##   MATERIALIZE_HOST=toxiproxy  MATERIALIZE_PORT=16875
+
+services:
+  # ── Toxiproxy — TCP fault injection ────────────────────────────────
+  toxiproxy:
+    profiles:
+      - bench
+    image: ghcr.io/shopify/toxiproxy:2.9.0
+    ports:
+      - "8474:8474"    # Toxiproxy API
+      - "18123:18123"  # ClickHouse proxy
+      - "16379:16379"  # Redis proxy
+      - "16875:16875"  # Materialize proxy
+      - "15432:15432"  # PostgreSQL proxy
+    volumes:
+      - ./toxiproxy/config.json:/config/toxiproxy.json:ro
+    command: ["-host=0.0.0.0", "-config=/config/toxiproxy.json"]
+    depends_on:
+      - redis
+      - clickhouse
+    networks:
+      - flowforge
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8474/version || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── Prometheus — metrics collection ────────────────────────────────
+  prometheus:
+    profiles:
+      - bench
+    image: prom/prometheus:v2.51.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=7d"
+      - "--web.enable-admin-api"
+    networks:
+      - flowforge
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9090/-/healthy || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── Grafana — pre-provisioned benchmark dashboards ─────────────────
+  grafana:
+    profiles:
+      - bench
+    image: grafana/grafana:11.0.0
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    networks:
+      - flowforge
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/api/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── Locust master — load test orchestrator ─────────────────────────
+  locust-master:
+    profiles:
+      - bench
+    image: locustio/locust:2.29.1
+    ports:
+      - "8089:8089"
+    volumes:
+      - ./locustfiles:/mnt/locust:ro
+    command:
+      - "--master"
+      - "--expect-workers=2"
+      - "--host=http://app:8000"
+      - "--locustfile=/mnt/locust/scenario_event_rate.py"
+    environment:
+      BENCH_API_BASE: http://app:8000
+      BENCH_WS_BASE: ws://app:8000
+      TOXIPROXY_HOST: toxiproxy
+    networks:
+      - flowforge
+
+  # ── Locust workers (2 replicas) ────────────────────────────────────
+  locust-worker:
+    profiles:
+      - bench
+    image: locustio/locust:2.29.1
+    volumes:
+      - ./locustfiles:/mnt/locust:ro
+    command:
+      - "--worker"
+      - "--master-host=locust-master"
+    environment:
+      BENCH_API_BASE: http://app:8000
+      BENCH_WS_BASE: ws://app:8000
+      TOXIPROXY_HOST: toxiproxy
+    depends_on:
+      - locust-master
+    deploy:
+      replicas: 2
+    networks:
+      - flowforge
+
+volumes:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  flowforge:
+    external: true
+    name: devcontainer_flowforge
