@@ -23,11 +23,13 @@ class Settings(BaseSettings):
 
         Prevents accidental deployment with auth bypass enabled.
         """
-        if self.app_env != "development" and self.secret_key == "dev-secret-change-in-prod":
+        is_prod = self.app_env != "development"
+        has_dev_secret = self.secret_key == "dev-secret-change-in-prod"
+        if is_prod and has_dev_secret:
             raise ValueError(
-                    f"SECRET_KEY must be set when APP_ENV={self.app_env!r}. "
-                    "The default dev secret is not allowed outside development."
-                )
+                f"SECRET_KEY must be set when APP_ENV={self.app_env!r}. "
+                "The default dev secret is not allowed outside development."
+            )
         return self
 
     # PostgreSQL — app metadata only (workflows, dashboards, widgets, users)
