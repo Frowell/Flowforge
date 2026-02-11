@@ -67,7 +67,7 @@ async def _check_redis(redis: Redis) -> dict:
     """Check Redis connectivity."""
     try:
         start = time.monotonic()
-        await asyncio.wait_for(redis.ping(), timeout=_HEALTH_CHECK_TIMEOUT)  # type: ignore[misc]
+        await asyncio.wait_for(redis.ping(), timeout=_HEALTH_CHECK_TIMEOUT)  # type: ignore[arg-type]
         elapsed = time.monotonic() - start
         store_health_check_duration_seconds.labels(store="redis").observe(elapsed)
         store_health_status.labels(store="redis").set(1)
