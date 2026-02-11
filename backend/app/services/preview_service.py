@@ -10,6 +10,7 @@ import logging
 import time
 from uuid import UUID
 
+import sqlglot
 from redis.asyncio import Redis
 
 from app.core.metrics import cache_operations_total
@@ -170,14 +171,30 @@ class PreviewService:
         limit: int = PREVIEW_LIMIT,
         offset: int = 0,
     ) -> CompiledSegment:
-        """Wrap a segment's SQL with LIMIT, OFFSET, and SETTINGS."""
-        constrained_sql = (
-            f"SELECT * FROM ({segment.sql}) AS preview "
-            f"LIMIT {limit} OFFSET {offset} "
-            f"SETTINGS max_execution_time={PREVIEW_MAX_EXECUTION_TIME}, "
-            f"max_memory_usage={PREVIEW_MAX_MEMORY}, "
-            f"max_rows_to_read={PREVIEW_MAX_ROWS_TO_READ}"
+        """Wrap a segment's SQL with LIMIT, OFFSET, and SETTINGS.
+
+        Uses SQLGlot to build the wrapping query instead of string
+        interpolation, preventing SQL injection via compiled SQL.
+        ClickHouse SETTINGS are appended separately (integer constants only).
+        """
+        dialect = segment.dialect or "clickhouse"
+        inner = sqlglot.parse_one(segment.sql, dialect=dialect)
+        wrapped = (
+            sqlglot.select("*")
+            .from_(inner.subquery("preview"))
+            .limit(int(limit))
+            .offset(int(offset))
         )
+        constrained_sql = wrapped.sql(dialect=dialect)
+
+        # ClickHouse SETTINGS — module-level int constants, safe to append
+        if segment.target == "clickhouse":
+            constrained_sql += (
+                f" SETTINGS max_execution_time={int(PREVIEW_MAX_EXECUTION_TIME)}"
+                f", max_memory_usage={int(PREVIEW_MAX_MEMORY)}"
+                f", max_rows_to_read={int(PREVIEW_MAX_ROWS_TO_READ)}"
+            )
+
         return CompiledSegment(
             sql=constrained_sql,
             dialect=segment.dialect,

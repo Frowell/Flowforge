@@ -13,6 +13,7 @@ import logging
 import time
 from uuid import UUID
 
+import sqlglot
 from redis.asyncio import Redis
 
 from app.core.config import settings
@@ -129,11 +130,17 @@ class WidgetDataService:
                 "chart_config": chart_config,
             }
 
-        # Apply offset/limit to the final segment
+        # Apply offset/limit to the final segment via SQLGlot (no f-string SQL)
         final = segments[-1]
-        constrained_sql = (
-            f"SELECT * FROM ({final.sql}) AS widget_q LIMIT {limit} OFFSET {offset}"
+        dialect = final.dialect or "clickhouse"
+        inner = sqlglot.parse_one(final.sql, dialect=dialect)
+        wrapped = (
+            sqlglot.select("*")
+            .from_(inner.subquery("widget_q"))
+            .limit(int(limit))
+            .offset(int(offset))
         )
+        constrained_sql = wrapped.sql(dialect=dialect)
         constrained_segments = segments[:-1] + [
             CompiledSegment(
                 sql=constrained_sql,

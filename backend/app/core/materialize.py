@@ -8,6 +8,7 @@ Falls back to mock data in development when Materialize is unreachable.
 
 from __future__ import annotations
 
+import re
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 
@@ -93,6 +94,10 @@ class MaterializeClient:
                 return []
             raise
 
+    # Strict pattern for Materialize view identifiers: schema.name or just name
+    # Only alphanumeric, underscores, and a single dot separator allowed.
+    _VALID_VIEW_NAME = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$")
+
     async def subscribe(
         self, view_name: str, *, snapshot: bool = False
     ) -> AsyncIterator[tuple[int, int, dict]]:
@@ -104,13 +109,21 @@ class MaterializeClient:
         Args:
             view_name: The materialized view to subscribe to.
             snapshot: Whether to include the initial snapshot.
+
+        Raises:
+            ValueError: If view_name contains invalid characters.
+            RuntimeError: If pool is not initialized.
         """
         if self._pool is None:
             raise RuntimeError("Materialize pool not initialized")
 
+        if not self._VALID_VIEW_NAME.match(view_name):
+            raise ValueError(f"Invalid view name: {view_name!r}")
+
         conn: asyncpg.Connection = await self._pool.acquire()
         try:
             snapshot_opt = "true" if snapshot else "false"
+            # view_name is validated above — safe to interpolate as identifier
             stmt = f"SUBSCRIBE TO {view_name} WITH (SNAPSHOT = {snapshot_opt})"
             # Use a server-side cursor for streaming
             async with conn.transaction():
