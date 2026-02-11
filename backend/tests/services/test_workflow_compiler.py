@@ -1,5 +1,6 @@
 """Workflow compiler tests — verify query merging and SQL generation."""
 
+import pytest
 import sqlglot
 
 from app.services.schema_engine import SchemaEngine
@@ -1420,3 +1421,124 @@ class TestMultiSourceDAG:
         sql_lower = segments[0].sql.lower()
         assert "notional" in sql_lower
         assert "*" in segments[0].sql  # multiplication for formula
+
+
+class TestFilterTypedLiterals:
+    """C3/C4 bug fixes: typed filter literals and unknown operator rejection."""
+
+    def _make_filter_pipeline(self, column_dtype, operator, value):
+        """Helper: data_source → filter → table_output pipeline."""
+        nodes = [
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "price", "dtype": "float64"},
+                            {"name": "quantity", "dtype": "int64"},
+                            {"name": "is_active", "dtype": "bool"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "flt",
+                "type": "filter",
+                "data": {
+                    "config": {
+                        "column": {
+                            "string": "symbol",
+                            "float64": "price",
+                            "int64": "quantity",
+                            "bool": "is_active",
+                        }.get(column_dtype, "symbol"),
+                        "operator": operator,
+                        "value": value,
+                    }
+                },
+            },
+            {"id": "out", "type": "table_output", "data": {"config": {}}},
+        ]
+        edges = [
+            {"source": "src", "target": "flt"},
+            {"source": "flt", "target": "out"},
+        ]
+        return nodes, edges
+
+    def test_numeric_int_filter_produces_number_literal(self):
+        """int64 filter: value '100' → WHERE quantity > 100."""
+        compiler = get_compiler()
+        nodes, edges = self._make_filter_pipeline("int64", ">", "100")
+        segments = compiler.compile(nodes, edges)
+        assert len(segments) == 1
+        sql = segments[0].sql
+        # Should contain unquoted 100 (number literal)
+        assert "quantity > 100" in sql.lower().replace('"', "")
+
+    def test_numeric_float_filter_produces_number_literal(self):
+        """Filter on float64 column with value '3.14' → WHERE price > 3.14."""
+        compiler = get_compiler()
+        nodes, edges = self._make_filter_pipeline("float64", ">", "3.14")
+        segments = compiler.compile(nodes, edges)
+        assert len(segments) == 1
+        sql = segments[0].sql
+        assert "price > 3.14" in sql.lower().replace('"', "")
+
+    def test_boolean_filter_produces_boolean_literal(self):
+        """Filter on bool column with value 'true' → WHERE is_active = TRUE."""
+        compiler = get_compiler()
+        nodes, edges = self._make_filter_pipeline("bool", "=", "true")
+        segments = compiler.compile(nodes, edges)
+        assert len(segments) == 1
+        sql_upper = segments[0].sql.upper()
+        assert "TRUE" in sql_upper
+        # Should NOT be a string literal 'true'
+        assert "'TRUE'" not in sql_upper
+        assert "'true'" not in segments[0].sql
+
+    def test_string_filter_still_produces_string_literal(self):
+        """Filter on string column preserves existing string literal behavior."""
+        compiler = get_compiler()
+        nodes, edges = self._make_filter_pipeline("string", "=", "AAPL")
+        segments = compiler.compile(nodes, edges)
+        assert len(segments) == 1
+        sql = segments[0].sql
+        assert "'AAPL'" in sql
+
+    def test_between_numeric_produces_number_literals(self):
+        """Between on float64 column → BETWEEN 10.0 AND 100.0 (no quotes)."""
+        compiler = get_compiler()
+        nodes, edges = self._make_filter_pipeline("float64", "between", "10,100")
+        segments = compiler.compile(nodes, edges)
+        assert len(segments) == 1
+        sql = segments[0].sql
+        assert "BETWEEN" in sql.upper()
+        # Values should be numbers, not string literals
+        assert "'10'" not in sql
+        assert "'100'" not in sql
+
+    def test_unknown_operator_raises_value_error(self):
+        """Filter with unrecognized operator raises ValueError (C4 fix)."""
+        compiler = get_compiler()
+        nodes, edges = self._make_filter_pipeline("string", "invalid_op", "foo")
+        with pytest.raises(ValueError, match="Unsupported filter operator"):
+            compiler.compile(nodes, edges)
+
+    def test_no_schema_falls_back_to_string(self):
+        """When input_schema is None, _apply_filter falls back to string literals."""
+        from sqlglot import exp
+
+        base_expr = (
+            exp.Select()
+            .select(exp.Column(this=exp.to_identifier("price")))
+            .from_(exp.Table(this=exp.to_identifier("fct_trades")))
+        )
+        config = {"column": "price", "operator": ">", "value": "100"}
+        # Call _apply_filter without schema — should produce string literal
+        result = WorkflowCompiler._apply_filter(base_expr, config, input_schema=None)
+        sql = result.sql(dialect="clickhouse")
+        # Fallback to string: value should be quoted
+        assert "'100'" in sql

@@ -18,6 +18,7 @@ import structlog
 from sqlglot import exp
 
 from app.core.metrics import query_compilation_duration_seconds
+from app.schemas.schema import ColumnSchema
 from app.services.formula_parser import FormulaParser
 from app.services.schema_engine import SchemaEngine
 
@@ -66,13 +67,13 @@ class WorkflowCompiler:
         start = time.perf_counter()
 
         # Step 1: Validate schemas through the DAG
-        self._schema_engine.validate_dag(nodes, edges)
+        schema_map = self._schema_engine.validate_dag(nodes, edges)
 
         # Step 2: Topological sort
         sorted_ids = self._topological_sort(nodes, edges)
 
         # Step 3: Build expression trees and merge
-        segments = self._build_and_merge(sorted_ids, nodes, edges)
+        segments = self._build_and_merge(sorted_ids, nodes, edges, schema_map)
 
         # Step 4: Apply LIMIT clauses based on output node config
         segments = self._apply_limits(segments, nodes, edges)
@@ -139,6 +140,7 @@ class WorkflowCompiler:
         sorted_ids: list[str],
         nodes: list[dict],
         edges: list[dict],
+        schema_map: dict[str, list[ColumnSchema]] | None = None,
     ) -> list[CompiledSegment]:
         """Build SQLGlot expression trees and merge adjacent compatible nodes.
 
@@ -230,7 +232,13 @@ class WorkflowCompiler:
                 parent_source_ids = source_ids_map[parent_id]
 
                 if node_type == "filter":
-                    expression = self._apply_filter(expression, config)
+                    # Look up parent's output schema for typed literals
+                    filter_input_schema = (
+                        schema_map.get(parent_id) if schema_map else None
+                    )
+                    expression = self._apply_filter(
+                        expression, config, filter_input_schema
+                    )
                 elif node_type == "select":
                     expression = self._apply_select(expression, config)
                 elif node_type == "sort":
@@ -410,7 +418,30 @@ class WorkflowCompiler:
         return ("clickhouse", "clickhouse")
 
     @staticmethod
-    def _apply_filter(expression: exp.Expression, config: dict) -> exp.Expression:
+    def _make_literal(value: str, dtype: str) -> exp.Expression:
+        """Build a typed SQLGlot literal based on column dtype."""
+        if dtype in ("int64", "int32", "uint64", "uint32"):
+            try:
+                return exp.Literal.number(int(value))
+            except (ValueError, TypeError):
+                return exp.Literal.string(str(value))
+        elif dtype in ("float64", "float32"):
+            try:
+                return exp.Literal.number(float(value))
+            except (ValueError, TypeError):
+                return exp.Literal.string(str(value))
+        elif dtype in ("bool", "boolean"):
+            return exp.Boolean(this=value in ("true", "True", "1", True))
+        else:
+            # string, object, datetime, and any unknown dtype → string literal
+            return exp.Literal.string(str(value))
+
+    @staticmethod
+    def _apply_filter(
+        expression: exp.Expression,
+        config: dict,
+        input_schema: list[ColumnSchema] | None = None,
+    ) -> exp.Expression:
         """Merge a WHERE clause into the expression based on filter config."""
         column = config.get("column")
         operator = config.get("operator", "=")
@@ -420,6 +451,14 @@ class WorkflowCompiler:
             return expression
 
         col_expr = exp.Column(this=exp.to_identifier(column))
+
+        # Look up column dtype from input schema
+        dtype = "string"
+        if input_schema:
+            for col in input_schema:
+                if col.name == column:
+                    dtype = col.dtype
+                    break
 
         # Normalize datetime values for ClickHouse compatibility
         if operator in ("before", "after", "between", ">", "<", ">=", "<="):
@@ -431,7 +470,7 @@ class WorkflowCompiler:
                     for v in value
                 ]
 
-        val_expr = exp.Literal.string(str(value))
+        val_expr = WorkflowCompiler._make_literal(str(value), dtype)
 
         condition: exp.Expression
         if operator == "=":
@@ -472,19 +511,21 @@ class WorkflowCompiler:
             else:
                 return expression
             if len(parts) == 2:
+                low_expr = WorkflowCompiler._make_literal(
+                    WorkflowCompiler._normalize_datetime(parts[0]), dtype
+                )
+                high_expr = WorkflowCompiler._make_literal(
+                    WorkflowCompiler._normalize_datetime(parts[1]), dtype
+                )
                 condition = exp.Between(
                     this=col_expr,
-                    low=exp.Literal.string(
-                        WorkflowCompiler._normalize_datetime(parts[0])
-                    ),
-                    high=exp.Literal.string(
-                        WorkflowCompiler._normalize_datetime(parts[1])
-                    ),
+                    low=low_expr,
+                    high=high_expr,
                 )
             else:
                 return expression
         else:
-            condition = exp.EQ(this=col_expr, expression=val_expr)
+            raise ValueError(f"Unsupported filter operator: {operator!r}")
 
         return expression.where(condition)  # type: ignore[attr-defined, no-any-return]
 
