@@ -123,9 +123,12 @@ class MaterializeClient:
             await self._pool.release(conn)
 
     async def ping(self) -> bool:
-        """Health check."""
+        """Health check — uses pool if available, fast-fails otherwise."""
+        if self._pool is None:
+            return False
         try:
-            await self.execute("SELECT 1")
+            async with self._pool.acquire() as conn:
+                await conn.fetchval("SELECT 1")
             return True
         except Exception as exc:
             if settings.app_env == "development":
