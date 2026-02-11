@@ -25,12 +25,11 @@ to start the application when dev defaults are detected outside the
 ```python
 @model_validator(mode="after")
 def _validate_production_settings(self) -> "Settings":
-    if self.app_env != "development":
-        if self.secret_key == "dev-secret-change-in-prod":
-            raise ValueError(
-                f"SECRET_KEY must be set when APP_ENV={self.app_env!r}. "
-                "The default dev secret is not allowed outside development."
-            )
+    if self.app_env != "development" and self.secret_key == "dev-secret-change-in-prod":
+        raise ValueError(
+            f"SECRET_KEY must be set when APP_ENV={self.app_env!r}. "
+            "The default dev secret is not allowed outside development."
+        )
     return self
 ```
 

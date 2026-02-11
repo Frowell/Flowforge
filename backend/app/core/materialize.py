@@ -96,7 +96,9 @@ class MaterializeClient:
 
     # Strict pattern for Materialize view identifiers: schema.name or just name
     # Only alphanumeric, underscores, and a single dot separator allowed.
-    _VALID_VIEW_NAME = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$")
+    _VALID_VIEW_NAME = re.compile(
+        r"^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$"
+    )
 
     async def subscribe(
         self, view_name: str, *, snapshot: bool = False

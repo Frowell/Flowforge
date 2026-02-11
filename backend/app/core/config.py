@@ -23,9 +23,8 @@ class Settings(BaseSettings):
 
         Prevents accidental deployment with auth bypass enabled.
         """
-        if self.app_env != "development":
-            if self.secret_key == "dev-secret-change-in-prod":
-                raise ValueError(
+        if self.app_env != "development" and self.secret_key == "dev-secret-change-in-prod":
+            raise ValueError(
                     f"SECRET_KEY must be set when APP_ENV={self.app_env!r}. "
                     "The default dev secret is not allowed outside development."
                 )
