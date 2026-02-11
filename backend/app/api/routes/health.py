@@ -46,7 +46,9 @@ async def _check_postgresql(db: AsyncSession) -> dict:
     """Check PostgreSQL connectivity."""
     try:
         start = time.monotonic()
-        await asyncio.wait_for(db.execute(text("SELECT 1")), timeout=_HEALTH_CHECK_TIMEOUT)
+        await asyncio.wait_for(
+            db.execute(text("SELECT 1")), timeout=_HEALTH_CHECK_TIMEOUT
+        )
         elapsed = time.monotonic() - start
         store_health_check_duration_seconds.labels(store="postgresql").observe(elapsed)
         store_health_status.labels(store="postgresql").set(1)
@@ -55,7 +57,9 @@ async def _check_postgresql(db: AsyncSession) -> dict:
         elapsed = time.monotonic() - start
         store_health_check_duration_seconds.labels(store="postgresql").observe(elapsed)
         store_health_status.labels(store="postgresql").set(0)
-        logger.warning("readiness_check_failed", dependency="postgresql", error=str(exc))
+        logger.warning(
+            "readiness_check_failed", dependency="postgresql", error=str(exc)
+        )
         return {"status": "error", "detail": str(exc), "_healthy": False}
 
 
@@ -107,7 +111,9 @@ async def _check_materialize(mz_client: MaterializeClient) -> dict:
         elapsed = time.monotonic() - start
         store_health_check_duration_seconds.labels(store="materialize").observe(elapsed)
         store_health_status.labels(store="materialize").set(0)
-        logger.info("readiness_check_degraded", dependency="materialize", error=str(exc))
+        logger.info(
+            "readiness_check_degraded", dependency="materialize", error=str(exc)
+        )
         return {"status": "degraded", "detail": str(exc), "_healthy": True}
 
 
@@ -153,7 +159,7 @@ async def readiness(
     checks: dict[str, dict] = {}
     healthy = True
 
-    for name, result in zip(names, results):
+    for name, result in zip(names, results, strict=True):
         if not result.pop("_healthy", True):
             healthy = False
         checks[name] = result
