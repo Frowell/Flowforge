@@ -3,7 +3,7 @@
 All config is sourced from environment variables. Never use os.getenv() directly.
 """
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -16,6 +16,21 @@ class Settings(BaseSettings):
 
     app_env: str = "development"
     secret_key: str = "dev-secret-change-in-prod"
+
+    @model_validator(mode="after")
+    def _validate_production_settings(self) -> "Settings":
+        """Refuse to start with dev defaults in non-development environments.
+
+        Prevents accidental deployment with auth bypass enabled.
+        """
+        is_prod = self.app_env != "development"
+        has_dev_secret = self.secret_key == "dev-secret-change-in-prod"
+        if is_prod and has_dev_secret:
+            raise ValueError(
+                f"SECRET_KEY must be set when APP_ENV={self.app_env!r}. "
+                "The default dev secret is not allowed outside development."
+            )
+        return self
 
     # PostgreSQL — app metadata only (workflows, dashboards, widgets, users)
     database_url: str = "postgresql+asyncpg://flowforge:flowforge@db:5432/flowforge"
