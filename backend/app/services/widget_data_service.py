@@ -134,6 +134,7 @@ class WidgetDataService:
         final = segments[-1]
         dialect = final.dialect or "clickhouse"
         inner = sqlglot.parse_one(final.sql, dialect=dialect)
+        assert isinstance(inner, sqlglot.exp.Select)
         wrapped = (
             sqlglot.select("*")
             .from_(inner.subquery("widget_q"))

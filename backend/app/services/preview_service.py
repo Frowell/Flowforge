@@ -179,6 +179,7 @@ class PreviewService:
         """
         dialect = segment.dialect or "clickhouse"
         inner = sqlglot.parse_one(segment.sql, dialect=dialect)
+        assert isinstance(inner, sqlglot.exp.Select)
         wrapped = (
             sqlglot.select("*")
             .from_(inner.subquery("preview"))
