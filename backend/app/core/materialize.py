@@ -46,8 +46,8 @@ class MaterializeClient:
                 database=self.database,
                 user=self.user,
                 password=self.password,
-                min_size=settings.materialize_pool_min_size,
-                max_size=settings.materialize_pool_max_size,
+                min_size=settings.materialize.materialize_pool_min_size,
+                max_size=settings.materialize.materialize_pool_max_size,
             )
             logger.info("materialize_pool_created")
         except Exception as exc:
@@ -154,9 +154,9 @@ class MaterializeClient:
 
 def get_materialize_client() -> MaterializeClient:
     return MaterializeClient(
-        host=settings.materialize_host,
-        port=settings.materialize_port,
-        database=settings.materialize_database,
-        user=settings.materialize_user,
-        password=settings.materialize_password,
+        host=settings.materialize.materialize_host,
+        port=settings.materialize.materialize_port,
+        database=settings.materialize.materialize_database,
+        user=settings.materialize.materialize_user,
+        password=settings.materialize.materialize_password,
     )

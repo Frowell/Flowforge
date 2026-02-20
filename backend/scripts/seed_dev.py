@@ -76,8 +76,8 @@ def seed_clickhouse_data() -> bool:
 
     try:
         client = clickhouse_connect.get_client(
-            host=settings.clickhouse_host,
-            port=settings.clickhouse_port,
+            host=settings.clickhouse.clickhouse_host,
+            port=settings.clickhouse.clickhouse_port,
         )
         client.query("SELECT 1")
     except Exception as exc:

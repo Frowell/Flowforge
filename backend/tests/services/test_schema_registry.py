@@ -155,7 +155,11 @@ class TestDiscoverClickHouse:
         )
 
         with patch("app.services.schema_registry.settings") as mock_settings:
-            mock_settings.clickhouse_databases = ["flowforge", "metrics", "marts"]
+            mock_settings.clickhouse.clickhouse_databases = [
+                "flowforge",
+                "metrics",
+                "marts",
+            ]
             tables = await registry._discover_clickhouse()
 
         assert len(tables) == 4
@@ -186,7 +190,7 @@ class TestDiscoverClickHouse:
         )
 
         with patch("app.services.schema_registry.settings") as mock_settings:
-            mock_settings.clickhouse_databases = ["test_db"]
+            mock_settings.clickhouse.clickhouse_databases = ["test_db"]
             tables = await registry._discover_clickhouse()
 
         assert len(tables) == 1
@@ -210,7 +214,7 @@ class TestDiscoverClickHouse:
         )
 
         with patch("app.services.schema_registry.settings") as mock_settings:
-            mock_settings.clickhouse_databases = ["empty_db"]
+            mock_settings.clickhouse.clickhouse_databases = ["empty_db"]
             tables = await registry._discover_clickhouse()
 
         assert tables == []
@@ -464,7 +468,7 @@ class TestFallbackBehavior:
         )
 
         with patch("app.services.schema_registry.settings") as mock_settings:
-            mock_settings.clickhouse_databases = ["flowforge"]
+            mock_settings.clickhouse.clickhouse_databases = ["flowforge"]
             result = await registry._discover()
 
         sources = {t.source for t in result.tables}
