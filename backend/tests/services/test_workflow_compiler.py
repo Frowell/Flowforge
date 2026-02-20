@@ -2,6 +2,7 @@
 
 import pytest
 import sqlglot
+from sqlglot import exp
 
 from app.services.schema_engine import SchemaEngine
 from app.services.workflow_compiler import WorkflowCompiler
@@ -781,8 +782,9 @@ class TestPhase2NodeTypes:
             {"source": "right", "target": "jn"},
             {"source": "jn", "target": "out"},
         ]
+        schema_map = compiler._schema_engine.validate_dag(nodes, edges)
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            compiler._topological_sort(nodes, edges), nodes, edges, schema_map
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -833,8 +835,9 @@ class TestPhase2NodeTypes:
             {"source": "right", "target": "jn"},
             {"source": "jn", "target": "out"},
         ]
+        schema_map = compiler._schema_engine.validate_dag(nodes, edges)
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            compiler._topological_sort(nodes, edges), nodes, edges, schema_map
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -1036,8 +1039,9 @@ class TestPhase2NodeTypes:
             {"source": "jn", "target": "grp"},
             {"source": "grp", "target": "out"},
         ]
+        schema_map = compiler._schema_engine.validate_dag(nodes, edges)
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            compiler._topological_sort(nodes, edges), nodes, edges, schema_map
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -1121,8 +1125,9 @@ class TestMultiSourceDAG:
             {"source": "flt", "target": "srt"},
             {"source": "srt", "target": "out"},
         ]
+        schema_map = compiler._schema_engine.validate_dag(nodes, edges)
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            compiler._topological_sort(nodes, edges), nodes, edges, schema_map
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -1208,8 +1213,9 @@ class TestMultiSourceDAG:
             {"source": "accounts", "target": "jn2"},
             {"source": "jn2", "target": "out"},
         ]
+        schema_map = compiler._schema_engine.validate_dag(nodes, edges)
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            compiler._topological_sort(nodes, edges), nodes, edges, schema_map
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -1275,8 +1281,9 @@ class TestMultiSourceDAG:
             {"source": "un", "target": "grp"},
             {"source": "grp", "target": "out"},
         ]
+        schema_map = compiler._schema_engine.validate_dag(nodes, edges)
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            compiler._topological_sort(nodes, edges), nodes, edges, schema_map
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -1340,8 +1347,9 @@ class TestMultiSourceDAG:
             {"source": "filter_sell", "target": "jn"},
             {"source": "jn", "target": "out"},
         ]
+        schema_map = compiler._schema_engine.validate_dag(nodes, edges)
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            compiler._topological_sort(nodes, edges), nodes, edges, schema_map
         )
         # Diamond topology should produce a valid query
         assert len(segments) == 1
@@ -1412,8 +1420,9 @@ class TestMultiSourceDAG:
             {"source": "jn", "target": "frm"},
             {"source": "frm", "target": "out"},
         ]
+        schema_map = compiler._schema_engine.validate_dag(nodes, edges)
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            compiler._topological_sort(nodes, edges), nodes, edges, schema_map
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -1841,8 +1850,9 @@ class TestJoinUnionTargetPropagation:
             {"source": "right", "target": "jn"},
             {"source": "jn", "target": "out"},
         ]
+        schema_map = compiler._schema_engine.validate_dag(nodes, edges)
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            compiler._topological_sort(nodes, edges), nodes, edges, schema_map
         )
         assert len(segments) == 1
         assert segments[0].target == "materialize"
@@ -1880,8 +1890,9 @@ class TestJoinUnionTargetPropagation:
             {"source": "b", "target": "un"},
             {"source": "un", "target": "out"},
         ]
+        schema_map = compiler._schema_engine.validate_dag(nodes, edges)
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            compiler._topological_sort(nodes, edges), nodes, edges, schema_map
         )
         assert len(segments) == 1
         assert segments[0].target == "materialize"
@@ -1929,9 +1940,10 @@ class TestJoinUnionTargetPropagation:
             {"source": "right", "target": "jn"},
             {"source": "jn", "target": "out"},
         ]
+        schema_map = compiler._schema_engine.validate_dag(nodes, edges)
         with pytest.raises(ValueError, match="Cannot join across backing stores"):
             compiler._build_and_merge(
-                compiler._topological_sort(nodes, edges), nodes, edges
+                compiler._topological_sort(nodes, edges), nodes, edges, schema_map
             )
 
     def test_compile_union_mixed_targets_raises(self):
@@ -1966,7 +1978,319 @@ class TestJoinUnionTargetPropagation:
             {"source": "b", "target": "un"},
             {"source": "un", "target": "out"},
         ]
+        schema_map = compiler._schema_engine.validate_dag(nodes, edges)
         with pytest.raises(ValueError, match="Cannot union across backing stores"):
             compiler._build_and_merge(
-                compiler._topological_sort(nodes, edges), nodes, edges
+                compiler._topological_sort(nodes, edges), nodes, edges, schema_map
             )
+
+
+class TestJoinSchemaAgreement:
+    """H6 fix: compiled SQL column count must match schema engine output."""
+
+    def test_join_column_count_matches_schema_engine(self):
+        """left=[symbol, price] + right=[symbol, sector] → 3 columns (not 4)."""
+        compiler = get_compiler()
+        nodes = [
+            {
+                "id": "left",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "price", "dtype": "float64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "right",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "dim_instruments",
+                        "columns": [
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "sector", "dtype": "string"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "jn",
+                "type": "join",
+                "data": {
+                    "config": {
+                        "join_type": "inner",
+                        "left_key": "symbol",
+                        "right_key": "symbol",
+                    }
+                },
+            },
+            {"id": "out", "type": "table_output", "data": {"config": {}}},
+        ]
+        edges = [
+            {"source": "left", "target": "jn"},
+            {"source": "right", "target": "jn"},
+            {"source": "jn", "target": "out"},
+        ]
+        segments = compiler.compile(nodes, edges)
+        assert len(segments) == 1
+        parsed = sqlglot.parse_one(segments[0].sql, read=segments[0].dialect)
+        select_exprs = parsed.find(exp.Select).expressions
+        # Schema engine: [symbol, price, sector] = 3 columns
+        assert len(select_exprs) == 3
+
+    def test_join_no_overlapping_columns_all_included(self):
+        """left=[trade_id,symbol,price] + right=[symbol,sector,exchange] → 5."""
+        compiler = get_compiler()
+        nodes = [
+            {
+                "id": "left",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [
+                            {"name": "trade_id", "dtype": "string"},
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "price", "dtype": "float64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "right",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "dim_instruments",
+                        "columns": [
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "sector", "dtype": "string"},
+                            {"name": "exchange", "dtype": "string"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "jn",
+                "type": "join",
+                "data": {
+                    "config": {
+                        "join_type": "inner",
+                        "left_key": "symbol",
+                        "right_key": "symbol",
+                    }
+                },
+            },
+            {"id": "out", "type": "table_output", "data": {"config": {}}},
+        ]
+        edges = [
+            {"source": "left", "target": "jn"},
+            {"source": "right", "target": "jn"},
+            {"source": "jn", "target": "out"},
+        ]
+        segments = compiler.compile(nodes, edges)
+        assert len(segments) == 1
+        parsed = sqlglot.parse_one(segments[0].sql, read=segments[0].dialect)
+        select_exprs = parsed.find(exp.Select).expressions
+        # left: trade_id, symbol, price; right adds: sector, exchange (symbol deduped)
+        assert len(select_exprs) == 5
+
+    def test_join_different_key_names_all_columns_included(self):
+        """left=[instrument_id, price] + right=[id, sector] (no overlap) → 4 cols."""
+        compiler = get_compiler()
+        nodes = [
+            {
+                "id": "left",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [
+                            {"name": "instrument_id", "dtype": "string"},
+                            {"name": "price", "dtype": "float64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "right",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "dim_instruments",
+                        "columns": [
+                            {"name": "id", "dtype": "string"},
+                            {"name": "sector", "dtype": "string"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "jn",
+                "type": "join",
+                "data": {
+                    "config": {
+                        "join_type": "inner",
+                        "left_key": "instrument_id",
+                        "right_key": "id",
+                    }
+                },
+            },
+            {"id": "out", "type": "table_output", "data": {"config": {}}},
+        ]
+        edges = [
+            {"source": "left", "target": "jn"},
+            {"source": "right", "target": "jn"},
+            {"source": "jn", "target": "out"},
+        ]
+        segments = compiler.compile(nodes, edges)
+        assert len(segments) == 1
+        parsed = sqlglot.parse_one(segments[0].sql, read=segments[0].dialect)
+        select_exprs = parsed.find(exp.Select).expressions
+        # No overlapping names → all 4 columns included
+        assert len(select_exprs) == 4
+
+    def test_chained_join_column_count_matches_schema(self):
+        """A JOIN B → JOIN C → outer SELECT has correct deduped count."""
+        compiler = get_compiler()
+        nodes = [
+            {
+                "id": "trades",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "account_id", "dtype": "string"},
+                            {"name": "price", "dtype": "float64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "instruments",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "dim_instruments",
+                        "columns": [
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "sector", "dtype": "string"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "accounts",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "dim_accounts",
+                        "columns": [
+                            {"name": "account_id", "dtype": "string"},
+                            {"name": "account_name", "dtype": "string"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "jn1",
+                "type": "join",
+                "data": {
+                    "config": {
+                        "join_type": "inner",
+                        "left_key": "symbol",
+                        "right_key": "symbol",
+                    }
+                },
+            },
+            {
+                "id": "jn2",
+                "type": "join",
+                "data": {
+                    "config": {
+                        "join_type": "left",
+                        "left_key": "account_id",
+                        "right_key": "account_id",
+                    }
+                },
+            },
+            {"id": "out", "type": "table_output", "data": {"config": {}}},
+        ]
+        edges = [
+            {"source": "trades", "target": "jn1"},
+            {"source": "instruments", "target": "jn1"},
+            {"source": "jn1", "target": "jn2"},
+            {"source": "accounts", "target": "jn2"},
+            {"source": "jn2", "target": "out"},
+        ]
+        segments = compiler.compile(nodes, edges)
+        assert len(segments) == 1
+        parsed = sqlglot.parse_one(segments[0].sql, read=segments[0].dialect)
+        # Find outermost SELECT
+        select_exprs = parsed.find(exp.Select).expressions
+        # jn1: trades(symbol, account_id, price) + instruments(sector) = 4
+        # jn2: jn1(symbol, account_id, price, sector) + accounts(account_name) = 5
+        assert len(select_exprs) == 5
+
+    def test_join_sql_no_star(self):
+        """Regression guard: join SELECT must not contain Star() node."""
+        compiler = get_compiler()
+        nodes = [
+            {
+                "id": "left",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "price", "dtype": "float64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "right",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "dim_instruments",
+                        "columns": [
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "sector", "dtype": "string"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "jn",
+                "type": "join",
+                "data": {
+                    "config": {
+                        "join_type": "inner",
+                        "left_key": "symbol",
+                        "right_key": "symbol",
+                    }
+                },
+            },
+            {"id": "out", "type": "table_output", "data": {"config": {}}},
+        ]
+        edges = [
+            {"source": "left", "target": "jn"},
+            {"source": "right", "target": "jn"},
+            {"source": "jn", "target": "out"},
+        ]
+        segments = compiler.compile(nodes, edges)
+        assert len(segments) == 1
+        parsed = sqlglot.parse_one(segments[0].sql, read=segments[0].dialect)
+        # The outermost SELECT must not use Star (SELECT *)
+        select_node = parsed.find(exp.Select)
+        star_nodes = [e for e in select_node.expressions if isinstance(e, exp.Star)]
+        assert len(star_nodes) == 0
