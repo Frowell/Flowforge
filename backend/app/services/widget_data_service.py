@@ -7,19 +7,16 @@ Same caching pattern as PreviewService but tailored for widgets:
 - Content-addressed keys automatically deduplicate across widgets sharing upstream nodes
 """
 
-import hashlib
-import json
 import logging
 import time
 from uuid import UUID
 
-import sqlglot
 from redis.asyncio import Redis
 
 from app.core.config import settings
-from app.core.metrics import cache_operation_duration_seconds, cache_operations_total
+from app.services.base_query_service import BaseQueryService
 from app.services.query_router import QueryRouter
-from app.services.workflow_compiler import CompiledSegment, WorkflowCompiler
+from app.services.workflow_compiler import WorkflowCompiler
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +28,7 @@ WIDGET_MAX_MEMORY = 500_000_000  # 500 MB (preview uses 100 MB)
 WIDGET_MAX_ROWS_TO_READ = 50_000_000  # 50M rows (preview uses 10M)
 
 
-class WidgetDataService:
+class WidgetDataService(BaseQueryService):
     """Fetches widget data with content-addressed Redis caching."""
 
     def __init__(
@@ -40,9 +37,9 @@ class WidgetDataService:
         query_router: QueryRouter,
         redis: Redis,
     ):
+        super().__init__(redis=redis, cache_key_prefix=CACHE_KEY_PREFIX)
         self._compiler = compiler
         self._query_router = query_router
-        self._redis = redis
 
     async def fetch_widget_data(
         self,
@@ -114,7 +111,7 @@ class WidgetDataService:
         )
 
         # Cache check
-        cached = await self._cache_get(cache_key)
+        cached = await self._cache_get(cache_key, cache_type="widget")
         if cached is not None:
             cached["cache_hit"] = True
             return cached
@@ -137,34 +134,17 @@ class WidgetDataService:
 
         # Apply offset/limit to the final segment via SQLGlot (no f-string SQL)
         final = segments[-1]
-        dialect = final.dialect or "clickhouse"
-        inner = sqlglot.parse_one(final.sql, dialect=dialect)
-        assert isinstance(inner, sqlglot.exp.Select)
-        wrapped = (
-            sqlglot.select("*")
-            .from_(inner.subquery("widget_q"))
-            .limit(int(limit))
-            .offset(int(offset))
-        )
-        constrained_sql = wrapped.sql(dialect=dialect)
-
-        # ClickHouse SETTINGS — module-level int constants, safe to append
-        if final.target == "clickhouse":
-            constrained_sql += (
-                f" SETTINGS max_execution_time={int(WIDGET_MAX_EXECUTION_TIME)}"
-                f", max_memory_usage={int(WIDGET_MAX_MEMORY)}"
-                f", max_rows_to_read={int(WIDGET_MAX_ROWS_TO_READ)}"
-            )
-
         constrained_segments = segments[:-1] + [
-            CompiledSegment(
-                sql=constrained_sql,
-                dialect=final.dialect,
-                target=final.target,
-                source_node_ids=final.source_node_ids,
-                params=final.params,
+            self._wrap_with_limit_offset(
+                final,
                 limit=limit,
                 offset=offset,
+                subquery_alias="widget_q",
+                clickhouse_settings={
+                    "max_execution_time": WIDGET_MAX_EXECUTION_TIME,
+                    "max_memory_usage": WIDGET_MAX_MEMORY,
+                    "max_rows_to_read": WIDGET_MAX_ROWS_TO_READ,
+                },
             )
         ]
 
@@ -172,7 +152,8 @@ class WidgetDataService:
         elapsed_ms = (time.monotonic() - start) * 1000
 
         last_result = results[-1]
-        columns = [{"name": col, "dtype": "String"} for col in last_result.columns]
+        # M8 fix: Use actual column types instead of hardcoded "String"
+        columns = self._build_columns_with_types(last_result.columns)
         response = {
             "columns": columns,
             "rows": last_result.rows[:limit],
@@ -186,7 +167,7 @@ class WidgetDataService:
 
         # Determine TTL from final segment's target
         ttl = self._ttl_for_target(final.target)
-        await self._cache_set(cache_key, response, ttl)
+        await self._cache_set(cache_key, response, ttl, cache_type="widget")
 
         return response
 
@@ -222,66 +203,20 @@ class WidgetDataService:
             key=lambda e: (e["source"], e["target"]),
         )
 
-        payload = json.dumps(
-            {
-                "tenant_id": str(tenant_id),
-                "target": target_node_id,
-                "nodes": stable_nodes,
-                "edges": stable_edges,
-                "config_overrides": config_overrides,
-                "filter_params": filter_params,
-                "offset": offset,
-                "limit": limit,
-            },
-            sort_keys=True,
-        )
-        digest = hashlib.sha256(payload.encode()).hexdigest()[:16]
-        return f"{CACHE_KEY_PREFIX}{digest}"
+        payload = {
+            "tenant_id": str(tenant_id),
+            "target": target_node_id,
+            "nodes": stable_nodes,
+            "edges": stable_edges,
+            "config_overrides": config_overrides,
+            "filter_params": filter_params,
+            "offset": offset,
+            "limit": limit,
+        }
+        return self._compute_cache_key_hash(payload)
 
     def _ttl_for_target(self, target: str) -> int:
         """Return cache TTL based on the backing store."""
         if target == "materialize":
-            return settings.widget_cache_ttl_materialize
-        return settings.widget_cache_ttl_clickhouse
-
-    async def _cache_get(self, key: str) -> dict | None:
-        """Read from Redis cache. Returns None on miss or error (fail-open)."""
-        try:
-            start = time.monotonic()
-            raw = await self._redis.get(key)
-            elapsed = time.monotonic() - start
-            cache_operation_duration_seconds.labels(
-                cache_type="widget", operation="get"
-            ).observe(elapsed)
-            if raw is not None:
-                cache_operations_total.labels(
-                    cache_type="widget", operation="get", status="hit"
-                ).inc()
-                return json.loads(raw)
-            cache_operations_total.labels(
-                cache_type="widget", operation="get", status="miss"
-            ).inc()
-        except Exception:
-            cache_operations_total.labels(
-                cache_type="widget", operation="get", status="error"
-            ).inc()
-            logger.warning("Widget cache read failed for key %s", key, exc_info=True)
-        return None
-
-    async def _cache_set(self, key: str, value: dict, ttl: int) -> None:
-        """Write to Redis cache with TTL. Errors logged, not raised."""
-        try:
-            start = time.monotonic()
-            await self._redis.set(key, json.dumps(value), ex=ttl)
-            elapsed = time.monotonic() - start
-            cache_operation_duration_seconds.labels(
-                cache_type="widget", operation="set"
-            ).observe(elapsed)
-            cache_operations_total.labels(
-                cache_type="widget", operation="set", status="hit"
-            ).inc()
-        except Exception:
-            cache_operations_total.labels(
-                cache_type="widget", operation="set", status="error"
-            ).inc()
-            logger.warning("Widget cache write failed for key %s", key, exc_info=True)
+            return settings.preview.widget_cache_ttl_materialize
+        return settings.preview.widget_cache_ttl_clickhouse
