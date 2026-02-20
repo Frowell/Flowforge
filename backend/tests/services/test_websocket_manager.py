@@ -1,11 +1,12 @@
 """Tests for WebSocketManager — gauge consistency, stale cleanup, heartbeat."""
 
 import asyncio
+import contextlib
 import json
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import UUID, uuid4
+from unittest.mock import AsyncMock
+from uuid import uuid4
 
 import pytest
 
@@ -14,11 +15,11 @@ backend_path = Path(__file__).parent.parent.parent
 if str(backend_path) not in sys.path:
     sys.path.insert(0, str(backend_path))
 
-from fastapi import WebSocket
+from fastapi import WebSocket  # noqa: E402
 
 # Import metrics and manager directly (without app dependencies)
-from app.core.metrics import websocket_connections_active
-from app.services.websocket_manager import WebSocketManager
+from app.core.metrics import websocket_connections_active  # noqa: E402
+from app.services.websocket_manager import WebSocketManager  # noqa: E402
 
 
 @pytest.fixture
@@ -180,10 +181,8 @@ class TestHeartbeat:
         # Wait for at least 2 pings
         await asyncio.sleep(0.15)
         task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await task
-        except asyncio.CancelledError:
-            pass
 
         # Should have sent ping frames
         assert mock_websocket.send_json.call_count >= 2
@@ -204,10 +203,8 @@ class TestHeartbeat:
         task = asyncio.create_task(ws_manager._heartbeat_loop(interval=0.05))
         await asyncio.sleep(0.1)
         task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await task
-        except asyncio.CancelledError:
-            pass
 
         # Dead connection should be removed
         assert ws_dead not in ws_manager._ws_channels
@@ -223,10 +220,8 @@ class TestHeartbeat:
         task = asyncio.create_task(ws_manager._heartbeat_loop(interval=0.05))
         await asyncio.sleep(0.15)
         task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await task
-        except asyncio.CancelledError:
-            pass
 
         # Alive connection should still exist
         assert ws_alive in ws_manager._ws_channels
@@ -284,7 +279,7 @@ class TestChannelManagement:
     """Test channel subscription and unsubscription."""
 
     async def test_unsubscribe_removes_from_channel(self, ws_manager, mock_websocket):
-        """Unsubscribe should remove WebSocket from channel without decrementing gauge."""
+        """Unsubscribe removes WS from channel without decrementing gauge."""
         await ws_manager.connect(mock_websocket, "channel:1")
         await ws_manager.subscribe_to_channel(mock_websocket, "channel:2")
 
