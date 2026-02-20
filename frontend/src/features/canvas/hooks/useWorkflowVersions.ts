@@ -5,9 +5,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/shared/query-engine/client";
 import type { WorkflowResponse, WorkflowVersionResponse } from "@/shared/query-engine/types";
-
-const WORKFLOWS_KEY = ["workflows"] as const;
-const VERSIONS_KEY = ["workflow-versions"] as const;
+import { WORKFLOWS_KEY, VERSIONS_KEY } from "./queryKeys";
 
 export function useWorkflowVersions(workflowId: string | undefined) {
   return useQuery({
