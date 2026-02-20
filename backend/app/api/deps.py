@@ -49,7 +49,7 @@ async def get_schema_registry(
         redis=redis,
         clickhouse=clickhouse,
         materialize=materialize,
-        cache_ttl=settings.schema_cache_ttl,
+        cache_ttl=settings.preview.schema_cache_ttl,
     )
 
 
