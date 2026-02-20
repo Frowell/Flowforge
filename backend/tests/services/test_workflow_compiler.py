@@ -1542,3 +1542,249 @@ class TestFilterTypedLiterals:
         sql = result.sql(dialect="clickhouse")
         # Fallback to string: value should be quoted
         assert "'100'" in sql
+
+
+class TestPivotCompilation:
+    """C1 fix: pivot node compiler rule."""
+
+    def test_pivot_produces_group_by_with_sum(self):
+        """Pivot with SUM aggregation produces GROUP BY + SUM."""
+        compiler = get_compiler()
+        nodes = [
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [
+                            {"name": "region", "dtype": "string"},
+                            {"name": "quarter", "dtype": "string"},
+                            {"name": "revenue", "dtype": "float64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "pvt",
+                "type": "pivot",
+                "data": {
+                    "config": {
+                        "row_columns": ["region"],
+                        "pivot_column": "quarter",
+                        "value_column": "revenue",
+                        "aggregation": "SUM",
+                    }
+                },
+            },
+            {"id": "out", "type": "table_output", "data": {"config": {}}},
+        ]
+        edges = [
+            {"source": "src", "target": "pvt"},
+            {"source": "pvt", "target": "out"},
+        ]
+        segments = compiler._build_and_merge(
+            compiler._topological_sort(nodes, edges), nodes, edges
+        )
+        assert len(segments) == 1
+        sql_upper = segments[0].sql.upper()
+        assert "GROUP BY" in sql_upper
+        assert "SUM" in sql_upper
+        assert "REGION" in sql_upper
+        assert "QUARTER" in sql_upper
+        sql_lower = segments[0].sql.lower()
+        assert "revenue_sum" in sql_lower
+
+    def test_pivot_with_avg_aggregation(self):
+        """Pivot with AVG aggregation works."""
+        compiler = get_compiler()
+        nodes = [
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [
+                            {"name": "region", "dtype": "string"},
+                            {"name": "quarter", "dtype": "string"},
+                            {"name": "revenue", "dtype": "float64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "pvt",
+                "type": "pivot",
+                "data": {
+                    "config": {
+                        "row_columns": ["region"],
+                        "pivot_column": "quarter",
+                        "value_column": "revenue",
+                        "aggregation": "AVG",
+                    }
+                },
+            },
+            {"id": "out", "type": "table_output", "data": {"config": {}}},
+        ]
+        edges = [
+            {"source": "src", "target": "pvt"},
+            {"source": "pvt", "target": "out"},
+        ]
+        segments = compiler._build_and_merge(
+            compiler._topological_sort(nodes, edges), nodes, edges
+        )
+        assert len(segments) == 1
+        sql_upper = segments[0].sql.upper()
+        assert "AVG" in sql_upper
+        sql_lower = segments[0].sql.lower()
+        assert "revenue_avg" in sql_lower
+
+    def test_pivot_with_multiple_row_columns(self):
+        """Pivot with two row_columns both appear in GROUP BY."""
+        compiler = get_compiler()
+        nodes = [
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [
+                            {"name": "region", "dtype": "string"},
+                            {"name": "sector", "dtype": "string"},
+                            {"name": "quarter", "dtype": "string"},
+                            {"name": "revenue", "dtype": "float64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "pvt",
+                "type": "pivot",
+                "data": {
+                    "config": {
+                        "row_columns": ["region", "sector"],
+                        "pivot_column": "quarter",
+                        "value_column": "revenue",
+                        "aggregation": "SUM",
+                    }
+                },
+            },
+            {"id": "out", "type": "table_output", "data": {"config": {}}},
+        ]
+        edges = [
+            {"source": "src", "target": "pvt"},
+            {"source": "pvt", "target": "out"},
+        ]
+        segments = compiler._build_and_merge(
+            compiler._topological_sort(nodes, edges), nodes, edges
+        )
+        assert len(segments) == 1
+        sql_upper = segments[0].sql.upper()
+        assert "GROUP BY" in sql_upper
+        assert "REGION" in sql_upper
+        assert "SECTOR" in sql_upper
+        assert "QUARTER" in sql_upper
+
+    def test_pivot_after_filter_merges(self):
+        """Source → Filter → Pivot produces subquery with WHERE + GROUP BY."""
+        compiler = get_compiler()
+        nodes = [
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [
+                            {"name": "region", "dtype": "string"},
+                            {"name": "quarter", "dtype": "string"},
+                            {"name": "revenue", "dtype": "float64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "flt",
+                "type": "filter",
+                "data": {
+                    "config": {
+                        "column": "region",
+                        "operator": "=",
+                        "value": "EMEA",
+                    }
+                },
+            },
+            {
+                "id": "pvt",
+                "type": "pivot",
+                "data": {
+                    "config": {
+                        "row_columns": ["region"],
+                        "pivot_column": "quarter",
+                        "value_column": "revenue",
+                        "aggregation": "SUM",
+                    }
+                },
+            },
+            {"id": "out", "type": "table_output", "data": {"config": {}}},
+        ]
+        edges = [
+            {"source": "src", "target": "flt"},
+            {"source": "flt", "target": "pvt"},
+            {"source": "pvt", "target": "out"},
+        ]
+        segments = compiler._build_and_merge(
+            compiler._topological_sort(nodes, edges), nodes, edges
+        )
+        # Filter merges into data_source, pivot wraps as subquery — one segment
+        assert len(segments) == 1
+        sql_upper = segments[0].sql.upper()
+        assert "WHERE" in sql_upper
+        assert "EMEA" in sql_upper
+        assert "GROUP BY" in sql_upper
+        assert "SUM" in sql_upper
+
+    def test_pivot_empty_row_columns_returns_parent(self):
+        """Pivot with no row_columns passes through parent unchanged."""
+        compiler = get_compiler()
+        nodes = [
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [
+                            {"name": "region", "dtype": "string"},
+                            {"name": "revenue", "dtype": "float64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "pvt",
+                "type": "pivot",
+                "data": {
+                    "config": {
+                        "row_columns": [],
+                        "pivot_column": "quarter",
+                        "value_column": "revenue",
+                        "aggregation": "SUM",
+                    }
+                },
+            },
+            {"id": "out", "type": "table_output", "data": {"config": {}}},
+        ]
+        edges = [
+            {"source": "src", "target": "pvt"},
+            {"source": "pvt", "target": "out"},
+        ]
+        segments = compiler._build_and_merge(
+            compiler._topological_sort(nodes, edges), nodes, edges
+        )
+        assert len(segments) == 1
+        sql_upper = segments[0].sql.upper()
+        # Should be the parent SELECT without GROUP BY since row_columns is empty
+        assert "GROUP BY" not in sql_upper

@@ -282,6 +282,24 @@ class WorkflowCompiler:
                     parent_ids[0], ("clickhouse", "clickhouse")
                 )
 
+            elif node_type == "pivot":
+                parent_ids = parents.get(node_id, [])
+                if not parent_ids:
+                    continue
+                parent_id = parent_ids[0]
+                if parent_id not in expr_map:
+                    continue
+
+                parent_expr = expr_map[parent_id]
+                expression = self._apply_pivot(parent_expr, config)
+                expr_map[node_id] = expression
+                source_ids_map[node_id] = source_ids_map[parent_id] + [node_id]
+                root_map[node_id] = node_id  # new segment root
+                has_group_by[node_id] = True
+                target_map[node_id] = target_map.get(
+                    parent_ids[0], ("clickhouse", "clickhouse")
+                )
+
             elif node_type == "join":
                 parent_ids = parents.get(node_id, [])
                 if len(parent_ids) < 2:
@@ -333,6 +351,11 @@ class WorkflowCompiler:
                     merged_into.add(parent_id)
             elif node_type == "group_by" and parent_ids:
                 # group_by consumes its parent expression
+                parent_id = parent_ids[0]
+                if parent_id in expr_map:
+                    merged_into.add(parent_id)
+            elif node_type == "pivot" and parent_ids:
+                # pivot consumes its parent expression
                 parent_id = parent_ids[0]
                 if parent_id in expr_map:
                     merged_into.add(parent_id)
@@ -648,6 +671,66 @@ class WorkflowCompiler:
 
         # Build GROUP BY clause
         group_exprs = [exp.Column(this=exp.to_identifier(c)) for c in group_columns]
+
+        query = (
+            exp.Select().select(*select_exprs).from_(subquery).group_by(*group_exprs)
+        )
+
+        return query
+
+    @staticmethod
+    def _apply_pivot(parent_expr: exp.Expression, config: dict) -> exp.Expression:
+        """Create a GROUP BY query for pivot, wrapping the parent as a subquery.
+
+        Config: {row_columns: [...], pivot_column: str, value_column: str,
+                 aggregation: "SUM"|"AVG"|"COUNT"|"MIN"|"MAX"}
+
+        Produces: SELECT row_columns, pivot_column, agg(value_column) AS value_agg
+                  FROM (_sub) GROUP BY row_columns, pivot_column
+
+        Full dynamic column explosion (one output column per distinct pivot value)
+        would require a two-pass approach; this produces the grouped intermediate
+        representation that matches the schema engine contract.
+        """
+        row_columns = config.get("row_columns", [])
+        pivot_column = config.get("pivot_column", "")
+        value_column = config.get("value_column", "")
+        aggregation = config.get("aggregation", "SUM").upper()
+
+        if not row_columns or not value_column:
+            return parent_expr
+
+        # Wrap parent as subquery
+        subquery = parent_expr.subquery(alias="_sub")  # type: ignore[attr-defined]
+
+        # Build SELECT: row_columns + pivot_column + aggregation
+        select_exprs: list[exp.Expression] = []
+        group_exprs: list[exp.Expression] = []
+
+        for col_name in row_columns:
+            col = exp.Column(this=exp.to_identifier(col_name))
+            select_exprs.append(col)
+            group_exprs.append(exp.Column(this=exp.to_identifier(col_name)))
+
+        if pivot_column:
+            pivot_col = exp.Column(this=exp.to_identifier(pivot_column))
+            select_exprs.append(pivot_col)
+            group_exprs.append(exp.Column(this=exp.to_identifier(pivot_column)))
+
+        # Aggregation on value_column
+        alias_name = f"{value_column}_{aggregation.lower()}"
+        col_ref = exp.Column(this=exp.to_identifier(value_column))
+
+        agg_class = AGG_FUNC_MAP.get(aggregation)
+        agg_expr: exp.Expression
+        if agg_class:
+            agg_expr = agg_class(this=col_ref)
+        else:
+            agg_expr = exp.Anonymous(this=aggregation, expressions=[col_ref])
+
+        select_exprs.append(
+            exp.Alias(this=agg_expr, alias=exp.to_identifier(alias_name))
+        )
 
         query = (
             exp.Select().select(*select_exprs).from_(subquery).group_by(*group_exprs)
