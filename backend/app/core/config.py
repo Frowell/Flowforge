@@ -3,8 +3,95 @@
 All config is sourced from environment variables. Never use os.getenv() directly.
 """
 
+import json
+
 from pydantic import field_validator, model_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class DatabaseSettings(BaseSettings):
+    """PostgreSQL configuration — app metadata only."""
+
+    model_config = SettingsConfigDict(env_prefix="")
+
+    database_url: str
+    database_url_sync: str
+
+    @field_validator("database_url", "database_url_sync")
+    @classmethod
+    def validate_database_url_not_empty(cls, v: str, info) -> str:
+        if not v or not v.strip():
+            raise ValueError(
+                f"{info.field_name.upper()} must be set via environment variable. "
+                "No default is provided for security reasons."
+            )
+        return v
+
+
+class ClickHouseSettings(BaseSettings):
+    """ClickHouse configuration — analytical queries (read-only)."""
+
+    model_config = SettingsConfigDict(env_prefix="")
+
+    clickhouse_host: str = "localhost"
+    clickhouse_port: int = 8123
+    clickhouse_database: str = "default"
+    clickhouse_user: str = "default"
+    clickhouse_password: str = ""
+    # Used by schema discovery to enumerate databases for catalog.
+    # Not used by workflow compiler — compiler uses table-level routing.
+    clickhouse_databases: list[str] = ["flowforge", "metrics"]
+
+
+class MaterializeSettings(BaseSettings):
+    """Materialize configuration — live data queries (read-only, PG wire protocol)."""
+
+    model_config = SettingsConfigDict(env_prefix="")
+
+    materialize_host: str = "localhost"
+    materialize_port: int = 6875
+    materialize_database: str = "materialize"
+    materialize_user: str = "materialize"
+    materialize_password: str = ""
+    materialize_subscribe_enabled: bool = True
+    materialize_pool_min_size: int = 2
+    materialize_pool_max_size: int = 10
+
+
+class RedisSettings(BaseSettings):
+    """Redis configuration — cache, pub/sub."""
+
+    model_config = SettingsConfigDict(env_prefix="")
+
+    redis_url: str = "redis://redis:6379/0"
+
+
+class AuthSettings(BaseSettings):
+    """Keycloak OIDC SSO authentication configuration."""
+
+    model_config = SettingsConfigDict(env_prefix="")
+
+    keycloak_url: str = "http://keycloak:8080"
+    keycloak_realm: str = "flowforge"
+    keycloak_client_id: str = "flowforge-app"
+    keycloak_client_secret: str = ""
+
+
+class PreviewSettings(BaseSettings):
+    """Query execution and preview settings."""
+
+    model_config = SettingsConfigDict(env_prefix="")
+
+    # Schema registry cache TTL (seconds)
+    schema_cache_ttl: int = 300
+
+    # Widget data cache TTLs (seconds)
+    widget_cache_ttl_clickhouse: int = 300  # 5 min for analytical queries
+    widget_cache_ttl_materialize: int = 30  # 30 sec for live data
+
+    # Query execution timeouts (seconds)
+    clickhouse_query_timeout: int = 30  # max execution time for ClickHouse queries
+    materialize_query_timeout: int = 10  # max execution time for Materialize queries
 
 
 class Settings(BaseSettings):
@@ -13,6 +100,8 @@ class Settings(BaseSettings):
     Environment variables are the single source of truth.
     Defaults are development-safe values only.
     """
+
+    model_config = SettingsConfigDict(env_file=".env")
 
     app_env: str = "development"
     secret_key: str = "dev-secret-change-in-prod"
@@ -32,49 +121,16 @@ class Settings(BaseSettings):
             )
         return self
 
-    # PostgreSQL — app metadata only (workflows, dashboards, widgets, users)
-    database_url: str = "postgresql+asyncpg://flowforge:flowforge@db:5432/flowforge"
-    database_url_sync: str = "postgresql://flowforge:flowforge@db:5432/flowforge"
-
-    # Redis — cache, pub/sub
-    redis_url: str = "redis://redis:6379/0"
-
-    # Keycloak — OIDC SSO authentication
-    keycloak_url: str = "http://keycloak:8080"
-    keycloak_realm: str = "flowforge"
-    keycloak_client_id: str = "flowforge-app"
-    keycloak_client_secret: str = ""
-
-    # ClickHouse — analytical queries (read-only)
-    clickhouse_host: str = "localhost"
-    clickhouse_port: int = 8123
-    clickhouse_database: str = "default"
-    clickhouse_user: str = "default"
-    clickhouse_password: str = ""
-    clickhouse_databases: list[str] = ["flowforge", "metrics"]
-
-    # Materialize — live data queries (read-only, PG wire protocol)
-    materialize_host: str = "localhost"
-    materialize_port: int = 6875
-    materialize_database: str = "materialize"
-    materialize_user: str = "materialize"
-    materialize_password: str = ""
-    materialize_subscribe_enabled: bool = True
-    materialize_pool_min_size: int = 2
-    materialize_pool_max_size: int = 10
-
-    # Redpanda (Kafka-compatible broker)
-    redpanda_brokers: str = "redpanda:29092"
+    # Nested settings groups
+    database: DatabaseSettings = DatabaseSettings()
+    clickhouse: ClickHouseSettings = ClickHouseSettings()
+    materialize: MaterializeSettings = MaterializeSettings()
+    redis: RedisSettings = RedisSettings()
+    auth: AuthSettings = AuthSettings()
+    preview: PreviewSettings = PreviewSettings()
 
     # CORS
     cors_origins: list[str] = ["http://localhost:5173"]
-
-    # Schema registry cache TTL (seconds)
-    schema_cache_ttl: int = 300
-
-    # Widget data cache TTLs (seconds)
-    widget_cache_ttl_clickhouse: int = 300  # 5 min for analytical queries
-    widget_cache_ttl_materialize: int = 30  # 30 sec for live data
 
     # Observability
     log_level: str = "INFO"
@@ -88,14 +144,14 @@ class Settings(BaseSettings):
     embed_rate_limit_default: int = 100  # requests per second per API key
     embed_rate_limit_window: int = 1  # window size in seconds
 
-    model_config = {"env_file": ".env"}
+    # Redis scan limits
+    redis_scan_limit: int = 1000  # max keys to process in SCAN_HASH operations
+    redis_pipeline_batch_size: int = 100  # batch size for pipelined HGETALL
 
     @field_validator("cors_origins", mode="before")
     @classmethod
     def parse_cors_origins(cls, v: str | list[str]) -> list[str]:
         if isinstance(v, str):
-            import json
-
             return json.loads(v)
         return v
 
