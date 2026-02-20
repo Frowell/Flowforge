@@ -25,6 +25,11 @@ logger = logging.getLogger(__name__)
 
 CACHE_KEY_PREFIX = "flowforge:widget:"
 
+# ClickHouse resource limits — higher than preview (widgets serve dashboards)
+WIDGET_MAX_EXECUTION_TIME = 30  # seconds (preview uses 3)
+WIDGET_MAX_MEMORY = 500_000_000  # 500 MB (preview uses 100 MB)
+WIDGET_MAX_ROWS_TO_READ = 50_000_000  # 50M rows (preview uses 10M)
+
 
 class WidgetDataService:
     """Fetches widget data with content-addressed Redis caching."""
@@ -142,6 +147,15 @@ class WidgetDataService:
             .offset(int(offset))
         )
         constrained_sql = wrapped.sql(dialect=dialect)
+
+        # ClickHouse SETTINGS — module-level int constants, safe to append
+        if final.target == "clickhouse":
+            constrained_sql += (
+                f" SETTINGS max_execution_time={int(WIDGET_MAX_EXECUTION_TIME)}"
+                f", max_memory_usage={int(WIDGET_MAX_MEMORY)}"
+                f", max_rows_to_read={int(WIDGET_MAX_ROWS_TO_READ)}"
+            )
+
         constrained_segments = segments[:-1] + [
             CompiledSegment(
                 sql=constrained_sql,

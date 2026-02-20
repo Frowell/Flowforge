@@ -223,3 +223,62 @@ async def test_redis_failure_fails_open():
     # Should still return data despite Redis being down
     assert result["cache_hit"] is False
     assert result["total_rows"] == 1
+
+
+@pytest.mark.asyncio
+async def test_clickhouse_queries_include_settings():
+    """ClickHouse-targeted queries must include SETTINGS for resource limits."""
+    svc = _make_service()
+
+    await svc.fetch_widget_data(
+        tenant_id=uuid4(),
+        source_node_id="node_1",
+        graph_json=_make_graph(),
+    )
+
+    # Inspect the SQL passed to query_router.execute_all
+    call_args = svc._query_router.execute_all.call_args
+    segments = call_args[0][0]
+    final_sql = segments[-1].sql
+
+    assert "SETTINGS" in final_sql
+    assert "max_execution_time=30" in final_sql
+    assert "max_memory_usage=500000000" in final_sql
+    assert "max_rows_to_read=50000000" in final_sql
+
+
+@pytest.mark.asyncio
+async def test_non_clickhouse_queries_skip_settings():
+    """Non-ClickHouse queries (e.g. Materialize) must NOT include SETTINGS."""
+    materialize_segments = [
+        CompiledSegment(
+            sql="SELECT * FROM live_positions",
+            dialect="postgres",
+            target="materialize",
+            source_node_ids=["node_1"],
+        )
+    ]
+    execute_results = [
+        QueryResult(
+            columns=["symbol", "qty"],
+            rows=[{"symbol": "AAPL", "qty": 100}],
+            total_rows=1,
+            source="materialize",
+        )
+    ]
+    svc = _make_service(
+        compile_segments=materialize_segments,
+        execute_results=execute_results,
+    )
+
+    await svc.fetch_widget_data(
+        tenant_id=uuid4(),
+        source_node_id="node_1",
+        graph_json=_make_graph(),
+    )
+
+    call_args = svc._query_router.execute_all.call_args
+    segments = call_args[0][0]
+    final_sql = segments[-1].sql
+
+    assert "SETTINGS" not in final_sql
