@@ -241,8 +241,8 @@ class WidgetDataService:
     def _ttl_for_target(self, target: str) -> int:
         """Return cache TTL based on the backing store."""
         if target == "materialize":
-            return settings.widget_cache_ttl_materialize
-        return settings.widget_cache_ttl_clickhouse
+            return settings.preview.widget_cache_ttl_materialize
+        return settings.preview.widget_cache_ttl_clickhouse
 
     async def _cache_get(self, key: str) -> dict | None:
         """Read from Redis cache. Returns None on miss or error (fail-open)."""

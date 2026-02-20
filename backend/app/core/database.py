@@ -19,7 +19,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from app.core.config import settings
 
 engine = create_async_engine(
-    settings.database_url,
+    settings.database.database_url,
     echo=settings.app_env == "development",
 )
 

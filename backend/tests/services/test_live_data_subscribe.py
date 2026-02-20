@@ -71,7 +71,7 @@ class TestSubscribeWidgetModeSelection:
         materialize_client,
     ):
         """When materialize is not available, subscribe_widget should use poll mode."""
-        mock_settings.materialize_subscribe_enabled = True
+        mock_settings.materialize.materialize_subscribe_enabled = True
         mock_create_task.return_value = _make_mock_task()
         svc = _make_service(ws_manager, widget_data_service, materialize_client)
         svc._running = True
@@ -102,7 +102,7 @@ class TestSubscribeWidgetModeSelection:
     ):
         """When materialize is available and view_name provided,
         should use subscribe mode."""
-        mock_settings.materialize_subscribe_enabled = True
+        mock_settings.materialize.materialize_subscribe_enabled = True
         mock_create_task.return_value = _make_mock_task()
         svc = _make_service(ws_manager, widget_data_service, materialize_client)
         svc._running = True
@@ -132,7 +132,7 @@ class TestSubscribeWidgetModeSelection:
         materialize_client,
     ):
         """Even with materialize available, no view_name means poll mode."""
-        mock_settings.materialize_subscribe_enabled = True
+        mock_settings.materialize.materialize_subscribe_enabled = True
         mock_create_task.return_value = _make_mock_task()
         svc = _make_service(ws_manager, widget_data_service, materialize_client)
         svc._running = True
@@ -164,7 +164,7 @@ class TestRefCounting:
         materialize_client,
     ):
         """Two widgets on same view share one ViewSubscription, ref_count = 2."""
-        mock_settings.materialize_subscribe_enabled = True
+        mock_settings.materialize.materialize_subscribe_enabled = True
         mock_create_task.return_value = _make_mock_task()
         svc = _make_service(ws_manager, widget_data_service, materialize_client)
         svc._running = True
@@ -194,7 +194,7 @@ class TestRefCounting:
         materialize_client,
     ):
         """Unsubscribing one widget decrements ref_count."""
-        mock_settings.materialize_subscribe_enabled = True
+        mock_settings.materialize.materialize_subscribe_enabled = True
         mock_create_task.return_value = _make_mock_task()
         svc = _make_service(ws_manager, widget_data_service, materialize_client)
         svc._running = True
@@ -227,7 +227,7 @@ class TestRefCounting:
     ):
         """When ref_count reaches 0, the view task is cancelled
         and view sub is removed."""
-        mock_settings.materialize_subscribe_enabled = True
+        mock_settings.materialize.materialize_subscribe_enabled = True
         mock_task = _make_mock_task()
         mock_create_task.return_value = mock_task
         svc = _make_service(ws_manager, widget_data_service, materialize_client)
@@ -262,7 +262,7 @@ class TestHealthCheckModeSwitching:
     ):
         """When materialize becomes available, poll-mode widgets
         with view_name switch to subscribe."""
-        mock_settings.materialize_subscribe_enabled = True
+        mock_settings.materialize.materialize_subscribe_enabled = True
         mock_create_task.return_value = _make_mock_task()
         svc = _make_service(ws_manager, widget_data_service, materialize_client)
         svc._running = True
@@ -294,7 +294,7 @@ class TestHealthCheckModeSwitching:
     ):
         """When materialize becomes unavailable,
         subscribe-mode widgets switch to poll."""
-        mock_settings.materialize_subscribe_enabled = True
+        mock_settings.materialize.materialize_subscribe_enabled = True
         mock_create_task.return_value = _make_mock_task()
         svc = _make_service(ws_manager, widget_data_service, materialize_client)
         svc._running = True
@@ -332,7 +332,7 @@ class TestStop:
         materialize_client,
     ):
         """stop() cancels all poll tasks, subscribe tasks, and health check task."""
-        mock_settings.materialize_subscribe_enabled = True
+        mock_settings.materialize.materialize_subscribe_enabled = True
 
         # Return distinct mock tasks for each create_task call
         poll_task = _make_mock_task()

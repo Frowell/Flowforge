@@ -9,7 +9,7 @@ import { useMemo } from "react";
 import { propagateSchemas } from "@/shared/schema/propagation";
 import type { ColumnSchema } from "@/shared/schema/types";
 import { useWorkflowStore } from "../stores/workflowStore";
-import type { WorkflowNode, WorkflowEdge } from "@/shared/schema/propagation";
+import type { WorkflowNode } from "@/shared/schema/propagation";
 
 /**
  * Returns a map of nodeId -> outputSchema for the current workflow graph.
@@ -19,24 +19,36 @@ export function useSchemaEngine(): Map<string, ColumnSchema[]> {
   const nodes = useWorkflowStore((s) => s.nodes);
   const edges = useWorkflowStore((s) => s.edges);
 
+  // Extract only structural properties — position changes don't affect schemas
+  const structuralNodes = useMemo(
+    () => nodes.map((n) => ({ id: n.id, type: n.type, config: n.data.config })),
+    [nodes],
+  );
+  const structuralEdges = useMemo(
+    () => edges.map((e) => ({ source: e.source, target: e.target })),
+    [edges],
+  );
+
+  // Stable key that only changes when structure changes, not on drag
+  const structureKey = useMemo(
+    () => JSON.stringify({ n: structuralNodes, e: structuralEdges }),
+    [structuralNodes, structuralEdges],
+  );
+
   return useMemo(() => {
     try {
-      const workflowNodes: WorkflowNode[] = nodes.map((n) => ({
+      const workflowNodes: WorkflowNode[] = structuralNodes.map((n) => ({
         id: n.id,
-        type: n.data.nodeType as WorkflowNode["type"],
-        data: { config: n.data.config },
+        type: n.type as WorkflowNode["type"],
+        data: { config: n.config },
       }));
 
-      const workflowEdges: WorkflowEdge[] = edges.map((e) => ({
-        source: e.source,
-        target: e.target,
-      }));
-
-      return propagateSchemas(workflowNodes, workflowEdges);
+      return propagateSchemas(workflowNodes, structuralEdges);
     } catch {
       return new Map();
     }
-  }, [nodes, edges]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [structureKey]);
 }
 
 /**

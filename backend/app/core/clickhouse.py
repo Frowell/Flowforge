@@ -124,9 +124,9 @@ class ClickHouseClient:
 
 def get_clickhouse_client() -> ClickHouseClient:
     return ClickHouseClient(
-        host=settings.clickhouse_host,
-        port=settings.clickhouse_port,
-        database=settings.clickhouse_database,
-        user=settings.clickhouse_user,
-        password=settings.clickhouse_password,
+        host=settings.clickhouse.clickhouse_host,
+        port=settings.clickhouse.clickhouse_port,
+        database=settings.clickhouse.clickhouse_database,
+        user=settings.clickhouse.clickhouse_user,
+        password=settings.clickhouse.clickhouse_password,
     )

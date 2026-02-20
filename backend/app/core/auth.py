@@ -20,13 +20,23 @@ from app.models.dashboard import APIKey
 
 logger = structlog.stdlib.get_logger(__name__)
 
-# Keycloak OIDC discovery endpoint
-_KEYCLOAK_REALM_URL = f"{settings.keycloak_url}/realms/{settings.keycloak_realm}"
-_JWKS_URL = f"{_KEYCLOAK_REALM_URL}/protocol/openid-connect/certs"
-_ISSUER = _KEYCLOAK_REALM_URL
-
 # Cached JWKS keys (refreshed on cache miss / key rotation)
 _jwks_cache: dict | None = None
+
+
+def _get_keycloak_realm_url() -> str:
+    """Get Keycloak realm URL (lazy-loaded)."""
+    return f"{settings.auth.keycloak_url}/realms/{settings.auth.keycloak_realm}"
+
+
+def _get_jwks_url() -> str:
+    """Get JWKS URL (lazy-loaded)."""
+    return f"{_get_keycloak_realm_url()}/protocol/openid-connect/certs"
+
+
+def _get_issuer() -> str:
+    """Get issuer URL (lazy-loaded)."""
+    return _get_keycloak_realm_url()
 
 
 async def _get_jwks() -> dict:
@@ -35,7 +45,7 @@ async def _get_jwks() -> dict:
     if _jwks_cache is not None:
         return _jwks_cache
     async with httpx.AsyncClient() as client:
-        resp = await client.get(_JWKS_URL)
+        resp = await client.get(_get_jwks_url())
         resp.raise_for_status()
         _jwks_cache = resp.json()
         return _jwks_cache
@@ -59,8 +69,8 @@ async def _decode_token(token: str) -> dict:
             token,
             jwks,
             algorithms=["RS256"],
-            audience=settings.keycloak_client_id,
-            issuer=_ISSUER,
+            audience=settings.auth.keycloak_client_id,
+            issuer=_get_issuer(),
         )
         return payload
     except JWTError:
@@ -72,8 +82,8 @@ async def _decode_token(token: str) -> dict:
                 token,
                 jwks,
                 algorithms=["RS256"],
-                audience=settings.keycloak_client_id,
-                issuer=_ISSUER,
+                audience=settings.auth.keycloak_client_id,
+                issuer=_get_issuer(),
             )
             return payload
         except JWTError as e:

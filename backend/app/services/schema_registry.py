@@ -210,7 +210,7 @@ class SchemaRegistry:
         """Read table schemas from ClickHouse system.columns."""
         assert self._clickhouse is not None
 
-        databases = getattr(settings, "clickhouse_databases", ["flowforge", "metrics"])
+        databases = settings.clickhouse.clickhouse_databases
         all_tables: list[TableSchema] = []
 
         for database in databases:
