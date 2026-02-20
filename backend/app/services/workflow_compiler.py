@@ -310,7 +310,11 @@ class WorkflowCompiler:
 
                 left_expr = expr_map[left_id]
                 right_expr = expr_map[right_id]
-                expression = self._apply_join(left_expr, right_expr, config)
+                left_columns = schema_map.get(left_id) if schema_map else None
+                right_columns = schema_map.get(right_id) if schema_map else None
+                expression = self._apply_join(
+                    left_expr, right_expr, config, left_columns, right_columns
+                )
                 expr_map[node_id] = expression
                 source_ids_map[node_id] = (
                     source_ids_map[left_id] + source_ids_map[right_id] + [node_id]
@@ -769,10 +773,16 @@ class WorkflowCompiler:
         left_expr: exp.Expression,
         right_expr: exp.Expression,
         config: dict,
+        left_columns: list[ColumnSchema] | None = None,
+        right_columns: list[ColumnSchema] | None = None,
     ) -> exp.Expression:
         """Combine two upstream expressions with a JOIN.
 
         Config: {join_type: "inner"|"left"|"right"|"full", left_key, right_key}
+
+        When column schemas are provided, builds an explicit SELECT list that
+        mirrors the schema engine's dedup logic: all left columns, then only
+        right columns whose names don't appear on the left side.
         """
         join_type = config.get("join_type", "inner").upper()
         left_key = config.get("left_key", "id")
@@ -791,7 +801,37 @@ class WorkflowCompiler:
             ),
         )
 
-        query = exp.Select().select(exp.Star()).from_(left_sub)
+        # Build SELECT list: explicit columns when schemas available, else SELECT *
+        select_cols: list[exp.Expression]
+        if left_columns is not None and right_columns is not None:
+            select_cols = []
+            left_names: set[str] = set()
+            for col in left_columns:
+                left_names.add(col.name)
+                select_cols.append(
+                    exp.Alias(
+                        this=exp.Column(
+                            this=exp.to_identifier(col.name),
+                            table=exp.to_identifier("_left"),
+                        ),
+                        alias=exp.to_identifier(col.name),
+                    )
+                )
+            for col in right_columns:
+                if col.name not in left_names:
+                    select_cols.append(
+                        exp.Alias(
+                            this=exp.Column(
+                                this=exp.to_identifier(col.name),
+                                table=exp.to_identifier("_right"),
+                            ),
+                            alias=exp.to_identifier(col.name),
+                        )
+                    )
+        else:
+            select_cols = [exp.Star()]
+
+        query = exp.Select().select(*select_cols).from_(left_sub)
 
         # Use the join method with appropriate kind
         query = query.join(
