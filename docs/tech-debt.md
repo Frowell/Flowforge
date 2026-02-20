@@ -1,7 +1,7 @@
 # Tech Debt Registry
 
 > Discovered: 2026-02-11 (codebase audit)
-> Updated: 2026-02-12
+> Updated: 2026-02-20
 
 Items are prioritized by severity: **Critical** (silent wrong data or production incident), **High** (will degrade at scale or block features), **Medium** (code quality / maintainability), **Low** (style or minor inefficiency).
 
@@ -13,7 +13,7 @@ Mark items `FIXED` with date and PR when resolved. Do not delete — the history
 
 | # | Finding | File(s) | Natural fix phase | Issue |
 |---|---------|---------|-------------------|-------|
-| C1 | **Pivot node has no compiler rule.** Schema engine registers `pivot_transform`, so the canvas shows pivot as valid. Compiler silently skips it — no `elif node_type == "pivot"` branch. Users get results without the pivot applied. Silent wrong data. | `schema_engine.py:145-173`, `workflow_compiler.py` (missing branch) | Phase 2 (Analytical Nodes) | [#44](https://github.com/Frowell/Flowforge/issues/44) |
+| C1 | **FIXED 2026-02-20 ([#60](https://github.com/Frowell/Flowforge/pull/60))** ~~Pivot node has no compiler rule.~~ Compiler now has `_apply_pivot` method and `pivot` branch in `_build_and_merge`. | `workflow_compiler.py` | Phase 2 (Analytical Nodes) | [#44](https://github.com/Frowell/Flowforge/issues/44) |
 | C2 | **Widget data has no ClickHouse resource limits.** Preview service applies `max_execution_time`, `max_memory_usage`, `max_rows_to_read`. Widget data service has none. A dashboard widget can run unbounded queries against ClickHouse, degrading the cluster for all tenants. | `widget_data_service.py:133-155` (compare `preview_service.py:192-197`) | Phase 3 (Dashboards) | [#45](https://github.com/Frowell/Flowforge/issues/45) |
 | C3 | **FIXED 2026-02-11 ([#58](https://github.com/Frowell/Flowforge/pull/58))** ~~Filter values are all cast to strings.~~ Filter values now use typed SQL literals based on column dtype from the schema engine. | `workflow_compiler.py` | Phase 1 (Core Canvas) | [#46](https://github.com/Frowell/Flowforge/issues/46) |
 | C4 | **FIXED 2026-02-11 ([#58](https://github.com/Frowell/Flowforge/pull/58))** ~~Unrecognized filter operators silently become `=`.~~ Unknown operators now raise `ValueError`. | `workflow_compiler.py` | Phase 1 (Core Canvas) | [#47](https://github.com/Frowell/Flowforge/issues/47) |
