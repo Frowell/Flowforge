@@ -4,18 +4,15 @@ Layer 2: Content-addressed Redis cache (keyed on node config, not position).
 Layer 3: Query constraints (LIMIT, max_execution_time, max_memory_usage).
 """
 
-import hashlib
-import json
 import logging
 import time
 from uuid import UUID
 
-import sqlglot
 from redis.asyncio import Redis
 
-from app.core.metrics import cache_operations_total
+from app.services.base_query_service import BaseQueryService
 from app.services.query_router import QueryRouter
-from app.services.workflow_compiler import CompiledSegment, WorkflowCompiler
+from app.services.workflow_compiler import WorkflowCompiler
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +27,7 @@ PREVIEW_MAX_ROWS_TO_READ = 10_000_000
 CACHE_KEY_PREFIX = "flowforge:preview:"
 
 
-class PreviewService:
+class PreviewService(BaseQueryService):
     """Executes preview queries with caching and resource constraints."""
 
     def __init__(
@@ -39,9 +36,9 @@ class PreviewService:
         query_router: QueryRouter,
         redis: Redis,
     ):
+        super().__init__(redis=redis, cache_key_prefix=CACHE_KEY_PREFIX)
         self._compiler = compiler
         self._query_router = query_router
-        self._redis = redis
 
     async def execute_preview(
         self,
@@ -68,7 +65,7 @@ class PreviewService:
         )
 
         # Layer 2: Cache check
-        cached = await self._cache_get(cache_key)
+        cached = await self._cache_get(cache_key, cache_type="preview")
         if cached is not None:
             cached["cache_hit"] = True
             return cached
@@ -90,7 +87,17 @@ class PreviewService:
 
         # Layer 3: Wrap the final segment with constraints
         constrained_segments = segments[:-1] + [
-            self._wrap_with_constraints(segments[-1], limit=limit, offset=offset)
+            self._wrap_with_limit_offset(
+                segments[-1],
+                limit=limit,
+                offset=offset,
+                subquery_alias="preview",
+                clickhouse_settings={
+                    "max_execution_time": PREVIEW_MAX_EXECUTION_TIME,
+                    "max_memory_usage": PREVIEW_MAX_MEMORY,
+                    "max_rows_to_read": PREVIEW_MAX_ROWS_TO_READ,
+                },
+            )
         ]
 
         results = await self._query_router.execute_all(constrained_segments)
@@ -98,7 +105,8 @@ class PreviewService:
 
         # Use the last result (the target node's output)
         last_result = results[-1]
-        columns = [{"name": col, "dtype": "String"} for col in last_result.columns]
+        # M8 fix: Use actual column types instead of hardcoded "String"
+        columns = self._build_columns_with_types(last_result.columns)
         response = {
             "columns": columns,
             "rows": last_result.rows[:limit],
@@ -110,7 +118,7 @@ class PreviewService:
         }
 
         # Cache the result (without cache_hit flag)
-        await self._cache_set(cache_key, response)
+        await self._cache_set(cache_key, response, CACHE_TTL, cache_type="preview")
 
         return response
 
@@ -151,89 +159,12 @@ class PreviewService:
             key=lambda e: (e["source"], e["target"]),
         )
 
-        payload = json.dumps(
-            {
-                "tenant_id": str(tenant_id),
-                "target": target_node_id,
-                "nodes": stable_nodes,
-                "edges": stable_edges,
-                "offset": offset,
-                "limit": limit,
-            },
-            sort_keys=True,
-        )
-        digest = hashlib.sha256(payload.encode()).hexdigest()[:16]
-        return f"{CACHE_KEY_PREFIX}{digest}"
-
-    def _wrap_with_constraints(
-        self,
-        segment: CompiledSegment,
-        limit: int = PREVIEW_LIMIT,
-        offset: int = 0,
-    ) -> CompiledSegment:
-        """Wrap a segment's SQL with LIMIT, OFFSET, and SETTINGS.
-
-        Uses SQLGlot to build the wrapping query instead of string
-        interpolation, preventing SQL injection via compiled SQL.
-        ClickHouse SETTINGS are appended separately (integer constants only).
-        """
-        dialect = segment.dialect or "clickhouse"
-        inner = sqlglot.parse_one(segment.sql, dialect=dialect)
-        assert isinstance(inner, sqlglot.exp.Select)
-        wrapped = (
-            sqlglot.select("*")
-            .from_(inner.subquery("preview"))
-            .limit(int(limit))
-            .offset(int(offset))
-        )
-        constrained_sql = wrapped.sql(dialect=dialect)
-
-        # ClickHouse SETTINGS — module-level int constants, safe to append
-        if segment.target == "clickhouse":
-            constrained_sql += (
-                f" SETTINGS max_execution_time={int(PREVIEW_MAX_EXECUTION_TIME)}"
-                f", max_memory_usage={int(PREVIEW_MAX_MEMORY)}"
-                f", max_rows_to_read={int(PREVIEW_MAX_ROWS_TO_READ)}"
-            )
-
-        return CompiledSegment(
-            sql=constrained_sql,
-            dialect=segment.dialect,
-            target=segment.target,
-            source_node_ids=segment.source_node_ids,
-            params=segment.params,
-            limit=limit,
-            offset=offset,
-        )
-
-    async def _cache_get(self, key: str) -> dict | None:
-        """Read from Redis cache. Returns None on miss or error."""
-        try:
-            raw = await self._redis.get(key)
-            if raw is not None:
-                cache_operations_total.labels(
-                    cache_type="preview", operation="get", status="hit"
-                ).inc()
-                return json.loads(raw)
-            cache_operations_total.labels(
-                cache_type="preview", operation="get", status="miss"
-            ).inc()
-        except Exception:
-            cache_operations_total.labels(
-                cache_type="preview", operation="get", status="error"
-            ).inc()
-            logger.warning("Preview cache read failed for key %s", key, exc_info=True)
-        return None
-
-    async def _cache_set(self, key: str, value: dict) -> None:
-        """Write to Redis cache with TTL. Errors are logged, never raised."""
-        try:
-            await self._redis.set(key, json.dumps(value), ex=CACHE_TTL)
-            cache_operations_total.labels(
-                cache_type="preview", operation="set", status="hit"
-            ).inc()
-        except Exception:
-            cache_operations_total.labels(
-                cache_type="preview", operation="set", status="error"
-            ).inc()
-            logger.warning("Preview cache write failed for key %s", key, exc_info=True)
+        payload = {
+            "tenant_id": str(tenant_id),
+            "target": target_node_id,
+            "nodes": stable_nodes,
+            "edges": stable_edges,
+            "offset": offset,
+            "limit": limit,
+        }
+        return self._compute_cache_key_hash(payload)
