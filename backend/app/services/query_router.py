@@ -19,6 +19,7 @@ import structlog
 from redis.asyncio import Redis
 
 from app.core.clickhouse import ClickHouseClient
+from app.core.config import settings
 from app.core.materialize import MaterializeClient
 from app.core.metrics import query_execution_duration_seconds, query_result_rows
 from app.services.workflow_compiler import CompiledSegment
@@ -74,7 +75,23 @@ class QueryRouter:
         if not self._clickhouse:
             raise RuntimeError("ClickHouse client not configured")
         start = time.perf_counter()
-        rows = await self._clickhouse.execute(segment.sql, segment.params)
+        try:
+            rows = await asyncio.wait_for(
+                self._clickhouse.execute(segment.sql, segment.params),
+                timeout=settings.clickhouse_query_timeout,
+            )
+        except TimeoutError as e:
+            duration = time.perf_counter() - start
+            timeout_s = settings.clickhouse_query_timeout
+            logger.error(
+                "query_timeout",
+                target="clickhouse",
+                duration_ms=round(duration * 1000, 2),
+                timeout_s=timeout_s,
+            )
+            raise TimeoutError(
+                f"ClickHouse query exceeded timeout of {timeout_s}s"
+            ) from e
         duration = time.perf_counter() - start
         columns = list(rows[0].keys()) if rows else []
         row_count = len(rows)
@@ -100,9 +117,24 @@ class QueryRouter:
         if not self._materialize:
             raise RuntimeError("Materialize client not configured")
         start = time.perf_counter()
-        rows = await self._materialize.execute(
-            segment.sql, list(segment.params.values()) if segment.params else None
-        )
+        try:
+            params_list = list(segment.params.values()) if segment.params else None
+            rows = await asyncio.wait_for(
+                self._materialize.execute(segment.sql, params_list),
+                timeout=settings.materialize_query_timeout,
+            )
+        except TimeoutError as e:
+            duration = time.perf_counter() - start
+            timeout_s = settings.materialize_query_timeout
+            logger.error(
+                "query_timeout",
+                target="materialize",
+                duration_ms=round(duration * 1000, 2),
+                timeout_s=timeout_s,
+            )
+            raise TimeoutError(
+                f"Materialize query exceeded timeout of {timeout_s}s"
+            ) from e
         duration = time.perf_counter() - start
         columns = list(rows[0].keys()) if rows else []
         row_count = len(rows)
@@ -137,28 +169,42 @@ class QueryRouter:
         rows: list[dict] = []
 
         if lookup_type == "SCAN_HASH":
-            # Scan for keys matching pattern, HGETALL each hash
+            # Scan for keys matching pattern, HGETALL each hash with pipelining
             pattern = params.get("pattern", "*")
             scan_cursor: int = 0
             all_keys: list[str] = []
-            while True:
+            # Scan with key limit to prevent OOM
+            while len(all_keys) < settings.redis_scan_limit:
                 scan_cursor, found_keys = await self._redis.scan(
                     scan_cursor, match=pattern, count=100
                 )
                 all_keys.extend(found_keys)
                 if scan_cursor == 0:
                     break
-            for key_str in all_keys:
-                hash_data: dict[str, str] = await self._redis.hgetall(key_str)  # type: ignore[misc]
-                if hash_data:
-                    row: dict[str, str] = {}
-                    # Extract identifier from key name
-                    # e.g. "latest:vwap:AAPL" → symbol = "AAPL"
-                    key_parts = key_str.split(":")
-                    if len(key_parts) >= 3:
-                        row["symbol"] = key_parts[-1]
-                    row.update(hash_data)
-                    rows.append(row)
+
+            # Cap to configured limit
+            all_keys = all_keys[: settings.redis_scan_limit]
+
+            # Pipeline HGETALL calls in batches
+            batch_size = settings.redis_pipeline_batch_size
+            for i in range(0, len(all_keys), batch_size):
+                batch_keys = all_keys[i : i + batch_size]
+                pipeline = self._redis.pipeline()
+                for key_str in batch_keys:
+                    pipeline.hgetall(key_str)  # type: ignore[attr-defined]
+                batch_results = await pipeline.execute()
+
+                # Process batch results
+                for key_str, hash_data in zip(batch_keys, batch_results, strict=False):
+                    if hash_data:
+                        row: dict[str, str] = {}
+                        # Extract identifier from key name
+                        # e.g. "latest:vwap:AAPL" → symbol = "AAPL"
+                        key_parts = key_str.split(":")
+                        if len(key_parts) >= 3:
+                            row["symbol"] = key_parts[-1]
+                        row.update(hash_data)
+                        rows.append(row)
         elif lookup_type == "MGET" and keys:
             values = await self._redis.mget(keys)
             for k, v in zip(keys, values, strict=False):

@@ -76,6 +76,14 @@ class Settings(BaseSettings):
     widget_cache_ttl_clickhouse: int = 300  # 5 min for analytical queries
     widget_cache_ttl_materialize: int = 30  # 30 sec for live data
 
+    # Query timeouts (seconds)
+    clickhouse_query_timeout: float = 30.0
+    materialize_query_timeout: float = 15.0
+
+    # Redis scan limits
+    redis_scan_limit: int = 10_000
+    redis_pipeline_batch_size: int = 100
+
     # Observability
     log_level: str = "INFO"
     metrics_enabled: bool = True
