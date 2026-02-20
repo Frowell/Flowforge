@@ -78,11 +78,11 @@ class QueryRouter:
         try:
             rows = await asyncio.wait_for(
                 self._clickhouse.execute(segment.sql, segment.params),
-                timeout=settings.preview.clickhouse_query_timeout,
+                timeout=settings.clickhouse_query_timeout,
             )
         except TimeoutError as e:
             duration = time.perf_counter() - start
-            timeout_s = settings.preview.clickhouse_query_timeout
+            timeout_s = settings.clickhouse_query_timeout
             logger.error(
                 "query_timeout",
                 target="clickhouse",
@@ -121,11 +121,11 @@ class QueryRouter:
             params_list = list(segment.params.values()) if segment.params else None
             rows = await asyncio.wait_for(
                 self._materialize.execute(segment.sql, params_list),
-                timeout=settings.preview.materialize_query_timeout,
+                timeout=settings.materialize_query_timeout,
             )
         except TimeoutError as e:
             duration = time.perf_counter() - start
-            timeout_s = settings.preview.materialize_query_timeout
+            timeout_s = settings.materialize_query_timeout
             logger.error(
                 "query_timeout",
                 target="materialize",

@@ -143,7 +143,7 @@ class TestTimeouts:
     @patch("app.services.query_router.settings")
     async def test_clickhouse_timeout_raises(self, mock_settings):
         """ClickHouse query exceeding timeout raises TimeoutError."""
-        mock_settings.preview.clickhouse_query_timeout = 1
+        mock_settings.clickhouse_query_timeout = 1
 
         async def slow_query(*args, **kwargs):
             await asyncio.sleep(2)
@@ -164,7 +164,7 @@ class TestTimeouts:
     @patch("app.services.query_router.settings")
     async def test_clickhouse_fast_query_succeeds(self, mock_settings):
         """ClickHouse query completing within timeout succeeds."""
-        mock_settings.preview.clickhouse_query_timeout = 5
+        mock_settings.clickhouse_query_timeout = 5
 
         async def fast_query(*args, **kwargs):
             await asyncio.sleep(0.1)
@@ -186,7 +186,7 @@ class TestTimeouts:
     @patch("app.services.query_router.settings")
     async def test_materialize_timeout_raises(self, mock_settings):
         """Materialize query exceeding timeout raises TimeoutError."""
-        mock_settings.preview.materialize_query_timeout = 1
+        mock_settings.materialize_query_timeout = 1
 
         async def slow_query(*args, **kwargs):
             await asyncio.sleep(2)
@@ -207,7 +207,7 @@ class TestTimeouts:
     @patch("app.services.query_router.settings")
     async def test_materialize_fast_query_succeeds(self, mock_settings):
         """Materialize query completing within timeout succeeds."""
-        mock_settings.preview.materialize_query_timeout = 5
+        mock_settings.materialize_query_timeout = 5
 
         async def fast_query(*args, **kwargs):
             await asyncio.sleep(0.1)
