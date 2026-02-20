@@ -1,7 +1,7 @@
 # Tech Debt Registry
 
 > Discovered: 2026-02-11 (codebase audit)
-> Updated: 2026-02-11
+> Updated: 2026-02-12
 
 Items are prioritized by severity: **Critical** (silent wrong data or production incident), **High** (will degrade at scale or block features), **Medium** (code quality / maintainability), **Low** (style or minor inefficiency).
 
@@ -15,8 +15,8 @@ Mark items `FIXED` with date and PR when resolved. Do not delete — the history
 |---|---------|---------|-------------------|-------|
 | C1 | **Pivot node has no compiler rule.** Schema engine registers `pivot_transform`, so the canvas shows pivot as valid. Compiler silently skips it — no `elif node_type == "pivot"` branch. Users get results without the pivot applied. Silent wrong data. | `schema_engine.py:145-173`, `workflow_compiler.py` (missing branch) | Phase 2 (Analytical Nodes) | [#44](https://github.com/Frowell/Flowforge/issues/44) |
 | C2 | **Widget data has no ClickHouse resource limits.** Preview service applies `max_execution_time`, `max_memory_usage`, `max_rows_to_read`. Widget data service has none. A dashboard widget can run unbounded queries against ClickHouse, degrading the cluster for all tenants. | `widget_data_service.py:133-155` (compare `preview_service.py:192-197`) | Phase 3 (Dashboards) | [#45](https://github.com/Frowell/Flowforge/issues/45) |
-| C3 | **Filter values are all cast to strings.** `_apply_filter` wraps every value in `exp.Literal.string(str(value))`. `WHERE price > '100'` uses string comparison, not numeric. ClickHouse may coerce; Materialize/PG won't. | `workflow_compiler.py:434` | Phase 1 (Core Canvas) | [#46](https://github.com/Frowell/Flowforge/issues/46) |
-| C4 | **Unrecognized filter operators silently become `=`.** Fallback `else` branch defaults to `exp.EQ`. No error, no warning. Users apply "greater than" and get "equals." | `workflow_compiler.py:486-487` | Phase 1 (Core Canvas) | [#47](https://github.com/Frowell/Flowforge/issues/47) |
+| C3 | **FIXED 2026-02-11 ([#58](https://github.com/Frowell/Flowforge/pull/58))** ~~Filter values are all cast to strings.~~ Filter values now use typed SQL literals based on column dtype from the schema engine. | `workflow_compiler.py` | Phase 1 (Core Canvas) | [#46](https://github.com/Frowell/Flowforge/issues/46) |
+| C4 | **FIXED 2026-02-11 ([#58](https://github.com/Frowell/Flowforge/pull/58))** ~~Unrecognized filter operators silently become `=`.~~ Unknown operators now raise `ValueError`. | `workflow_compiler.py` | Phase 1 (Core Canvas) | [#47](https://github.com/Frowell/Flowforge/issues/47) |
 | C5 | **Join/Union hardcode ClickHouse target.** Both set `target="clickhouse"` regardless of input targets. Joining two Materialize views sends the query to ClickHouse where the tables don't exist. | `workflow_compiler.py:293-294, 312-313` | Phase 2 (Analytical Nodes) | [#48](https://github.com/Frowell/Flowforge/issues/48) |
 
 ## High
@@ -80,8 +80,7 @@ For localized findings, add a comment at the site:
 
 Example:
 ```python
-# TODO(debt): C3 — filter values cast to string; should use typed literals
-val_expr = exp.Literal.string(str(value))
+# TODO(debt): C1 — pivot node has no compiler rule
 ```
 
 This makes findings discoverable via `grep -r "TODO(debt)"` and links back to this registry.
