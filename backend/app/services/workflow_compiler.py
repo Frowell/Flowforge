@@ -317,7 +317,9 @@ class WorkflowCompiler:
                 )
                 root_map[node_id] = node_id  # new segment root
                 has_group_by[node_id] = False
-                target_map[node_id] = ("clickhouse", "clickhouse")
+                target_map[node_id] = self._resolve_multi_parent_target(
+                    left_id, right_id, target_map, "join"
+                )
 
             elif node_type == "union":
                 parent_ids = parents.get(node_id, [])
@@ -336,7 +338,9 @@ class WorkflowCompiler:
                 )
                 root_map[node_id] = node_id  # new segment root
                 has_group_by[node_id] = False
-                target_map[node_id] = ("clickhouse", "clickhouse")
+                target_map[node_id] = self._resolve_multi_parent_target(
+                    left_id, right_id, target_map, "union"
+                )
 
         # Collect final segments: find terminal expressions
         # (nodes with no downstream merge)
@@ -439,6 +443,28 @@ class WorkflowCompiler:
         if table_name.startswith("live_"):
             return ("materialize", "postgres")
         return ("clickhouse", "clickhouse")
+
+    @staticmethod
+    def _resolve_multi_parent_target(
+        left_id: str,
+        right_id: str,
+        target_map: dict[str, tuple[str, str]],
+        node_type: str,
+    ) -> tuple[str, str]:
+        """Resolve target for a two-parent node (join/union).
+
+        Both parents must target the same backing store. Cross-store
+        joins/unions are rejected at compile time.
+        """
+        default = ("clickhouse", "clickhouse")
+        left_target = target_map.get(left_id, default)
+        right_target = target_map.get(right_id, default)
+        if left_target != right_target:
+            raise ValueError(
+                f"Cannot {node_type} across backing stores: "
+                f"left={left_target[0]}, right={right_target[0]}"
+            )
+        return left_target
 
     @staticmethod
     def _make_literal(value: str, dtype: str) -> exp.Expression:

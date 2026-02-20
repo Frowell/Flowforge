@@ -1788,3 +1788,185 @@ class TestPivotCompilation:
         sql_upper = segments[0].sql.upper()
         # Should be the parent SELECT without GROUP BY since row_columns is empty
         assert "GROUP BY" not in sql_upper
+
+
+class TestJoinUnionTargetPropagation:
+    """C5 fix: join/union must inherit target from upstream parents."""
+
+    def test_compile_join_materialize_sources_targets_materialize(self):
+        """Two live_* data sources joined → target=materialize, dialect=postgres."""
+        compiler = get_compiler()
+        nodes = [
+            {
+                "id": "left",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "live_positions",
+                        "columns": [
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "quantity", "dtype": "int64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "right",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "live_quotes",
+                        "columns": [
+                            {"name": "symbol", "dtype": "string"},
+                            {"name": "bid", "dtype": "float64"},
+                        ],
+                    }
+                },
+            },
+            {
+                "id": "jn",
+                "type": "join",
+                "data": {
+                    "config": {
+                        "join_type": "inner",
+                        "left_key": "symbol",
+                        "right_key": "symbol",
+                    }
+                },
+            },
+            {"id": "out", "type": "table_output", "data": {"config": {}}},
+        ]
+        edges = [
+            {"source": "left", "target": "jn"},
+            {"source": "right", "target": "jn"},
+            {"source": "jn", "target": "out"},
+        ]
+        segments = compiler._build_and_merge(
+            compiler._topological_sort(nodes, edges), nodes, edges
+        )
+        assert len(segments) == 1
+        assert segments[0].target == "materialize"
+        assert segments[0].dialect == "postgres"
+
+    def test_compile_union_materialize_sources_targets_materialize(self):
+        """Two live_* data sources unioned → target=materialize, dialect=postgres."""
+        compiler = get_compiler()
+        nodes = [
+            {
+                "id": "a",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "live_positions",
+                        "columns": [{"name": "symbol", "dtype": "string"}],
+                    }
+                },
+            },
+            {
+                "id": "b",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "live_quotes",
+                        "columns": [{"name": "symbol", "dtype": "string"}],
+                    }
+                },
+            },
+            {"id": "un", "type": "union", "data": {"config": {}}},
+            {"id": "out", "type": "table_output", "data": {"config": {}}},
+        ]
+        edges = [
+            {"source": "a", "target": "un"},
+            {"source": "b", "target": "un"},
+            {"source": "un", "target": "out"},
+        ]
+        segments = compiler._build_and_merge(
+            compiler._topological_sort(nodes, edges), nodes, edges
+        )
+        assert len(segments) == 1
+        assert segments[0].target == "materialize"
+        assert segments[0].dialect == "postgres"
+
+    def test_compile_join_mixed_targets_raises(self):
+        """Join with one ClickHouse + one Materialize source raises ValueError."""
+        compiler = get_compiler()
+        nodes = [
+            {
+                "id": "left",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [{"name": "symbol", "dtype": "string"}],
+                    }
+                },
+            },
+            {
+                "id": "right",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "live_positions",
+                        "columns": [{"name": "symbol", "dtype": "string"}],
+                    }
+                },
+            },
+            {
+                "id": "jn",
+                "type": "join",
+                "data": {
+                    "config": {
+                        "join_type": "inner",
+                        "left_key": "symbol",
+                        "right_key": "symbol",
+                    }
+                },
+            },
+            {"id": "out", "type": "table_output", "data": {"config": {}}},
+        ]
+        edges = [
+            {"source": "left", "target": "jn"},
+            {"source": "right", "target": "jn"},
+            {"source": "jn", "target": "out"},
+        ]
+        with pytest.raises(ValueError, match="Cannot join across backing stores"):
+            compiler._build_and_merge(
+                compiler._topological_sort(nodes, edges), nodes, edges
+            )
+
+    def test_compile_union_mixed_targets_raises(self):
+        """Union with one ClickHouse + one Materialize source raises ValueError."""
+        compiler = get_compiler()
+        nodes = [
+            {
+                "id": "a",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "fct_trades",
+                        "columns": [{"name": "symbol", "dtype": "string"}],
+                    }
+                },
+            },
+            {
+                "id": "b",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "table": "live_positions",
+                        "columns": [{"name": "symbol", "dtype": "string"}],
+                    }
+                },
+            },
+            {"id": "un", "type": "union", "data": {"config": {}}},
+            {"id": "out", "type": "table_output", "data": {"config": {}}},
+        ]
+        edges = [
+            {"source": "a", "target": "un"},
+            {"source": "b", "target": "un"},
+            {"source": "un", "target": "out"},
+        ]
+        with pytest.raises(ValueError, match="Cannot union across backing stores"):
+            compiler._build_and_merge(
+                compiler._topological_sort(nodes, edges), nodes, edges
+            )
