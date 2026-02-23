@@ -37,6 +37,41 @@ class WebSocketManager:
         self._connections: dict[str, set[WebSocket]] = {}
         self._ws_channels: dict[WebSocket, set[str]] = {}
         self._heartbeat_task: asyncio.Task | None = None
+        self._tenant_connections: dict[str, int] = {}
+        self._pubsub = None
+
+    @staticmethod
+    def _extract_tenant_id(channel: str) -> str | None:
+        """Extract tenant_id from a channel name.
+
+        Channel format: flowforge:{tenant_id}:{channel_type}:{id}
+        Returns None for malformed channels.
+        """
+        parts = channel.split(":")
+        if len(parts) >= 2 and parts[0] == CHANNEL_PREFIX:
+            return parts[1]
+        return None
+
+    async def _subscribe_tenant(self, tenant_id: str) -> None:
+        """Subscribe to a tenant's Redis pub/sub channels if not already subscribed."""
+        count = self._tenant_connections.get(tenant_id, 0)
+        if count == 0 and self._pubsub is not None:
+            pattern = f"{CHANNEL_PREFIX}:{tenant_id}:*"
+            await self._pubsub.psubscribe(pattern)
+            logger.info("Subscribed to tenant pattern: %s", pattern)
+        self._tenant_connections[tenant_id] = count + 1
+
+    async def _unsubscribe_tenant(self, tenant_id: str) -> None:
+        """Unsubscribe from a tenant's channels when last connection disconnects."""
+        count = self._tenant_connections.get(tenant_id, 0)
+        if count <= 1:
+            if self._pubsub is not None:
+                pattern = f"{CHANNEL_PREFIX}:{tenant_id}:*"
+                await self._pubsub.punsubscribe(pattern)
+                logger.info("Unsubscribed from tenant pattern: %s", pattern)
+            self._tenant_connections.pop(tenant_id, None)
+        else:
+            self._tenant_connections[tenant_id] = count - 1
 
     async def connect(self, websocket: WebSocket, channel: str) -> None:
         """Register a WebSocket connection for a channel."""
@@ -48,6 +83,12 @@ class WebSocketManager:
             self._ws_channels[websocket] = set()
         self._ws_channels[websocket].add(channel)
         websocket_connections_active.inc()
+
+        # H2: Subscribe to tenant's Redis channels on first connection
+        tenant_id = self._extract_tenant_id(channel)
+        if tenant_id is not None:
+            await self._subscribe_tenant(tenant_id)
+
         logger.info("WebSocket connected to channel: %s", channel)
 
     async def subscribe_to_channel(self, websocket: WebSocket, channel: str) -> None:
@@ -83,6 +124,11 @@ class WebSocketManager:
             if not self._connections[channel]:
                 del self._connections[channel]
 
+        # H2: Unsubscribe tenant when last connection for that tenant disconnects
+        tenant_id = self._extract_tenant_id(channel)
+        if tenant_id is not None:
+            await self._unsubscribe_tenant(tenant_id)
+
         if websocket in self._ws_channels:
             self._ws_channels[websocket].discard(channel)
             # H8: Clean up _ws_channels if no channels remain
@@ -105,6 +151,11 @@ class WebSocketManager:
                 self._connections[channel].discard(websocket)
                 if not self._connections[channel]:
                     del self._connections[channel]
+
+            # H2: Unsubscribe tenant when last connection disconnects
+            tenant_id = self._extract_tenant_id(channel)
+            if tenant_id is not None:
+                await self._unsubscribe_tenant(tenant_id)
 
         # H7: Only decrement if the WebSocket was actually tracked
         if channels:
@@ -265,11 +316,14 @@ class WebSocketManager:
 
         Call this on application startup. It listens for messages published
         by any backend instance and forwards them to local WebSocket connections.
-        """
-        pubsub = self._redis.pubsub()
-        await pubsub.psubscribe(f"{CHANNEL_PREFIX}:*")
 
-        async for message in pubsub.listen():
+        H2 fix: No longer subscribes to all tenants upfront. The pubsub object
+        is created empty; per-tenant subscriptions are added/removed dynamically
+        as WebSocket clients connect and disconnect.
+        """
+        self._pubsub = self._redis.pubsub()
+
+        async for message in self._pubsub.listen():
             if message["type"] == "pmessage":
                 channel = message["channel"]
                 if isinstance(channel, bytes):
