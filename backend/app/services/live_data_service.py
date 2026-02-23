@@ -102,7 +102,8 @@ class LiveDataService:
     def start(self) -> None:
         """Mark the service as running and start health checks."""
         self._running = True
-        if self._materialize is not None and settings.materialize_subscribe_enabled:
+        mz_subscribe = settings.materialize.materialize_subscribe_enabled
+        if self._materialize is not None and mz_subscribe:
             self._health_check_task = asyncio.create_task(
                 self._materialize_health_loop()
             )
@@ -139,7 +140,7 @@ class LiveDataService:
         # Decide mode: if Materialize is available and widget has a view, use subscribe
         if (
             self._materialize_available
-            and settings.materialize_subscribe_enabled
+            and settings.materialize.materialize_subscribe_enabled
             and view_name
         ):
             self._start_subscribe_mode(sub)

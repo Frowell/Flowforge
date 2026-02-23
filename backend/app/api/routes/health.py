@@ -8,7 +8,6 @@
 import asyncio
 import time
 
-import httpx
 import structlog
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
@@ -17,7 +16,6 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.clickhouse import get_clickhouse_client
-from app.core.config import settings
 from app.core.database import get_db
 from app.core.materialize import MaterializeClient
 from app.core.metrics import store_health_check_duration_seconds, store_health_status
@@ -117,31 +115,13 @@ async def _check_materialize(mz_client: MaterializeClient) -> dict:
         return {"status": "degraded", "detail": str(exc), "_healthy": True}
 
 
-async def _check_redpanda() -> dict:
-    """Check Redpanda connectivity (optional — degraded, not failing)."""
-    try:
-        redpanda_host = settings.redpanda_brokers.split(":")[0]
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"http://{redpanda_host}:9644/v1/status/ready",
-                timeout=_HEALTH_CHECK_TIMEOUT,
-            )
-            return {
-                "status": "ok" if resp.status_code == 200 else "degraded",
-                "_healthy": True,
-            }
-    except Exception as exc:
-        logger.info("readiness_check_degraded", dependency="redpanda", error=str(exc))
-        return {"status": "degraded", "detail": str(exc), "_healthy": True}
-
-
 @router.get("/health/ready")
 async def readiness(
     request: Request,
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
 ):
-    """Readiness probe — checks PostgreSQL, Redis, ClickHouse, Materialize, Redpanda.
+    """Readiness probe — checks PostgreSQL, Redis, ClickHouse, Materialize.
 
     All checks run concurrently with a per-check timeout to prevent
     slow stores from blocking the entire readiness response.
@@ -152,10 +132,9 @@ async def readiness(
         _check_redis(redis),
         _check_clickhouse(),
         _check_materialize(mz_client),
-        _check_redpanda(),
     )
 
-    names = ["postgresql", "redis", "clickhouse", "materialize", "redpanda"]
+    names = ["postgresql", "redis", "clickhouse", "materialize"]
     checks: dict[str, dict] = {}
     healthy = True
 

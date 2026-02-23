@@ -14,18 +14,8 @@ class DatabaseSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="")
 
-    database_url: str
-    database_url_sync: str
-
-    @field_validator("database_url", "database_url_sync")
-    @classmethod
-    def validate_database_url_not_empty(cls, v: str, info) -> str:
-        if not v or not v.strip():
-            raise ValueError(
-                f"{info.field_name.upper()} must be set via environment variable. "
-                "No default is provided for security reasons."
-            )
-        return v
+    database_url: str = "postgresql+asyncpg://flowforge:flowforge@db:5432/flowforge"
+    database_url_sync: str = "postgresql://flowforge:flowforge@db:5432/flowforge"
 
 
 class ClickHouseSettings(BaseSettings):
