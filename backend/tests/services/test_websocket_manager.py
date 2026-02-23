@@ -430,9 +430,7 @@ class TestTenantScopedSubscription:
         await ws_manager_with_pubsub.connect(
             ws_a, f"flowforge:{tenant_a}:execution:abc"
         )
-        await ws_manager_with_pubsub.connect(
-            ws_b, f"flowforge:{tenant_b}:widget:xyz"
-        )
+        await ws_manager_with_pubsub.connect(ws_b, f"flowforge:{tenant_b}:widget:xyz")
 
         assert mock_pubsub.psubscribe.call_count == 2
 
