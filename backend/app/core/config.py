@@ -122,10 +122,6 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: list[str] = ["http://localhost:5173"]
 
-    # Redis scan limits (used by query_router)
-    redis_scan_limit: int = 10_000
-    redis_pipeline_batch_size: int = 100
-
     # Observability
     log_level: str = "INFO"
     metrics_enabled: bool = True
