@@ -20,10 +20,10 @@ from app.main import app
 from app.models.user import User
 
 # Use the test database — replace only the database name (last path segment)
-_async_base = settings.database_url
+_async_base = settings.database.database_url
 TEST_DATABASE_URL = _async_base.rsplit("/", 1)[0] + "/flowforge_test"
 
-_sync_base = settings.database_url_sync
+_sync_base = settings.database.database_url_sync
 TEST_DATABASE_URL_SYNC = _sync_base.rsplit("/", 1)[0] + "/flowforge_test"
 
 # Sync engine for DDL (create_all / drop_all) — avoids async event loop issues

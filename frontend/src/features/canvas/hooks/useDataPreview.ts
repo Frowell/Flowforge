@@ -1,20 +1,18 @@
 /**
- * Data preview hook — debounced preview via TanStack Query.
+ * Data preview hook — Layer 1: debounce + cancellation + pagination.
  *
- * 300ms debounce on node/config changes via stable query key.
- * Built-in signal for automatic request cancellation.
- * placeholderData keeps previous results during pagination.
+ * 300ms debounce on node/config changes.
+ * AbortController cancels in-flight requests on new triggers or unmount.
+ * Offset resets to 0 on node or graph config change; pagination fires immediately.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { apiClient } from "@/shared/query-engine/client";
 import type { PreviewResponse } from "@/shared/query-engine/types";
 import type { Node, Edge } from "@xyflow/react";
 
 const DEBOUNCE_MS = 300;
 const DEFAULT_PAGE_SIZE = 100;
-const STALE_TIME = 5 * 60 * 1000; // 5 minutes — matches server-side Redis cache TTL
 
 interface UseDataPreviewOptions {
   workflowId: string | undefined;
@@ -24,86 +22,96 @@ interface UseDataPreviewOptions {
 }
 
 export function useDataPreview({ workflowId, nodeId, nodes, edges }: UseDataPreviewOptions) {
+  const [data, setData] = useState<PreviewResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
   const [offset, setOffset] = useState(0);
-  const [debouncedKey, setDebouncedKey] = useState<string | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [dataUpdatedAt, setDataUpdatedAt] = useState<number | null>(null);
+  const [refetchTrigger, setRefetchTrigger] = useState(0);
+  const abortRef = useRef<AbortController | null>(null);
 
-  // Extract only structural data for the query key (ignore positions)
-  const structureKey = useMemo(() => {
-    if (!workflowId || !nodeId) return null;
-    const n = nodes.map((node) => ({
-      id: node.id,
-      type: node.type,
-      data: node.data,
-    }));
-    const e = edges.map((edge) => ({
-      source: edge.source,
-      target: edge.target,
-    }));
-    return JSON.stringify({ workflowId, nodeId, n, e });
-  }, [workflowId, nodeId, nodes, edges]);
+  // Reset offset when node or graph config changes
+  const prevNodeIdRef = useRef(nodeId);
+  const prevNodesRef = useRef(nodes);
+  const prevEdgesRef = useRef(edges);
 
-  // Reset offset when node or graph structure changes
-  const prevStructureKeyRef = useRef(structureKey);
   useEffect(() => {
-    if (prevStructureKeyRef.current !== structureKey) {
-      prevStructureKeyRef.current = structureKey;
+    const nodeChanged = prevNodeIdRef.current !== nodeId;
+    const graphChanged = prevNodesRef.current !== nodes || prevEdgesRef.current !== edges;
+
+    prevNodeIdRef.current = nodeId;
+    prevNodesRef.current = nodes;
+    prevEdgesRef.current = edges;
+
+    if (nodeChanged || graphChanged) {
       setOffset(0);
     }
-  }, [structureKey]);
+  }, [nodeId, nodes, edges]);
 
-  // Debounce structure changes (not pagination)
   useEffect(() => {
-    clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      setDebouncedKey(structureKey);
-    }, DEBOUNCE_MS);
-    return () => clearTimeout(timerRef.current);
-  }, [structureKey]);
+    if (!workflowId || !nodeId) {
+      setData(null);
+      setIsLoading(false);
+      setError(null);
+      return;
+    }
 
-  const enabled = !!debouncedKey && !!workflowId && !!nodeId;
+    setIsLoading(true);
 
-  const serializedNodes = useMemo(
-    () =>
-      nodes.map((n) => ({
+    const timer = setTimeout(() => {
+      // Abort any in-flight request
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      const serializedNodes = nodes.map((n) => ({
         id: n.id,
         type: n.type,
         data: n.data,
         position: n.position,
-      })),
-    [nodes],
-  );
+      }));
 
-  const serializedEdges = useMemo(
-    () =>
-      edges.map((e) => ({
+      const serializedEdges = edges.map((e) => ({
         id: e.id,
         source: e.source,
         target: e.target,
         sourceHandle: e.sourceHandle,
         targetHandle: e.targetHandle,
-      })),
-    [edges],
-  );
+      }));
 
-  const { data, isLoading, error, dataUpdatedAt, refetch } = useQuery({
-    queryKey: ["preview", debouncedKey, offset] as const,
-    queryFn: ({ signal }) =>
-      apiClient.post<PreviewResponse>(
-        "/api/v1/executions/preview",
-        {
-          workflow_id: workflowId,
-          target_node_id: nodeId,
-          graph: { nodes: serializedNodes, edges: serializedEdges },
-          offset,
-          limit: DEFAULT_PAGE_SIZE,
-        },
-        signal,
-      ),
-    enabled,
-    staleTime: STALE_TIME,
-    placeholderData: keepPreviousData,
-  });
+      apiClient
+        .post<PreviewResponse>(
+          "/api/v1/executions/preview",
+          {
+            workflow_id: workflowId,
+            target_node_id: nodeId,
+            graph: { nodes: serializedNodes, edges: serializedEdges },
+            offset,
+            limit: DEFAULT_PAGE_SIZE,
+          },
+          controller.signal,
+        )
+        .then((result) => {
+          setData(result);
+          setError(null);
+          setDataUpdatedAt(Date.now());
+        })
+        .catch((err) => {
+          if (err instanceof DOMException && err.name === "AbortError") return;
+          setError(err);
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) {
+            setIsLoading(false);
+          }
+        });
+    }, DEBOUNCE_MS);
+
+    return () => {
+      clearTimeout(timer);
+      abortRef.current?.abort();
+    };
+  }, [workflowId, nodeId, nodes, edges, offset, refetchTrigger]);
 
   const nextPage = useCallback(() => {
     if (data && offset + data.limit < data.total_estimate) {
@@ -117,15 +125,9 @@ export function useDataPreview({ workflowId, nodeId, nodes, edges }: UseDataPrev
     }
   }, [data, offset]);
 
-  return {
-    data: data ?? null,
-    isLoading,
-    error: error as Error | null,
-    offset,
-    nextPage,
-    prevPage,
-    setOffset,
-    dataUpdatedAt: dataUpdatedAt || null,
-    refetch,
-  };
+  const refetch = useCallback(() => {
+    setRefetchTrigger((prev) => prev + 1);
+  }, []);
+
+  return { data, isLoading, error, offset, nextPage, prevPage, setOffset, dataUpdatedAt, refetch };
 }

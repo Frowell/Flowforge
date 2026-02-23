@@ -6,7 +6,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/shared/query-engine/client";
 import type { WorkflowResponse, PaginatedResponse } from "@/shared/query-engine/types";
 import { useWorkflowStore } from "../stores/workflowStore";
-import { WORKFLOWS_KEY, VERSIONS_KEY } from "./queryKeys";
+
+const WORKFLOWS_KEY = ["workflows"] as const;
+const VERSIONS_KEY = ["workflow-versions"] as const;
 
 export function useWorkflowList(page = 1, pageSize = 20) {
   return useQuery({
