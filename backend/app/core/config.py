@@ -126,7 +126,6 @@ class Settings(BaseSettings):
     redis_scan_limit: int = 10_000
     redis_pipeline_batch_size: int = 100
 
-
     # Observability
     log_level: str = "INFO"
     metrics_enabled: bool = True
