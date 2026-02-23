@@ -17,6 +17,18 @@ Compiles workflows to SQL against a **read-only** serving layer (ClickHouse, Mat
 
 ---
 
+## Before You Do Anything
+
+These operational rules prevent the highest-impact failures. Read these **before** the architecture section.
+
+1. **Check your branch.** Run `git branch --show-current` before any file modification. If it's not your expected branch, **stop immediately** — see [Single-Worktree Discipline](#single-worktree-discipline).
+2. **Stay in your scope.** Backend agents touch `backend/**` only. Frontend agents touch `frontend/**` only. Violations cause cross-agent contamination. See [File Ownership Boundaries](#file-ownership-boundaries).
+3. **Stage files explicitly.** Never `git add -A` or `git add .`. Always name files. This prevents staging data directories, other agents' work, and secrets.
+4. **Subagents never run git commands.** Only the coordinator runs `git checkout`, `git commit`, `git push`. Subagents produce file changes and report back.
+5. **When in doubt, stop and report.** If you detect unexpected files, wrong branch, or failing pre-checks — halt and notify the coordinator. Never push through anomalies.
+
+---
+
 ## 6 Absolute Architectural Rules
 
 1. **App does NOT own data ingestion.** The serving layer is read-only. Never write DDL, INSERT, or CREATE VIEW against ClickHouse/Materialize/Redis.
@@ -119,14 +131,14 @@ Trunk-based development. `main` is always deployable. **Never commit directly to
 
 ## Implementation Phases
 
-| Phase | Focus | Key Deliverable |
-|-------|-------|-----------------|
-| 0 | Scaffolding | Services start, health checks pass |
-| 1 | Core Canvas | 5 nodes + preview + save/load |
-| 2 | Analytical Nodes | GroupBy, Join, Union, Formula + query merging |
-| 3 | Visualization + Dashboards | Charts + dashboard CRUD + widget pinning |
-| 4 | Live Data + Embed | WebSocket + Materialize/Redis + embed mode |
-| 5 | Polish | Templates, undo/redo, RBAC, audit logging |
+| Phase | Focus | Key Deliverable | Boundary |
+|-------|-------|-----------------|----------|
+| 0 | Scaffolding | Services start, health checks pass | `gate`: health checks pass before Phase 1 |
+| 1 | Core Canvas | 5 nodes + preview + save/load | `sync`: backend + frontend schema parity verified |
+| 2 | Analytical Nodes | GroupBy, Join, Union, Formula + query merging | `sync`: query merging tests pass both sides |
+| 3 | Visualization + Dashboards | Charts + dashboard CRUD + widget pinning | `gate`: chart components reviewed before embed work |
+| 4 | Live Data + Embed | WebSocket + Materialize/Redis + embed mode | `gate`: security review of embed auth |
+| 5 | Polish | Templates, undo/redo, RBAC, audit logging | `gate`: merge to main |
 
 ---
 
@@ -158,10 +170,11 @@ Node types require changes in both backend and frontend. These can be developed 
 3. Config panel in `features/canvas/panels/<Type>Panel.tsx`
 4. Shared types in `shared/schema/types.ts`
 
-**Synthesis** (after both complete):
-- Verify TypeScript and Python schema transforms produce identical output for the same inputs
+**`sync` — Synthesis** (after both complete):
+- Verify TypeScript and Python schema transforms produce identical output for the canonical test inputs (see [Schema Parity Test Inputs](#schema-parity-test-inputs))
 - Run full test suite (`pytest` + `vitest`)
 - Verify no import errors across the boundary
+- `gate`: coordinator approves before merging to `main`
 
 ### Cross-Cutting Changes (Serial)
 
@@ -222,6 +235,30 @@ To prevent merge conflicts when multiple agents work in parallel:
 
 Each agent commits only files within its scope. The synthesis step (human or coordinator) merges and resolves any cross-boundary issues.
 
+### Single-Worktree Discipline
+
+Multiple agents sharing a single git worktree is the #1 source of cross-agent contamination. These rules are **non-negotiable**:
+
+1. **Never switch branches while other agents are running.** A `git checkout` changes the working tree for ALL processes — any concurrent agent will silently read/write the wrong files. The coordinator must serialize all branch operations.
+2. **Never use `git add -A` or `git add .`** — always stage files by explicit path. Wildcards pick up stale files, data directories, and artifacts from other agents.
+3. **Never stash while other agents are running.** `git stash` and `git stash pop` operate on a shared stack. Concurrent stash operations corrupt each other.
+4. **One branch at a time per worktree.** If multiple agents need concurrent branches, use `git worktree add` to give each agent its own directory — or run agents sequentially with full commit/push between each.
+5. **Verify branch before every commit.** Each agent must run `git branch --show-current` immediately before committing and abort if the branch is not the expected one.
+6. **Coordinator serializes git operations.** The orchestrating agent (not subagents) owns all `git checkout`, `git commit`, and `git push` operations. Subagents produce file changes only — they never run git commands.
+
+#### Recovery Protocol — When Things Go Wrong
+
+If an agent detects it has violated any rule above (wrong branch, unexpected files staged, stash collision), follow this procedure exactly:
+
+1. **Stop all file operations immediately.** Do not write, stage, or commit anything further.
+2. **Report to the coordinator** with: (a) what rule was violated, (b) which files were modified/staged, (c) the current branch name vs. the expected branch name.
+3. **Coordinator assesses blast radius:**
+   - If no commits were made on the wrong branch → `git checkout -- <files>` to discard changes, then resume on the correct branch.
+   - If commits were made on the wrong branch → `git log --oneline -5` to identify the bad commits, `git cherry-pick` the relevant ones onto the correct branch, then clean up the wrong branch.
+   - If files from another agent's scope were staged/committed → those files must be reverted from the current branch and the owning agent must verify their branch is clean.
+4. **Subagent work is preserved, not discarded.** The coordinator extracts the actual file changes (via diff) and re-applies them on the correct branch. Only discard work if the changes themselves are corrupt (e.g., merge artifacts, partial writes).
+5. **Post-incident: all agents pause.** The coordinator verifies clean state before any agent resumes. If the coordinator has direct shell access to each subagent's environment, it runs `git status` and `git branch --show-current` in each context. If subagents run in isolated environments (separate containers, remote sessions), each subagent must self-report by running those commands and returning the output to the coordinator. "Pause" means: subagents stop all file operations and wait for an explicit "resume" signal — they do not continue working while the coordinator investigates.
+
 ---
 
 ## Model Selection for Subagents
@@ -233,6 +270,15 @@ Each agent commits only files within its scope. The synthesis step (human or coo
 | Complex debugging, architecture decisions | Opus | Deep reasoning for multi-file, multi-concern problems |
 | Code review, test analysis | Sonnet | Good balance of depth and speed |
 | Documentation, README updates | Haiku | Structured writing from existing content |
+
+### Context Window Management
+
+Long-running subagents (especially Sonnet/Opus on multi-file tasks) can exhaust their context window mid-task. Follow these rules:
+
+1. **Checkpoint before depth.** Before diving into a multi-file investigation, the subagent should write intermediate findings to a scratch file (e.g., `docs/scratch/<task>.md`) so progress is recoverable.
+2. **Scope aggressively.** A subagent that needs to read more than 10 files should be split into multiple focused subagents, each handling a subset.
+3. **Signal, don't spiral.** A subagent cannot observe its own token count. Instead, watch for these behavioral triggers: (a) you re-read a file you already read earlier in the same task, (b) you can't recall what you concluded from a file you read, (c) you find yourself repeating the same search with slightly different terms, (d) you lose track of which files you've already modified. Any of these means you're spiraling — stop, write a summary of progress and remaining work to your scratch file, and return to the coordinator. The coordinator launches a fresh subagent with the scratch file as input.
+4. **Coordinator owns the split.** The coordinator decides when to decompose a task — subagents never spawn their own subagents without explicit coordinator approval.
 
 ---
 
@@ -251,6 +297,7 @@ Each agent commits only files within its scope. The synthesis step (human or coo
 - Changes to `agents.md`
 - Shared type definitions consumed by both backend and frontend
 - CI/CD workflow changes that depend on each other (build → deploy)
+- **Multiple agents modifying backend files on different branches** (single worktree = shared filesystem)
 
 ---
 
@@ -259,16 +306,30 @@ Each agent commits only files within its scope. The synthesis step (human or coo
 After parallel agents complete, verify:
 
 1. **Type boundary**: Backend Pydantic schemas match frontend TypeScript types
-2. **Schema parity**: Python and TypeScript schema transforms produce identical results for the same test inputs
+2. **Schema parity**: Python and TypeScript schema transforms produce identical results for the canonical test inputs (see below)
 3. **Import health**: `ruff check backend/` and `npx tsc --noEmit` both pass
 4. **Test suite**: `pytest backend/tests/` and `npx vitest run` both pass
 5. **No orphan files**: Every new file is imported/referenced somewhere
+
+### Schema Parity Test Inputs
+
+Compilation checks catch syntax errors but miss semantic divergence. Every node type's schema transform must be verified against these canonical edge cases in **both** Python and TypeScript:
+
+| Case | Input | Why it catches bugs |
+|------|-------|---------------------|
+| **Nullable columns** | Schema with `nullable: true` on key columns | Python `Optional[T]` vs TypeScript `T \| null` mismatches |
+| **Empty column set** | Schema with zero columns (post-filter removes all) | Division-by-zero, undefined-access in transform logic |
+| **Type widening** | Join that produces `int + float → float` | Python may keep `int`, TypeScript may widen to `number` |
+| **Duplicate column names** | Two inputs with overlapping column names (join/union) | Alias/rename strategy must match |
+| **Max column count** | Schema with 100+ columns | Performance and truncation behavior |
+
+**Ownership**: The backend agent owns fixture creation. For every node type, the backend agent must produce a JSON fixture file at `backend/tests/fixtures/schema_parity/<node_type>.json` containing input schemas and expected output schemas **before** the frontend agent begins its schema transform work. If the frontend agent encounters a missing fixture, it must stop and request the backend agent (via the coordinator) to produce it — never create the fixture itself, since the Python transform is the source of truth. If results diverge, the frontend transform must be corrected to match the backend fixture.
 
 ---
 
 ## Shorthands
 
-| Shorthand | Meaning |
-|-----------|---------|
-| `gate` | A checkpoint requiring human approval before proceeding (e.g., "gate: merge to main") |
-| `sync` | A point where parallel agents must complete and their outputs must be reconciled before the next step |
+| Shorthand | Meaning | Used in |
+|-----------|---------|---------|
+| `gate` | A checkpoint requiring human approval before proceeding (e.g., "gate: merge to main") | [Implementation Phases](#implementation-phases), [Agent Dispatch Patterns](#agent-dispatch-patterns) |
+| `sync` | A point where parallel agents must complete and their outputs must be reconciled before the next step | [Implementation Phases](#implementation-phases), [Agent Dispatch Patterns](#agent-dispatch-patterns) |
