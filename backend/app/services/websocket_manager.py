@@ -16,6 +16,7 @@ from uuid import UUID
 
 from fastapi import WebSocket
 from redis.asyncio import Redis
+from redis.asyncio.client import PubSub
 
 from app.core.metrics import (
     websocket_connections_active,
@@ -38,7 +39,7 @@ class WebSocketManager:
         self._ws_channels: dict[WebSocket, set[str]] = {}
         self._heartbeat_task: asyncio.Task | None = None
         self._tenant_connections: dict[str, int] = {}
-        self._pubsub = None
+        self._pubsub: PubSub | None = None
 
     @staticmethod
     def _extract_tenant_id(channel: str) -> str | None:
