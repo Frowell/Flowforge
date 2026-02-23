@@ -51,10 +51,10 @@ class Widget(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "widgets"
 
     dashboard_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("dashboards.id")
+        UUID(as_uuid=True), ForeignKey("dashboards.id"), index=True
     )
     source_workflow_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("workflows.id")
+        UUID(as_uuid=True), ForeignKey("workflows.id"), index=True
     )
     source_node_id: Mapped[str] = mapped_column(String(255))
     title: Mapped[str | None] = mapped_column(String(255))
@@ -77,7 +77,7 @@ class DashboardFilter(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "dashboard_filters"
 
     dashboard_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("dashboards.id")
+        UUID(as_uuid=True), ForeignKey("dashboards.id"), index=True
     )
     filter_type: Mapped[FilterType]
     target_column: Mapped[str] = mapped_column(String(255))
