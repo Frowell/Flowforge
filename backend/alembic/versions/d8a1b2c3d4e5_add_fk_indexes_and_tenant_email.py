@@ -17,9 +17,7 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     # H4: Add missing FK indexes on Widget and DashboardFilter
-    op.create_index(
-        op.f("ix_widgets_dashboard_id"), "widgets", ["dashboard_id"]
-    )
+    op.create_index(op.f("ix_widgets_dashboard_id"), "widgets", ["dashboard_id"])
     op.create_index(
         op.f("ix_widgets_source_workflow_id"), "widgets", ["source_workflow_id"]
     )
