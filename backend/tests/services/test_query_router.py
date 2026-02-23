@@ -1,6 +1,7 @@
 """Query router tests — verify correct dispatch to backing stores."""
 
-from unittest.mock import AsyncMock, MagicMock
+import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -134,3 +135,232 @@ class TestRouting:
         )
         with pytest.raises(ValueError, match="Unknown target"):
             await router.execute(segment)
+
+
+class TestTimeouts:
+    """Test query timeout enforcement for ClickHouse and Materialize."""
+
+    @patch("app.services.query_router.settings")
+    async def test_clickhouse_timeout_raises(self, mock_settings):
+        """ClickHouse query exceeding timeout raises TimeoutError."""
+        mock_settings.clickhouse_query_timeout = 1
+
+        async def slow_query(*args, **kwargs):
+            await asyncio.sleep(2)
+            return [{"result": "never reached"}]
+
+        mock_ch = MagicMock()
+        mock_ch.execute = slow_query
+        router = QueryRouter(clickhouse=mock_ch)
+        segment = CompiledSegment(
+            sql="SELECT * FROM large_table",
+            dialect="clickhouse",
+            target="clickhouse",
+            source_node_ids=["node1"],
+        )
+        with pytest.raises(TimeoutError, match="ClickHouse query exceeded timeout"):
+            await router.execute(segment)
+
+    @patch("app.services.query_router.settings")
+    async def test_clickhouse_fast_query_succeeds(self, mock_settings):
+        """ClickHouse query completing within timeout succeeds."""
+        mock_settings.clickhouse_query_timeout = 5
+
+        async def fast_query(*args, **kwargs):
+            await asyncio.sleep(0.1)
+            return [{"symbol": "AAPL"}]
+
+        mock_ch = MagicMock()
+        mock_ch.execute = fast_query
+        router = QueryRouter(clickhouse=mock_ch)
+        segment = CompiledSegment(
+            sql="SELECT * FROM quick_table",
+            dialect="clickhouse",
+            target="clickhouse",
+            source_node_ids=["node1"],
+        )
+        result = await router.execute(segment)
+        assert result.source == "clickhouse"
+        assert result.total_rows == 1
+
+    @patch("app.services.query_router.settings")
+    async def test_materialize_timeout_raises(self, mock_settings):
+        """Materialize query exceeding timeout raises TimeoutError."""
+        mock_settings.materialize_query_timeout = 1
+
+        async def slow_query(*args, **kwargs):
+            await asyncio.sleep(2)
+            return [{"result": "never reached"}]
+
+        mock_mz = MagicMock()
+        mock_mz.execute = slow_query
+        router = QueryRouter(materialize=mock_mz)
+        segment = CompiledSegment(
+            sql="SELECT * FROM live_positions",
+            dialect="postgres",
+            target="materialize",
+            source_node_ids=["node1"],
+        )
+        with pytest.raises(TimeoutError, match="Materialize query exceeded timeout"):
+            await router.execute(segment)
+
+    @patch("app.services.query_router.settings")
+    async def test_materialize_fast_query_succeeds(self, mock_settings):
+        """Materialize query completing within timeout succeeds."""
+        mock_settings.materialize_query_timeout = 5
+
+        async def fast_query(*args, **kwargs):
+            await asyncio.sleep(0.1)
+            return [{"symbol": "AAPL", "position": 100}]
+
+        mock_mz = MagicMock()
+        mock_mz.execute = fast_query
+        router = QueryRouter(materialize=mock_mz)
+        segment = CompiledSegment(
+            sql="SELECT * FROM live_positions",
+            dialect="postgres",
+            target="materialize",
+            source_node_ids=["node1"],
+        )
+        result = await router.execute(segment)
+        assert result.source == "materialize"
+        assert result.total_rows == 1
+
+
+class TestRedisPipelining:
+    """Test Redis SCAN_HASH with key limits and pipelining."""
+
+    @patch("app.services.query_router.settings")
+    async def test_redis_scan_hash_respects_key_limit(self, mock_settings):
+        """SCAN_HASH stops at configured key limit."""
+        mock_settings.redis_scan_limit = 50
+        mock_settings.redis_pipeline_batch_size = 10
+
+        # Simulate SCAN returning 100 keys total
+        mock_redis = MagicMock()
+        scan_results = [
+            (1, [f"latest:vwap:SYM{i:03d}" for i in range(25)]),
+            (2, [f"latest:vwap:SYM{i:03d}" for i in range(25, 50)]),
+            (3, [f"latest:vwap:SYM{i:03d}" for i in range(50, 75)]),
+            (0, [f"latest:vwap:SYM{i:03d}" for i in range(75, 100)]),
+        ]
+        mock_redis.scan = AsyncMock(side_effect=scan_results)
+
+        # Mock pipeline
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute = AsyncMock(return_value=[{"price": "150.0"}] * 10)
+        mock_redis.pipeline.return_value = mock_pipeline
+
+        router = QueryRouter(redis=mock_redis)
+        segment = CompiledSegment(
+            sql="",
+            dialect="",
+            target="redis",
+            source_node_ids=["node1"],
+            params={"lookup_type": "SCAN_HASH", "pattern": "latest:vwap:*"},
+        )
+        result = await router.execute(segment)
+
+        # Should process only 50 keys, not all 100
+        assert result.total_rows == 50
+        # 50 keys / 10 per batch = 5 pipeline calls
+        assert mock_pipeline.execute.await_count == 5
+
+    @patch("app.services.query_router.settings")
+    async def test_redis_scan_hash_uses_pipelining(self, mock_settings):
+        """SCAN_HASH batches HGETALL calls via pipeline."""
+        mock_settings.redis_scan_limit = 1000
+        mock_settings.redis_pipeline_batch_size = 5
+
+        mock_redis = MagicMock()
+        # SCAN returns 15 keys total (3 batches of 5)
+        mock_redis.scan = AsyncMock(
+            return_value=(0, [f"latest:vwap:SYM{i}" for i in range(15)])
+        )
+
+        # Mock pipeline
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute = AsyncMock(
+            return_value=[{"price": f"{i}.0"} for i in range(5)]
+        )
+        mock_redis.pipeline.return_value = mock_pipeline
+
+        router = QueryRouter(redis=mock_redis)
+        segment = CompiledSegment(
+            sql="",
+            dialect="",
+            target="redis",
+            source_node_ids=["node1"],
+            params={"lookup_type": "SCAN_HASH", "pattern": "latest:vwap:*"},
+        )
+        result = await router.execute(segment)
+
+        # 15 keys / 5 per batch = 3 pipeline calls
+        assert mock_pipeline.execute.await_count == 3
+        assert result.total_rows == 15
+
+    @patch("app.services.query_router.settings")
+    async def test_redis_scan_hash_extracts_symbol_from_key(self, mock_settings):
+        """SCAN_HASH correctly extracts symbol from key name."""
+        mock_settings.redis_scan_limit = 1000
+        mock_settings.redis_pipeline_batch_size = 10
+
+        mock_redis = MagicMock()
+        mock_redis.scan = AsyncMock(
+            return_value=(0, ["latest:vwap:AAPL", "latest:vwap:GOOG"])
+        )
+
+        # Mock pipeline
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute = AsyncMock(
+            return_value=[
+                {"price": "150.0", "volume": "1000"},
+                {"price": "2800.0", "volume": "500"},
+            ]
+        )
+        mock_redis.pipeline.return_value = mock_pipeline
+
+        router = QueryRouter(redis=mock_redis)
+        segment = CompiledSegment(
+            sql="",
+            dialect="",
+            target="redis",
+            source_node_ids=["node1"],
+            params={"lookup_type": "SCAN_HASH", "pattern": "latest:vwap:*"},
+        )
+        result = await router.execute(segment)
+
+        assert result.total_rows == 2
+        # Check symbol extraction
+        symbols = {row["symbol"] for row in result.rows}
+        assert symbols == {"AAPL", "GOOG"}
+
+    @patch("app.services.query_router.settings")
+    async def test_redis_scan_hash_handles_empty_hashes(self, mock_settings):
+        """SCAN_HASH skips keys with empty hash data."""
+        mock_settings.redis_scan_limit = 1000
+        mock_settings.redis_pipeline_batch_size = 10
+
+        mock_redis = MagicMock()
+        mock_redis.scan = AsyncMock(
+            return_value=(0, ["latest:vwap:AAPL", "latest:vwap:EMPTY"])
+        )
+
+        # Mock pipeline — second hash is empty
+        mock_pipeline = MagicMock()
+        mock_pipeline.execute = AsyncMock(return_value=[{"price": "150.0"}, {}])
+        mock_redis.pipeline.return_value = mock_pipeline
+
+        router = QueryRouter(redis=mock_redis)
+        segment = CompiledSegment(
+            sql="",
+            dialect="",
+            target="redis",
+            source_node_ids=["node1"],
+            params={"lookup_type": "SCAN_HASH", "pattern": "latest:vwap:*"},
+        )
+        result = await router.execute(segment)
+
+        # Only one non-empty hash
+        assert result.total_rows == 1
+        assert result.rows[0]["symbol"] == "AAPL"
