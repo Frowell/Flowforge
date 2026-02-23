@@ -312,3 +312,158 @@ class TestChannelManagement:
         # Gauge should only increment once (on first connect)
         assert gauge_after_first == initial_gauge + 1
         assert websocket_connections_active._value.get() == gauge_after_first
+
+
+class TestTenantScopedSubscription:
+    """Tests for H2 — tenant-scoped Redis pub/sub subscriptions."""
+
+    @pytest.fixture
+    def mock_pubsub(self):
+        """Mock Redis PubSub object."""
+        pubsub = AsyncMock()
+        pubsub.psubscribe = AsyncMock()
+        pubsub.punsubscribe = AsyncMock()
+        return pubsub
+
+    @pytest.fixture
+    def ws_manager_with_pubsub(self, mock_redis, mock_pubsub):
+        """WebSocketManager with pubsub pre-initialized (simulates post-startup)."""
+        manager = WebSocketManager(redis=mock_redis)
+        manager._pubsub = mock_pubsub
+        return manager
+
+    def _make_ws(self):
+        ws = AsyncMock(spec=WebSocket)
+        ws.accept = AsyncMock()
+        ws.send_text = AsyncMock()
+        return ws
+
+    async def test_first_connect_subscribes_to_tenant(
+        self, ws_manager_with_pubsub, mock_pubsub
+    ):
+        """Connecting first client for a tenant subscribes to that tenant's pattern."""
+        ws = self._make_ws()
+        tenant_id = str(uuid4())
+        channel = f"flowforge:{tenant_id}:execution:abc"
+
+        await ws_manager_with_pubsub.connect(ws, channel)
+
+        mock_pubsub.psubscribe.assert_called_once_with(f"flowforge:{tenant_id}:*")
+
+    async def test_second_connect_same_tenant_no_duplicate_subscribe(
+        self, ws_manager_with_pubsub, mock_pubsub
+    ):
+        """Multiple connections for same tenant should only subscribe once."""
+        ws1 = self._make_ws()
+        ws2 = self._make_ws()
+        tenant_id = str(uuid4())
+
+        await ws_manager_with_pubsub.connect(
+            ws1, f"flowforge:{tenant_id}:execution:abc"
+        )
+        await ws_manager_with_pubsub.connect(
+            ws2, f"flowforge:{tenant_id}:execution:def"
+        )
+
+        # psubscribe should only be called once for this tenant
+        assert mock_pubsub.psubscribe.call_count == 1
+
+    async def test_last_disconnect_unsubscribes_tenant(
+        self, ws_manager_with_pubsub, mock_pubsub
+    ):
+        """Disconnecting last client for a tenant unsubscribes that tenant's pattern."""
+        ws = self._make_ws()
+        tenant_id = str(uuid4())
+        channel = f"flowforge:{tenant_id}:execution:abc"
+
+        await ws_manager_with_pubsub.connect(ws, channel)
+        mock_pubsub.psubscribe.assert_called_once()
+
+        await ws_manager_with_pubsub.disconnect(ws, channel)
+
+        mock_pubsub.punsubscribe.assert_called_once_with(f"flowforge:{tenant_id}:*")
+
+    async def test_disconnect_one_of_two_no_unsubscribe(
+        self, ws_manager_with_pubsub, mock_pubsub
+    ):
+        """Disconnecting one of two clients for same tenant should NOT unsubscribe."""
+        ws1 = self._make_ws()
+        ws2 = self._make_ws()
+        tenant_id = str(uuid4())
+
+        await ws_manager_with_pubsub.connect(
+            ws1, f"flowforge:{tenant_id}:execution:abc"
+        )
+        await ws_manager_with_pubsub.connect(
+            ws2, f"flowforge:{tenant_id}:execution:def"
+        )
+
+        await ws_manager_with_pubsub.disconnect(
+            ws1, f"flowforge:{tenant_id}:execution:abc"
+        )
+
+        # Should NOT have unsubscribed — ws2 still connected
+        mock_pubsub.punsubscribe.assert_not_called()
+
+    async def test_disconnect_all_unsubscribes_tenant(
+        self, ws_manager_with_pubsub, mock_pubsub
+    ):
+        """disconnect_all should unsubscribe tenant when last WS disconnects."""
+        ws = self._make_ws()
+        tenant_id = str(uuid4())
+        channel = f"flowforge:{tenant_id}:execution:abc"
+
+        await ws_manager_with_pubsub.connect(ws, channel)
+        await ws_manager_with_pubsub.disconnect_all(ws)
+
+        mock_pubsub.punsubscribe.assert_called_once_with(f"flowforge:{tenant_id}:*")
+
+    async def test_multiple_tenants_independent_subscriptions(
+        self, ws_manager_with_pubsub, mock_pubsub
+    ):
+        """Different tenants get independent subscribe/unsubscribe cycles."""
+        ws_a = self._make_ws()
+        ws_b = self._make_ws()
+        tenant_a = str(uuid4())
+        tenant_b = str(uuid4())
+
+        await ws_manager_with_pubsub.connect(
+            ws_a, f"flowforge:{tenant_a}:execution:abc"
+        )
+        await ws_manager_with_pubsub.connect(ws_b, f"flowforge:{tenant_b}:widget:xyz")
+
+        assert mock_pubsub.psubscribe.call_count == 2
+
+        # Disconnect tenant A only
+        await ws_manager_with_pubsub.disconnect(
+            ws_a, f"flowforge:{tenant_a}:execution:abc"
+        )
+
+        # Only tenant A should be unsubscribed
+        mock_pubsub.punsubscribe.assert_called_once_with(f"flowforge:{tenant_a}:*")
+
+        # Tenant B still subscribed
+        assert ws_manager_with_pubsub._tenant_connections[tenant_b] == 1
+
+    async def test_non_tenant_channel_no_subscription(
+        self, ws_manager_with_pubsub, mock_pubsub
+    ):
+        """Channels without flowforge: prefix should not trigger tenant tracking."""
+        ws = self._make_ws()
+
+        await ws_manager_with_pubsub.connect(ws, "other:channel:format")
+
+        mock_pubsub.psubscribe.assert_not_called()
+
+    async def test_extract_tenant_id_valid(self):
+        """_extract_tenant_id returns tenant_id for valid channel names."""
+        assert (
+            WebSocketManager._extract_tenant_id("flowforge:tenant-123:execution:abc")
+            == "tenant-123"
+        )
+
+    async def test_extract_tenant_id_malformed(self):
+        """_extract_tenant_id returns None for malformed channel names."""
+        assert WebSocketManager._extract_tenant_id("other:tenant:type:id") is None
+        assert WebSocketManager._extract_tenant_id("flowforge") is None
+        assert WebSocketManager._extract_tenant_id("") is None
