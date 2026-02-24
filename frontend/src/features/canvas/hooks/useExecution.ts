@@ -50,6 +50,11 @@ export function useExecution(workflowId: string | undefined) {
           executionQueryKey(workflowId, executionId),
           (prev: ExecutionStatusResponse | null | undefined) => (prev ? { ...prev, ...msg } : msg),
         );
+
+        // Invalidate execution history when execution finishes
+        if (msg.status === "completed" || msg.status === "failed" || msg.status === "cancelled") {
+          queryClient.invalidateQueries({ queryKey: ["execution-history", workflowId] });
+        }
       }
     });
 

@@ -9,8 +9,8 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import (
@@ -25,9 +25,12 @@ from app.api.deps import (
     require_role,
 )
 from app.models.audit_log import AuditAction, AuditResourceType
+from app.models.execution import Execution
 from app.models.workflow import Workflow
 from app.schemas.preview import PreviewRequest, PreviewResponse
 from app.schemas.query import (
+    ExecutionHistoryItem,
+    ExecutionListResponse,
     ExecutionRequest,
     ExecutionStatusResponse,
     NodeStatusResponse,
@@ -128,6 +131,19 @@ async def execute_workflow(
     redis_key = f"flowforge:{tenant_id}:execution:{execution_id}"
     await redis.set(redis_key, json.dumps(execution_record), ex=EXECUTION_TTL)
 
+    # Write-through to PostgreSQL
+    pg_execution = Execution(
+        id=execution_id,
+        tenant_id=tenant_id,
+        workflow_id=body.workflow_id,
+        started_by=user_id,
+        status="pending",
+        node_statuses={},
+        started_at=datetime.now(UTC),
+    )
+    db.add(pg_execution)
+    await db.commit()
+
     # Compile workflow
     try:
         segments = compiler.compile(nodes, edges)
@@ -135,6 +151,10 @@ async def execute_workflow(
         execution_record["status"] = "failed"
         execution_record["completed_at"] = datetime.now(UTC).isoformat()
         await redis.set(redis_key, json.dumps(execution_record), ex=EXECUTION_TTL)
+        pg_execution.status = "failed"
+        pg_execution.completed_at = datetime.now(UTC)
+        pg_execution.error_message = str(e)
+        await db.commit()
         await ws_manager.publish_execution_status(
             tenant_id=tenant_id,
             execution_id=execution_id,
@@ -150,6 +170,8 @@ async def execute_workflow(
     # Update status to running
     execution_record["status"] = "running"
     await redis.set(redis_key, json.dumps(execution_record), ex=EXECUTION_TTL)
+    pg_execution.status = "running"
+    await db.commit()
     await ws_manager.publish_execution_status(
         tenant_id=tenant_id,
         execution_id=execution_id,
@@ -214,6 +236,11 @@ async def execute_workflow(
             execution_record["status"] = "failed"
             execution_record["completed_at"] = datetime.now(UTC).isoformat()
             await redis.set(redis_key, json.dumps(execution_record), ex=EXECUTION_TTL)
+            pg_execution.status = "failed"
+            pg_execution.completed_at = datetime.now(UTC)
+            pg_execution.node_statuses = execution_record["node_statuses"]
+            pg_execution.error_message = str(e)
+            await db.commit()
             await ws_manager.publish_execution_status(
                 tenant_id=tenant_id,
                 execution_id=execution_id,
@@ -227,6 +254,10 @@ async def execute_workflow(
         execution_record["status"] = "completed"
         execution_record["completed_at"] = datetime.now(UTC).isoformat()
         await redis.set(redis_key, json.dumps(execution_record), ex=EXECUTION_TTL)
+        pg_execution.status = "completed"
+        pg_execution.completed_at = datetime.now(UTC)
+        pg_execution.node_statuses = execution_record["node_statuses"]
+        await db.commit()
         await ws_manager.publish_execution_status(
             tenant_id=tenant_id,
             execution_id=execution_id,
@@ -251,27 +282,55 @@ async def execute_workflow(
 async def get_execution_status(
     execution_id: UUID,
     tenant_id: UUID = Depends(get_current_tenant_id),
+    db: AsyncSession = Depends(get_db),
     redis=Depends(get_redis),
 ):
-    """Get the current status of a workflow execution."""
+    """Get the current status of a workflow execution.
+
+    Checks Redis first (active executions), falls back to PostgreSQL (historical).
+    """
+    # Try Redis first (active/recent executions)
     redis_key = f"flowforge:{tenant_id}:execution:{execution_id}"
     raw = await redis.get(redis_key)
-    if not raw:
+    if raw:
+        record = json.loads(raw)
+        return ExecutionStatusResponse(
+            id=UUID(record["id"]),
+            workflow_id=UUID(record["workflow_id"]),
+            status=record["status"],
+            started_at=record.get("started_at"),
+            completed_at=record.get("completed_at"),
+            node_statuses={
+                nid: NodeStatusResponse(**ns)
+                for nid, ns in record.get("node_statuses", {}).items()
+            },
+        )
+
+    # Fall back to PostgreSQL (historical)
+    result = await db.execute(
+        select(Execution).where(
+            Execution.id == execution_id,
+            Execution.tenant_id == tenant_id,
+        )
+    )
+    execution = result.scalar_one_or_none()
+    if not execution:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Execution not found",
         )
 
-    record = json.loads(raw)
     return ExecutionStatusResponse(
-        id=UUID(record["id"]),
-        workflow_id=UUID(record["workflow_id"]),
-        status=record["status"],
-        started_at=record.get("started_at"),
-        completed_at=record.get("completed_at"),
+        id=execution.id,
+        workflow_id=execution.workflow_id,
+        status=execution.status,
+        started_at=execution.started_at.isoformat() if execution.started_at else None,
+        completed_at=(
+            execution.completed_at.isoformat() if execution.completed_at else None
+        ),
         node_statuses={
             nid: NodeStatusResponse(**ns)
-            for nid, ns in record.get("node_statuses", {}).items()
+            for nid, ns in (execution.node_statuses or {}).items()
         },
     )
 
@@ -280,13 +339,14 @@ async def get_execution_status(
 async def cancel_execution(
     execution_id: UUID,
     tenant_id: UUID = Depends(get_current_tenant_id),
+    db: AsyncSession = Depends(get_db),
     redis=Depends(get_redis),
     ws_manager: WebSocketManager = Depends(get_websocket_manager),
 ):
     """Cancel a running or pending workflow execution.
 
     Sets a cancelled flag in Redis. The segment execution loop checks this
-    flag between segments and breaks early if set.
+    flag between segments and breaks early if set. Also updates PostgreSQL.
     """
     redis_key = f"flowforge:{tenant_id}:execution:{execution_id}"
     raw = await redis.get(redis_key)
@@ -303,9 +363,23 @@ async def cancel_execution(
             detail=f"Execution already finished with status: {record['status']}",
         )
 
+    now = datetime.now(UTC)
     record["status"] = "cancelled"
-    record["completed_at"] = datetime.now(UTC).isoformat()
+    record["completed_at"] = now.isoformat()
     await redis.set(redis_key, json.dumps(record), ex=EXECUTION_TTL)
+
+    # Update PostgreSQL record
+    pg_result = await db.execute(
+        select(Execution).where(
+            Execution.id == execution_id,
+            Execution.tenant_id == tenant_id,
+        )
+    )
+    pg_execution = pg_result.scalar_one_or_none()
+    if pg_execution:
+        pg_execution.status = "cancelled"
+        pg_execution.completed_at = now
+        await db.commit()
 
     await ws_manager.publish_execution_status(
         tenant_id=tenant_id,
@@ -314,3 +388,72 @@ async def cancel_execution(
         status="cancelled",
     )
     return {"id": str(execution_id), "status": "cancelled"}
+
+
+@router.get("/history/{workflow_id}", response_model=ExecutionListResponse)
+async def list_execution_history(
+    workflow_id: UUID,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    tenant_id: UUID = Depends(get_current_tenant_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """List past executions for a workflow from PostgreSQL.
+
+    Paginated, ordered by most recent first. Verifies workflow belongs to tenant.
+    """
+    # Verify workflow belongs to tenant
+    wf_result = await db.execute(
+        select(Workflow).where(
+            Workflow.id == workflow_id,
+            Workflow.tenant_id == tenant_id,
+        )
+    )
+    if not wf_result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Workflow not found",
+        )
+
+    # Count total
+    total_q = await db.execute(
+        select(func.count(Execution.id)).where(
+            Execution.workflow_id == workflow_id,
+            Execution.tenant_id == tenant_id,
+        )
+    )
+    total = total_q.scalar_one()
+
+    # Fetch page
+    q = (
+        select(Execution)
+        .where(
+            Execution.workflow_id == workflow_id,
+            Execution.tenant_id == tenant_id,
+        )
+        .order_by(Execution.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    result = await db.execute(q)
+    executions = result.scalars().all()
+
+    return ExecutionListResponse(
+        items=[
+            ExecutionHistoryItem(
+                id=e.id,
+                workflow_id=e.workflow_id,
+                status=e.status,
+                started_by=e.started_by,
+                node_statuses=e.node_statuses or {},
+                started_at=e.started_at.isoformat() if e.started_at else None,
+                completed_at=e.completed_at.isoformat() if e.completed_at else None,
+                error_message=e.error_message,
+                created_at=e.created_at.isoformat() if e.created_at else None,
+            )
+            for e in executions
+        ],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
