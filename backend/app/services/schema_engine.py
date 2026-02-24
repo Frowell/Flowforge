@@ -10,6 +10,7 @@ in frontend/src/shared/schema/propagation.ts.
 import logging
 from collections.abc import Callable
 
+from app.core.graph import topological_sort
 from app.schemas.schema import ColumnSchema
 
 logger = logging.getLogger(__name__)
@@ -304,22 +305,13 @@ class SchemaEngine:
         node_map = {n["id"]: n for n in nodes}
         output_schemas: dict[str, list[ColumnSchema]] = {}
 
-        # Topological sort (Kahn's algorithm)
-        in_degree: dict[str, int] = {n["id"]: 0 for n in nodes}
-        for edge in edges:
-            in_degree[edge["target"]] += 1
+        sorted_ids = topological_sort(nodes, edges)
 
-        queue = [nid for nid, deg in in_degree.items() if deg == 0]
-        visited = 0
-
-        while queue:
-            node_id = queue.pop(0)
-            visited += 1
+        for node_id in sorted_ids:
             node = node_map[node_id]
             node_type = node.get("type", "")
             node_config = node.get("data", {}).get("config", {})
 
-            # Gather input schemas from upstream nodes
             input_schemas = [
                 output_schemas.get(src_id, []) for src_id in inbound.get(node_id, [])
             ]
@@ -329,14 +321,5 @@ class SchemaEngine:
                 raise ValueError(f"Unknown node type: {node_type}")
 
             output_schemas[node_id] = transform(node_config, input_schemas)
-
-            for edge in edges:
-                if edge["source"] == node_id:
-                    in_degree[edge["target"]] -= 1
-                    if in_degree[edge["target"]] == 0:
-                        queue.append(edge["target"])
-
-        if visited != len(nodes):
-            raise ValueError("Workflow contains a cycle")
 
         return output_schemas
