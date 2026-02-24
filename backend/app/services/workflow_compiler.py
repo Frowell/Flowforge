@@ -17,6 +17,7 @@ import sqlglot
 import structlog
 from sqlglot import exp
 
+from app.core.graph import topological_sort
 from app.core.metrics import query_compilation_duration_seconds
 from app.schemas.schema import ColumnSchema
 from app.services.formula_parser import FormulaParser
@@ -47,6 +48,7 @@ class CompiledSegment:
     params: dict = field(default_factory=dict)
     limit: int | None = None
     offset: int | None = None
+    expression: exp.Expression | None = None
 
 
 class WorkflowCompiler:
@@ -70,7 +72,7 @@ class WorkflowCompiler:
         schema_map = self._schema_engine.validate_dag(nodes, edges)
 
         # Step 2: Topological sort
-        sorted_ids = self._topological_sort(nodes, edges)
+        sorted_ids = topological_sort(nodes, edges)
 
         # Step 3: Build expression trees and merge
         segments = self._build_and_merge(sorted_ids, nodes, edges, schema_map)
@@ -109,31 +111,6 @@ class WorkflowCompiler:
         ]
 
         return self.compile(sub_nodes, sub_edges)
-
-    def _topological_sort(self, nodes: list[dict], edges: list[dict]) -> list[str]:
-        """Kahn's algorithm for topological ordering."""
-        in_degree: dict[str, int] = {n["id"]: 0 for n in nodes}
-        adjacency: dict[str, list[str]] = {n["id"]: [] for n in nodes}
-
-        for edge in edges:
-            adjacency[edge["source"]].append(edge["target"])
-            in_degree[edge["target"]] += 1
-
-        queue = [nid for nid, deg in in_degree.items() if deg == 0]
-        result: list[str] = []
-
-        while queue:
-            node_id = queue.pop(0)
-            result.append(node_id)
-            for neighbor in adjacency[node_id]:
-                in_degree[neighbor] -= 1
-                if in_degree[neighbor] == 0:
-                    queue.append(neighbor)
-
-        if len(result) != len(nodes):
-            raise ValueError("Workflow DAG contains a cycle")
-
-        return result
 
     def _build_and_merge(
         self,
@@ -418,6 +395,7 @@ class WorkflowCompiler:
                         dialect=dialect or "clickhouse",
                         target=target,
                         source_node_ids=source_ids_map.get(node_id, [node_id]),
+                        expression=expression,
                     )
                 )
 
@@ -1046,9 +1024,12 @@ class WorkflowCompiler:
                 continue
             limit_val = segments_with_limit.get(idx)
             if limit_val is not None:
-                parsed = sqlglot.parse_one(seg.sql, read=seg.dialect)
-                parsed = parsed.limit(limit_val, dialect=seg.dialect)  # type: ignore[attr-defined]
-                new_sql = parsed.sql(dialect=seg.dialect)
+                if seg.expression is not None:
+                    modified = seg.expression.copy()
+                else:
+                    modified = sqlglot.parse_one(seg.sql, read=seg.dialect)
+                modified = modified.limit(limit_val, dialect=seg.dialect)  # type: ignore[attr-defined]
+                new_sql = modified.sql(dialect=seg.dialect)
                 result.append(
                     CompiledSegment(
                         sql=new_sql,
@@ -1058,6 +1039,7 @@ class WorkflowCompiler:
                         params=seg.params,
                         limit=limit_val,
                         offset=seg.offset,
+                        expression=modified,
                     )
                 )
             else:

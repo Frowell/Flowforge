@@ -4,6 +4,7 @@ import pytest
 import sqlglot
 from sqlglot import exp
 
+from app.core.graph import topological_sort
 from app.services.schema_engine import SchemaEngine
 from app.services.workflow_compiler import WorkflowCompiler
 
@@ -19,7 +20,6 @@ def _normalize_sql(sql: str) -> str:
 
 class TestTopologicalSort:
     def test_linear_chain_sorted_correctly(self):
-        compiler = get_compiler()
         nodes = [
             {
                 "id": "a",
@@ -30,7 +30,7 @@ class TestTopologicalSort:
             {"id": "c", "type": "table_output", "data": {"config": {}}},
         ]
         edges = [{"source": "a", "target": "b"}, {"source": "b", "target": "c"}]
-        result = compiler._topological_sort(nodes, edges)
+        result = topological_sort(nodes, edges)
         assert result.index("a") < result.index("b") < result.index("c")
 
 
@@ -79,7 +79,7 @@ class TestQueryMerging:
         ]
         edges = [{"source": "src", "target": "flt"}, {"source": "flt", "target": "out"}]
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            topological_sort(nodes, edges), nodes, edges
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -118,7 +118,7 @@ class TestQueryMerging:
         ]
         edges = [{"source": "src", "target": "sel"}, {"source": "sel", "target": "out"}]
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            topological_sort(nodes, edges), nodes, edges
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -154,7 +154,7 @@ class TestQueryMerging:
         ]
         edges = [{"source": "src", "target": "srt"}, {"source": "srt", "target": "out"}]
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            topological_sort(nodes, edges), nodes, edges
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -191,7 +191,7 @@ class TestQueryMerging:
         ]
         edges = [{"source": "src", "target": "ren"}, {"source": "ren", "target": "out"}]
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            topological_sort(nodes, edges), nodes, edges
         )
         assert len(segments) == 1
         sql = segments[0].sql
@@ -257,7 +257,7 @@ class TestQueryMerging:
             {"source": "srt", "target": "out"},
         ]
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            topological_sort(nodes, edges), nodes, edges
         )
         # Must produce exactly ONE merged query
         assert len(segments) == 1
@@ -301,7 +301,7 @@ class TestQueryMerging:
         ]
         edges = [{"source": "src", "target": "flt"}, {"source": "flt", "target": "out"}]
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            topological_sort(nodes, edges), nodes, edges
         )
         assert len(segments) == 1
         sql = segments[0].sql
@@ -341,7 +341,7 @@ class TestQueryMerging:
         ]
         edges = [{"source": "src", "target": "srt"}, {"source": "srt", "target": "out"}]
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            topological_sort(nodes, edges), nodes, edges
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -360,7 +360,7 @@ class TestEdgeCases:
         nodes: list[dict] = []
         edges: list[dict] = []
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            topological_sort(nodes, edges), nodes, edges
         )
         assert segments == []
 
@@ -373,7 +373,7 @@ class TestEdgeCases:
         ]
         edges = [{"source": "flt", "target": "out"}]
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            topological_sort(nodes, edges), nodes, edges
         )
         # Filter with no parent expr_map entry produces no segments
         assert len(segments) == 0
@@ -434,7 +434,7 @@ class TestEdgeCases:
         ]
         edges = [{"source": "src", "target": "flt"}, {"source": "flt", "target": "out"}]
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            topological_sort(nodes, edges), nodes, edges
         )
         assert len(segments) == 1
         # The filter with value "NULL" at least produces a WHERE clause
@@ -470,7 +470,7 @@ class TestEdgeCases:
         ]
         edges = [{"source": "src", "target": "flt"}, {"source": "flt", "target": "out"}]
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            topological_sort(nodes, edges), nodes, edges
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -505,7 +505,7 @@ class TestEdgeCases:
         ]
         edges = [{"source": "src", "target": "flt"}, {"source": "flt", "target": "out"}]
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            topological_sort(nodes, edges), nodes, edges
         )
         assert len(segments) == 1
         sql = segments[0].sql
@@ -541,7 +541,7 @@ class TestEdgeCases:
         ]
         edges = [{"source": "src", "target": "flt"}, {"source": "flt", "target": "out"}]
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            topological_sort(nodes, edges), nodes, edges
         )
         assert len(segments) == 1
         sql = segments[0].sql
@@ -595,7 +595,7 @@ class TestEdgeCases:
             {"source": "f2", "target": "out"},
         ]
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            topological_sort(nodes, edges), nodes, edges
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -627,7 +627,7 @@ class TestEdgeCases:
         ]
         edges = [{"source": "src", "target": "lim"}, {"source": "lim", "target": "out"}]
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            topological_sort(nodes, edges), nodes, edges
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -672,7 +672,7 @@ class TestPhase2NodeTypes:
         ]
         edges = [{"source": "src", "target": "grp"}, {"source": "grp", "target": "out"}]
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            topological_sort(nodes, edges), nodes, edges
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -723,7 +723,7 @@ class TestPhase2NodeTypes:
         ]
         edges = [{"source": "src", "target": "grp"}, {"source": "grp", "target": "out"}]
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            topological_sort(nodes, edges), nodes, edges
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -784,7 +784,7 @@ class TestPhase2NodeTypes:
         ]
         schema_map = compiler._schema_engine.validate_dag(nodes, edges)
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges, schema_map
+            topological_sort(nodes, edges), nodes, edges, schema_map
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -837,7 +837,7 @@ class TestPhase2NodeTypes:
         ]
         schema_map = compiler._schema_engine.validate_dag(nodes, edges)
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges, schema_map
+            topological_sort(nodes, edges), nodes, edges, schema_map
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -877,7 +877,7 @@ class TestPhase2NodeTypes:
             {"source": "un", "target": "out"},
         ]
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            topological_sort(nodes, edges), nodes, edges
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -914,7 +914,7 @@ class TestPhase2NodeTypes:
         ]
         edges = [{"source": "src", "target": "frm"}, {"source": "frm", "target": "out"}]
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            topological_sort(nodes, edges), nodes, edges
         )
         assert len(segments) == 1
         sql_lower = segments[0].sql.lower()
@@ -942,7 +942,7 @@ class TestPhase2NodeTypes:
         ]
         edges = [{"source": "src", "target": "unq"}, {"source": "unq", "target": "out"}]
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            topological_sort(nodes, edges), nodes, edges
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -967,7 +967,7 @@ class TestPhase2NodeTypes:
         ]
         edges = [{"source": "src", "target": "smp"}, {"source": "smp", "target": "out"}]
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            topological_sort(nodes, edges), nodes, edges
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -1041,7 +1041,7 @@ class TestPhase2NodeTypes:
         ]
         schema_map = compiler._schema_engine.validate_dag(nodes, edges)
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges, schema_map
+            topological_sort(nodes, edges), nodes, edges, schema_map
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -1127,7 +1127,7 @@ class TestMultiSourceDAG:
         ]
         schema_map = compiler._schema_engine.validate_dag(nodes, edges)
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges, schema_map
+            topological_sort(nodes, edges), nodes, edges, schema_map
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -1215,7 +1215,7 @@ class TestMultiSourceDAG:
         ]
         schema_map = compiler._schema_engine.validate_dag(nodes, edges)
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges, schema_map
+            topological_sort(nodes, edges), nodes, edges, schema_map
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -1283,7 +1283,7 @@ class TestMultiSourceDAG:
         ]
         schema_map = compiler._schema_engine.validate_dag(nodes, edges)
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges, schema_map
+            topological_sort(nodes, edges), nodes, edges, schema_map
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -1349,7 +1349,7 @@ class TestMultiSourceDAG:
         ]
         schema_map = compiler._schema_engine.validate_dag(nodes, edges)
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges, schema_map
+            topological_sort(nodes, edges), nodes, edges, schema_map
         )
         # Diamond topology should produce a valid query
         assert len(segments) == 1
@@ -1422,7 +1422,7 @@ class TestMultiSourceDAG:
         ]
         schema_map = compiler._schema_engine.validate_dag(nodes, edges)
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges, schema_map
+            topological_sort(nodes, edges), nodes, edges, schema_map
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -1593,7 +1593,7 @@ class TestPivotCompilation:
             {"source": "pvt", "target": "out"},
         ]
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            topological_sort(nodes, edges), nodes, edges
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -1641,7 +1641,7 @@ class TestPivotCompilation:
             {"source": "pvt", "target": "out"},
         ]
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            topological_sort(nodes, edges), nodes, edges
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -1687,7 +1687,7 @@ class TestPivotCompilation:
             {"source": "pvt", "target": "out"},
         ]
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            topological_sort(nodes, edges), nodes, edges
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -1745,7 +1745,7 @@ class TestPivotCompilation:
             {"source": "pvt", "target": "out"},
         ]
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            topological_sort(nodes, edges), nodes, edges
         )
         # Filter merges into data_source, pivot wraps as subquery — one segment
         assert len(segments) == 1
@@ -1791,7 +1791,7 @@ class TestPivotCompilation:
             {"source": "pvt", "target": "out"},
         ]
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges
+            topological_sort(nodes, edges), nodes, edges
         )
         assert len(segments) == 1
         sql_upper = segments[0].sql.upper()
@@ -1852,7 +1852,7 @@ class TestJoinUnionTargetPropagation:
         ]
         schema_map = compiler._schema_engine.validate_dag(nodes, edges)
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges, schema_map
+            topological_sort(nodes, edges), nodes, edges, schema_map
         )
         assert len(segments) == 1
         assert segments[0].target == "materialize"
@@ -1892,7 +1892,7 @@ class TestJoinUnionTargetPropagation:
         ]
         schema_map = compiler._schema_engine.validate_dag(nodes, edges)
         segments = compiler._build_and_merge(
-            compiler._topological_sort(nodes, edges), nodes, edges, schema_map
+            topological_sort(nodes, edges), nodes, edges, schema_map
         )
         assert len(segments) == 1
         assert segments[0].target == "materialize"
@@ -1943,7 +1943,7 @@ class TestJoinUnionTargetPropagation:
         schema_map = compiler._schema_engine.validate_dag(nodes, edges)
         with pytest.raises(ValueError, match="Cannot join across backing stores"):
             compiler._build_and_merge(
-                compiler._topological_sort(nodes, edges), nodes, edges, schema_map
+                topological_sort(nodes, edges), nodes, edges, schema_map
             )
 
     def test_compile_union_mixed_targets_raises(self):
@@ -1981,7 +1981,7 @@ class TestJoinUnionTargetPropagation:
         schema_map = compiler._schema_engine.validate_dag(nodes, edges)
         with pytest.raises(ValueError, match="Cannot union across backing stores"):
             compiler._build_and_merge(
-                compiler._topological_sort(nodes, edges), nodes, edges, schema_map
+                topological_sort(nodes, edges), nodes, edges, schema_map
             )
 
 
