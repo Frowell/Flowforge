@@ -49,7 +49,7 @@ class Workflow(Base, UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin):
     )
 
 
-class WorkflowVersion(Base, UUIDPrimaryKeyMixin):
+class WorkflowVersion(Base, UUIDPrimaryKeyMixin, TenantMixin):
     __tablename__ = "workflow_versions"
     __table_args__ = (
         UniqueConstraint(

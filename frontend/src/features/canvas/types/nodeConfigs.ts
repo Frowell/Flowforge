@@ -18,6 +18,7 @@ import type { NodeType, ColumnSchema } from "@/shared/schema/types";
 export interface DataSourceConfig {
   table?: string;
   columns?: ColumnSchema[];
+  source?: string;
 }
 
 export interface FilterConfig {

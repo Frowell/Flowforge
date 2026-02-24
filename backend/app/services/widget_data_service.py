@@ -14,6 +14,7 @@ from uuid import UUID
 from redis.asyncio import Redis
 
 from app.core.config import settings
+from app.core.graph import find_ancestors
 from app.services.base_query_service import BaseQueryService
 from app.services.query_router import QueryRouter
 from app.services.workflow_compiler import WorkflowCompiler
@@ -183,7 +184,7 @@ class WidgetDataService(BaseQueryService):
         limit: int,
     ) -> str:
         """Content-addressed cache key including config overrides and filters."""
-        ancestors = self._compiler._find_ancestors(target_node_id, edges)
+        ancestors = find_ancestors(target_node_id, edges)
         ancestors.add(target_node_id)
 
         stable_nodes = sorted(

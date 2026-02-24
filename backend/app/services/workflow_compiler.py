@@ -17,7 +17,7 @@ import sqlglot
 import structlog
 from sqlglot import exp
 
-from app.core.graph import topological_sort
+from app.core.graph import find_ancestors, topological_sort
 from app.core.metrics import query_compilation_duration_seconds
 from app.schemas.schema import ColumnSchema
 from app.services.formula_parser import FormulaParser
@@ -102,7 +102,7 @@ class WorkflowCompiler:
         Used when executing a single widget's query for dashboards/embeds.
         """
         # Find all ancestor nodes of the target
-        ancestors = self._find_ancestors(target_node_id, edges)
+        ancestors = find_ancestors(target_node_id, edges)
         ancestors.add(target_node_id)
 
         sub_nodes = [n for n in nodes if n["id"] in ancestors]
@@ -194,7 +194,9 @@ class WorkflowCompiler:
                 source_ids_map[node_id] = [node_id]
                 root_map[node_id] = node_id
                 has_group_by[node_id] = False
-                target_map[node_id] = self._detect_target(table_name)
+                target_map[node_id] = self._detect_target(
+                    table_name, config.get("source")
+                )
 
             elif node_type in mergeable_types:
                 parent_ids = parents.get(node_id, [])
@@ -417,9 +419,27 @@ class WorkflowCompiler:
                 s = f"{parts[0]} {parts[1]}:00"
         return s
 
+    _SOURCE_TO_TARGET: dict[str, tuple[str, str]] = {
+        "redis": ("redis", ""),
+        "materialize": ("materialize", "postgres"),
+        "clickhouse": ("clickhouse", "clickhouse"),
+    }
+
     @staticmethod
-    def _detect_target(table_name: str) -> tuple[str, str]:
-        """Detect backing store target and SQL dialect from table name."""
+    def _detect_target(table_name: str, source: str | None = None) -> tuple[str, str]:
+        """Detect backing store target and SQL dialect.
+
+        When *source* is provided (from the data_source node config) it is
+        used directly, avoiding fragile prefix-based heuristics.  Falls
+        back to prefix matching for backward compatibility with existing
+        workflows that lack the ``source`` field.
+        """
+        if source:
+            result = WorkflowCompiler._SOURCE_TO_TARGET.get(source)
+            if result:
+                return result
+
+        # Fallback: prefix-based heuristic
         if table_name.startswith("latest:"):
             return ("redis", "")
         if table_name.startswith("live_"):
@@ -1046,20 +1066,3 @@ class WorkflowCompiler:
                 result.append(seg)
 
         return result
-
-    def _find_ancestors(self, node_id: str, edges: list[dict]) -> set[str]:
-        """Find all ancestor node IDs for a given node."""
-        parents: dict[str, list[str]] = {}
-        for edge in edges:
-            parents.setdefault(edge["target"], []).append(edge["source"])
-
-        ancestors: set[str] = set()
-        stack = list(parents.get(node_id, []))
-
-        while stack:
-            current = stack.pop()
-            if current not in ancestors:
-                ancestors.add(current)
-                stack.extend(parents.get(current, []))
-
-        return ancestors

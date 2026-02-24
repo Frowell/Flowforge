@@ -27,6 +27,7 @@ class TestWorkflowVersionModel:
         column_names = {c.key for c in mapper.column_attrs}
         expected = {
             "id",
+            "tenant_id",
             "workflow_id",
             "version_number",
             "graph_json",
@@ -35,11 +36,11 @@ class TestWorkflowVersionModel:
         }
         assert expected.issubset(column_names)
 
-    def test_model_has_no_tenant_mixin(self):
+    def test_model_has_tenant_mixin(self):
         from app.core.database import TenantMixin
         from app.models.workflow import WorkflowVersion
 
-        assert not issubclass(WorkflowVersion, TenantMixin)
+        assert issubclass(WorkflowVersion, TenantMixin)
 
     def test_model_has_workflow_fk(self):
         from app.models.workflow import WorkflowVersion
@@ -113,6 +114,7 @@ class TestVersionSnapshotLogic:
         # Create snapshot with the OLD graph (before update)
         snapshot = WorkflowVersion(
             workflow_id=workflow_id,
+            tenant_id=uuid.uuid4(),
             version_number=1,
             graph_json=old_graph,
             created_by=user_id,
@@ -151,6 +153,7 @@ class TestRollbackLogic:
         # Snapshot of current state before rollback
         snapshot = WorkflowVersion(
             workflow_id=workflow_id,
+            tenant_id=uuid.uuid4(),
             version_number=3,
             graph_json=current_graph,
             created_by=user_id,
@@ -184,9 +187,12 @@ class TestRollbackLogic:
         # State after first rollback (from some older version)
         state_b = {"nodes": [{"id": "B"}], "edges": []}
 
+        tenant_id = uuid.uuid4()
+
         # First rollback: snapshot state_a as version 1
         v1 = WorkflowVersion(
             workflow_id=workflow_id,
+            tenant_id=tenant_id,
             version_number=1,
             graph_json=state_a,
             created_by=user_id,
@@ -195,6 +201,7 @@ class TestRollbackLogic:
         # Second rollback to v1: snapshot state_b as version 2
         v2 = WorkflowVersion(
             workflow_id=workflow_id,
+            tenant_id=tenant_id,
             version_number=2,
             graph_json=state_b,
             created_by=user_id,

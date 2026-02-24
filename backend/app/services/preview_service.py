@@ -10,6 +10,7 @@ from uuid import UUID
 
 from redis.asyncio import Redis
 
+from app.core.graph import find_ancestors
 from app.services.base_query_service import BaseQueryService
 from app.services.query_router import QueryRouter
 from app.services.workflow_compiler import WorkflowCompiler
@@ -138,7 +139,7 @@ class PreviewService(BaseQueryService):
         Includes tenant_id, offset, and limit so different tenants/pages
         are cached separately.
         """
-        ancestors = self._compiler._find_ancestors(target_node_id, edges)
+        ancestors = find_ancestors(target_node_id, edges)
         ancestors.add(target_node_id)
 
         # Extract only config-relevant fields from ancestor nodes

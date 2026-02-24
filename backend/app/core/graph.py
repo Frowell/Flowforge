@@ -3,6 +3,32 @@
 from collections import deque
 
 
+def find_ancestors(node_id: str, edges: list[dict]) -> set[str]:
+    """Find all ancestor node IDs for a given node.
+
+    Args:
+        node_id: The node whose ancestors to find.
+        edges: List of edge dicts with ``"source"`` and ``"target"`` keys.
+
+    Returns:
+        Set of ancestor node IDs (does not include *node_id* itself).
+    """
+    parents: dict[str, list[str]] = {}
+    for edge in edges:
+        parents.setdefault(edge["target"], []).append(edge["source"])
+
+    ancestors: set[str] = set()
+    stack = list(parents.get(node_id, []))
+
+    while stack:
+        current = stack.pop()
+        if current not in ancestors:
+            ancestors.add(current)
+            stack.extend(parents.get(current, []))
+
+    return ancestors
+
+
 def topological_sort(nodes: list[dict], edges: list[dict]) -> list[str]:
     """Kahn's algorithm for topological ordering.
 

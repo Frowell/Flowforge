@@ -4,7 +4,7 @@ import pytest
 import sqlglot
 from sqlglot import exp
 
-from app.core.graph import topological_sort
+from app.core.graph import find_ancestors, topological_sort
 from app.services.schema_engine import SchemaEngine
 from app.services.workflow_compiler import WorkflowCompiler
 
@@ -36,13 +36,12 @@ class TestTopologicalSort:
 
 class TestSubgraphExtraction:
     def test_find_ancestors_returns_all_upstream_nodes(self):
-        compiler = get_compiler()
         edges = [
             {"source": "a", "target": "b"},
             {"source": "b", "target": "c"},
             {"source": "d", "target": "c"},
         ]
-        ancestors = compiler._find_ancestors("c", edges)
+        ancestors = find_ancestors("c", edges)
         assert ancestors == {"a", "b", "d"}
 
 

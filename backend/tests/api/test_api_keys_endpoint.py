@@ -72,7 +72,6 @@ class TestAPIKeyList:
             id=user_id_b,
             tenant_id=tenant_id_b,
             email="user_b@test.com",
-            hashed_password="not-a-real-hash",
             full_name="Test User B",
         )
         db_session.add(user_b)

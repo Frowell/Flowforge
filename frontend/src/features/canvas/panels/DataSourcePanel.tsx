@@ -29,6 +29,7 @@ export default function DataSourcePanel({ nodeId }: Props) {
               updateNodeConfig(nodeId, {
                 table: e.target.value,
                 columns: table?.columns ?? [],
+                source: table?.source,
               });
             }}
             className="w-full bg-canvas-bg border border-white/10 rounded px-2 py-1.5 text-sm text-white"

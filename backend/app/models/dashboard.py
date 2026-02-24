@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -92,6 +92,13 @@ class APIKey(Base, UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin):
     """API keys for embed mode. Scoped to specific widgets and tenant."""
 
     __tablename__ = "api_keys"
+    __table_args__ = (
+        Index(
+            "ix_api_keys_scoped_widgets",
+            "scoped_widget_ids",
+            postgresql_using="gin",
+        ),
+    )
 
     key_hash: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     user_id: Mapped[uuid.UUID] = mapped_column(
