@@ -57,7 +57,6 @@ async def seed_dev_user() -> bool:
             id=user_id,
             tenant_id=tenant_id,
             email="dev@flowforge.local",
-            hashed_password="dev-mode-no-password",
             full_name="Dev User",
         )
         db.add(user)

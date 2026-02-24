@@ -28,7 +28,6 @@ class User(Base, UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin):
     )
 
     email: Mapped[str] = mapped_column(String(255))
-    hashed_password: Mapped[str] = mapped_column(String(255))
     full_name: Mapped[str | None] = mapped_column(String(255))
     role: Mapped[UserRole] = mapped_column(default=UserRole.ANALYST)
     is_active: Mapped[bool] = mapped_column(default=True)

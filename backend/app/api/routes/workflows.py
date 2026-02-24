@@ -4,6 +4,7 @@ Thin controllers: validate -> call service -> return Pydantic response.
 All queries are scoped by tenant_id from the JWT.
 """
 
+import json as _json
 import uuid as _uuid
 from datetime import UTC, datetime
 from uuid import UUID
@@ -18,6 +19,7 @@ from app.api.deps import (
     get_db,
     require_role,
 )
+from app.core.config import settings
 from app.models.audit_log import AuditAction, AuditResourceType
 from app.models.workflow import Workflow, WorkflowVersion
 from app.schemas.workflow import (
@@ -34,6 +36,19 @@ from app.schemas.workflow import (
 from app.services.audit_service import AuditService
 
 router = APIRouter()
+
+
+def _validate_graph_json_size(graph_json: dict) -> None:
+    """Raise 400 if the serialized graph_json exceeds the configured limit."""
+    size = len(_json.dumps(graph_json, separators=(",", ":")))
+    if size > settings.max_graph_json_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"graph_json exceeds size limit: "
+                f"{size} bytes > {settings.max_graph_json_bytes} bytes"
+            ),
+        )
 
 
 @router.get("", response_model=WorkflowListResponse)
@@ -94,6 +109,8 @@ async def create_workflow(
     db: AsyncSession = Depends(get_db),
     _: dict = Depends(require_role("admin", "analyst")),
 ):
+    _validate_graph_json_size(body.graph_json)
+
     workflow = Workflow(
         name=body.name,
         description=body.description,
@@ -142,6 +159,9 @@ async def update_workflow(
 
     update_data = body.model_dump(exclude_unset=True)
 
+    if "graph_json" in update_data:
+        _validate_graph_json_size(update_data["graph_json"])
+
     # Auto-snapshot current graph_json before applying update
     if "graph_json" in update_data:
         max_ver = await db.execute(
@@ -153,6 +173,7 @@ async def update_workflow(
 
         snapshot = WorkflowVersion(
             workflow_id=workflow.id,
+            tenant_id=tenant_id,
             version_number=next_version,
             graph_json=workflow.graph_json,
             created_by=user_id,
@@ -269,6 +290,8 @@ async def import_workflow(
     db: AsyncSession = Depends(get_db),
     _: dict = Depends(require_role("admin", "analyst")),
 ):
+    _validate_graph_json_size(body.graph_json)
+
     # Regenerate all node and edge IDs to prevent collisions
     graph = body.graph_json.copy()
     id_mapping: dict[str, str] = {}
@@ -449,6 +472,7 @@ async def rollback_workflow(
 
     snapshot = WorkflowVersion(
         workflow_id=workflow.id,
+        tenant_id=tenant_id,
         version_number=next_version,
         graph_json=workflow.graph_json,
         created_by=user_id,

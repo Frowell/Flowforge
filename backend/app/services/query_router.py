@@ -27,6 +27,21 @@ from app.services.workflow_compiler import CompiledSegment
 logger = structlog.stdlib.get_logger(__name__)
 
 
+def parse_redis_key(key: str) -> dict[str, str]:
+    """Parse a Redis key into structured parts.
+
+    Expected format: ``prefix:type:identifier``
+    (e.g. ``latest:vwap:AAPL`` →
+    ``{"prefix": "latest", "type": "vwap", "symbol": "AAPL"}``).
+
+    Returns an empty dict when the key doesn't match the expected pattern.
+    """
+    parts = key.split(":")
+    if len(parts) >= 3:
+        return {"prefix": parts[0], "type": parts[1], "symbol": parts[-1]}
+    return {}
+
+
 @dataclass
 class QueryResult:
     """Result from executing a compiled query segment."""
@@ -198,11 +213,9 @@ class QueryRouter:
                 for key_str, hash_data in zip(batch_keys, batch_results, strict=False):
                     if hash_data:
                         row: dict[str, str] = {}
-                        # Extract identifier from key name
-                        # e.g. "latest:vwap:AAPL" → symbol = "AAPL"
-                        key_parts = key_str.split(":")
-                        if len(key_parts) >= 3:
-                            row["symbol"] = key_parts[-1]
+                        parsed = parse_redis_key(key_str)
+                        if parsed:
+                            row["symbol"] = parsed["symbol"]
                         row.update(hash_data)
                         rows.append(row)
         elif lookup_type == "MGET" and keys:

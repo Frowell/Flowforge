@@ -117,7 +117,6 @@ async def seed_user_a(db_session: AsyncSession, tenant_id, user_id):
         id=user_id,
         tenant_id=tenant_id,
         email="user_a@test.com",
-        hashed_password="not-a-real-hash",
         full_name="Test User A",
     )
     db_session.add(user)
@@ -132,7 +131,6 @@ async def seed_user_b(db_session: AsyncSession, tenant_id_b, user_id_b):
         id=user_id_b,
         tenant_id=tenant_id_b,
         email="user_b@test.com",
-        hashed_password="not-a-real-hash",
         full_name="Test User B",
     )
     db_session.add(user)

@@ -1,15 +1,23 @@
 /**
  * Workflow execution hook — runs workflow, tracks status via WebSocket.
+ *
+ * Status is stored in TanStack Query cache so it survives unmount
+ * and is accessible from any component via the same query key.
  */
 
-import { useMutation } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 import { apiClient } from "@/shared/query-engine/client";
 import { wsManager } from "@/shared/websocket/manager";
 import type { ExecutionStatusResponse } from "@/shared/query-engine/types";
 
+function executionQueryKey(workflowId: string | undefined, executionId: string | undefined) {
+  return ["execution", workflowId, executionId] as const;
+}
+
 export function useExecution(workflowId: string | undefined) {
-  const [status, setStatus] = useState<ExecutionStatusResponse | null>(null);
+  const queryClient = useQueryClient();
+  const executionIdRef = useRef<string | undefined>(undefined);
 
   const executeMutation = useMutation({
     mutationFn: () =>
@@ -17,23 +25,40 @@ export function useExecution(workflowId: string | undefined) {
         workflow_id: workflowId,
       }),
     onSuccess: (data) => {
-      setStatus(data);
+      executionIdRef.current = data.id;
+      queryClient.setQueryData(
+        executionQueryKey(workflowId, data.id),
+        data,
+      );
     },
+  });
+
+  const executionId = executionIdRef.current;
+
+  const { data: status = null } = useQuery<ExecutionStatusResponse | null>({
+    queryKey: executionQueryKey(workflowId, executionId),
+    enabled: !!executionId,
+    staleTime: Infinity,
+    queryFn: () => null,
   });
 
   // Subscribe to execution status updates via WebSocket
   useEffect(() => {
-    if (!status?.id) return;
+    if (!executionId) return;
 
     const unsubscribe = wsManager.subscribe("execution_status", (message) => {
       const msg = message as ExecutionStatusResponse & { type: string };
-      if (msg.id === status.id) {
-        setStatus((prev) => (prev ? { ...prev, ...msg } : prev));
+      if (msg.id === executionId) {
+        queryClient.setQueryData(
+          executionQueryKey(workflowId, executionId),
+          (prev: ExecutionStatusResponse | null | undefined) =>
+            prev ? { ...prev, ...msg } : msg,
+        );
       }
     });
 
     return unsubscribe;
-  }, [status?.id]);
+  }, [executionId, workflowId, queryClient]);
 
   return {
     execute: executeMutation.mutate,

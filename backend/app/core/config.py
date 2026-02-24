@@ -134,6 +134,9 @@ class Settings(BaseSettings):
     embed_rate_limit_default: int = 100  # requests per second per API key
     embed_rate_limit_window: int = 1  # window size in seconds
 
+    # Workflow graph size limit (bytes)
+    max_graph_json_bytes: int = 5_242_880  # 5 MB
+
     # Redis scan limits
     redis_scan_limit: int = 1000  # max keys to process in SCAN_HASH operations
     redis_pipeline_batch_size: int = 100  # batch size for pipelined HGETALL

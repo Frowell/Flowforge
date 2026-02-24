@@ -34,7 +34,11 @@ class AuditResourceType(enum.StrEnum):
 
 class AuditLog(Base, UUIDPrimaryKeyMixin, TenantMixin):
     __tablename__ = "audit_logs"
-    __table_args__ = (Index("ix_audit_logs_tenant_created", "tenant_id", "created_at"),)
+    __table_args__ = (
+        Index("ix_audit_logs_tenant_created", "tenant_id", "created_at"),
+        Index("ix_audit_logs_user_id", "user_id"),
+        Index("ix_audit_logs_resource", "resource_type", "resource_id"),
+    )
 
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     action: Mapped[AuditAction] = mapped_column(
