@@ -4,6 +4,7 @@ All external stores (ClickHouse, Materialize, Redis) are mocked.
 Tests never require running instances of these services.
 """
 
+from collections.abc import AsyncGenerator
 from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID
 
@@ -47,7 +48,7 @@ async def db_engine(setup_database):
 
 
 @pytest.fixture
-async def db_session(db_engine) -> AsyncSession:
+async def db_session(db_engine) -> AsyncGenerator[AsyncSession, None]:
     """Provide a test database session for direct use in tests."""
     factory = async_sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
     async with factory() as session:
@@ -55,7 +56,7 @@ async def db_session(db_engine) -> AsyncSession:
 
 
 @pytest.fixture
-async def client(db_engine) -> AsyncClient:
+async def client(db_engine) -> AsyncGenerator[AsyncClient, None]:
     """Provide an httpx AsyncClient wired to the FastAPI test app.
 
     The route handlers get their own sessions from the same engine,

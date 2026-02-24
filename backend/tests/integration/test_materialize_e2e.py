@@ -15,7 +15,7 @@ pytestmark = pytest.mark.integration
 def materialize_client():
     """Provide a Materialize client, skip if unavailable."""
     try:
-        import asyncpg
+        import asyncpg  # type: ignore[import-untyped]
 
         loop = asyncio.new_event_loop()
         conn = loop.run_until_complete(
@@ -41,7 +41,7 @@ class TestMaterializeE2E:
 
     def test_ping(self, materialize_client):
         """Materialize responds to basic query."""
-        import asyncpg
+        import asyncpg  # type: ignore[import-untyped]
 
         async def _ping():
             conn = await asyncpg.connect(
@@ -64,7 +64,7 @@ class TestMaterializeE2E:
 
     def test_query_system_tables(self, materialize_client):
         """Can query Materialize system catalog."""
-        import asyncpg
+        import asyncpg  # type: ignore[import-untyped]
 
         async def _query():
             conn = await asyncpg.connect(
@@ -89,7 +89,7 @@ class TestMaterializeE2E:
 
     def test_query_materialized_views(self, materialize_client):
         """Can list existing materialized views."""
-        import asyncpg
+        import asyncpg  # type: ignore[import-untyped]
 
         async def _query():
             conn = await asyncpg.connect(
