@@ -169,11 +169,44 @@ jobs:
         run: npx vitest run --passWithNoTests
         working-directory: frontend
 
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: frontend
+
+      - name: Run E2E tests
+        run: npx playwright test
+        working-directory: frontend
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7
+
   gate:
     name: CI Gate
     runs-on: ubuntu-latest
     if: always()
-    needs: [backend, frontend, integration]
+    needs: [backend, frontend, integration, e2e]
     steps:
       - name: Check all jobs passed
         run: |
@@ -188,5 +221,8 @@ jobs:
           if [[ "${{ needs.integration.result }}" != "success" ]]; then
             echo "Integration Tests failed: ${{ needs.integration.result }}"
             exit 1
+          fi
+          if [[ "${{ needs.e2e.result }}" != "success" ]]; then
+            echo "E2E Tests failed: ${{ needs.e2e.result }} (non-blocking)"
           fi
           echo "All CI checks passed"
