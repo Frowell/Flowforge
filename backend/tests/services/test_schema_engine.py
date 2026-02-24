@@ -446,3 +446,63 @@ class TestCycleDetection:
         edges = [{"source": "a", "target": "b"}, {"source": "b", "target": "a"}]
         with pytest.raises(ValueError, match="cycle"):
             engine.validate_dag(nodes, edges)
+
+
+class TestCustomTransformRegistry:
+    def test_custom_transforms_override_default(self):
+        """Injected transforms dict is used instead of the module-level registry."""
+        from app.services.schema_engine import data_source_transform
+
+        custom_transforms = {"data_source": data_source_transform}
+        engine = SchemaEngine(transforms=custom_transforms)
+
+        nodes = [
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {
+                        "columns": [
+                            {"name": "x", "dtype": "int64", "nullable": False},
+                        ]
+                    }
+                },
+            },
+        ]
+        result = engine.validate_dag(nodes, [])
+        assert len(result["src"]) == 1
+        assert result["src"][0].name == "x"
+
+    def test_unknown_type_with_custom_registry_raises(self):
+        """Empty custom registry raises ValueError for any node type."""
+        engine = SchemaEngine(transforms={})
+        nodes = [
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {"config": {"columns": []}},
+            },
+        ]
+        with pytest.raises(ValueError, match="Unknown node type"):
+            engine.validate_dag(nodes, [])
+
+    def test_default_constructor_uses_module_registry(self):
+        """Default constructor (no transforms arg) uses the module-level registry."""
+        engine = SchemaEngine()
+        nodes = [
+            {
+                "id": "src",
+                "type": "data_source",
+                "data": {
+                    "config": {"columns": [c.model_dump() for c in SAMPLE_COLUMNS]}
+                },
+            },
+            {
+                "id": "f1",
+                "type": "filter",
+                "data": {"config": {"column": "symbol", "operator": "=", "value": "X"}},
+            },
+        ]
+        edges = [{"source": "src", "target": "f1"}]
+        result = engine.validate_dag(nodes, edges)
+        assert len(result["f1"]) == len(SAMPLE_COLUMNS)
