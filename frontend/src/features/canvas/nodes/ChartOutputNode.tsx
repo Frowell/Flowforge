@@ -1,14 +1,12 @@
-import type { NodeProps } from "@xyflow/react";
+import type { TypedNodeProps } from "../types/nodeConfigs";
 import BaseNode from "./BaseNode";
-import type { WorkflowNodeData } from "../stores/workflowStore";
 
-export default function ChartOutputNode({ data, selected }: NodeProps) {
-  const nodeData = data as unknown as WorkflowNodeData;
-  const chartType = (nodeData.config?.chart_type as string) ?? "bar";
+export default function ChartOutputNode({ data, selected }: TypedNodeProps<"chart_output">) {
+  const chartType = data.config?.chart_type ?? "bar";
 
   return (
     <BaseNode
-      label={nodeData.label || "Chart"}
+      label={data.label || "Chart"}
       color="bg-green-400"
       selected={selected}
       outputPorts={0}

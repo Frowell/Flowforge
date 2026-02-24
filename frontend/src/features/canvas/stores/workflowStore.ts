@@ -11,12 +11,9 @@ import { create } from "zustand";
 import { temporal } from "zundo";
 import type { Node, Edge, OnNodesChange, OnEdgesChange, OnConnect } from "@xyflow/react";
 import { applyNodeChanges, applyEdgeChanges, addEdge } from "@xyflow/react";
+import type { WorkflowNodeData } from "../types/nodeConfigs";
 
-export interface WorkflowNodeData extends Record<string, unknown> {
-  label: string;
-  nodeType: string;
-  config: Record<string, unknown>;
-}
+export type { WorkflowNodeData } from "../types/nodeConfigs";
 
 interface WorkflowState {
   // State

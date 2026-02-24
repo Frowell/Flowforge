@@ -1,13 +1,11 @@
-import type { NodeProps } from "@xyflow/react";
+import type { TypedNodeProps } from "../types/nodeConfigs";
 import BaseNode from "./BaseNode";
-import type { WorkflowNodeData } from "../stores/workflowStore";
 
-export default function FormulaNode({ data, selected }: NodeProps) {
-  const nodeData = data as unknown as WorkflowNodeData;
-  const expression = nodeData.config?.expression as string | undefined;
+export default function FormulaNode({ data, selected }: TypedNodeProps<"formula">) {
+  const expression = data.config?.expression;
 
   return (
-    <BaseNode label={nodeData.label || "Formula"} color="bg-amber-400" selected={selected}>
+    <BaseNode label={data.label || "Formula"} color="bg-amber-400" selected={selected}>
       {expression
         ? expression.slice(0, 30) + (expression.length > 30 ? "..." : "")
         : "No expression"}

@@ -1,12 +1,9 @@
-import type { NodeProps } from "@xyflow/react";
+import type { TypedNodeProps } from "../types/nodeConfigs";
 import BaseNode from "./BaseNode";
-import type { WorkflowNodeData } from "../stores/workflowStore";
 
-export default function UniqueNode({ data, selected }: NodeProps) {
-  const nodeData = data as unknown as WorkflowNodeData;
-
+export default function UniqueNode({ data, selected }: TypedNodeProps<"unique">) {
   return (
-    <BaseNode label={nodeData.label || "Unique"} color="bg-cyan-400" selected={selected}>
+    <BaseNode label={data.label || "Unique"} color="bg-cyan-400" selected={selected}>
       Deduplicate rows
     </BaseNode>
   );

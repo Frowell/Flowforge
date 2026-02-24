@@ -1,12 +1,10 @@
-import type { NodeProps } from "@xyflow/react";
+import type { TypedNodeProps } from "../types/nodeConfigs";
 import BaseNode from "./BaseNode";
-import type { WorkflowNodeData } from "../stores/workflowStore";
 
-export default function KPIOutputNode({ data, selected }: NodeProps) {
-  const nodeData = data as unknown as WorkflowNodeData;
-  const valueColumn = nodeData.config?.value_column as string | undefined;
-  const title = nodeData.config?.title as string | undefined;
-  const format = nodeData.config?.format as string | undefined;
+export default function KPIOutputNode({ data, selected }: TypedNodeProps<"kpi_output">) {
+  const valueColumn = data.config?.value_column;
+  const title = data.config?.title;
+  const format = data.config?.format;
 
   let display = "Not configured";
   if (valueColumn) {
@@ -15,12 +13,7 @@ export default function KPIOutputNode({ data, selected }: NodeProps) {
   }
 
   return (
-    <BaseNode
-      label={nodeData.label || "KPI"}
-      color="bg-green-400"
-      selected={selected}
-      outputPorts={0}
-    >
+    <BaseNode label={data.label || "KPI"} color="bg-green-400" selected={selected} outputPorts={0}>
       {display}
     </BaseNode>
   );

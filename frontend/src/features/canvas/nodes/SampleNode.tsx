@@ -1,13 +1,11 @@
-import type { NodeProps } from "@xyflow/react";
+import type { TypedNodeProps } from "../types/nodeConfigs";
 import BaseNode from "./BaseNode";
-import type { WorkflowNodeData } from "../stores/workflowStore";
 
-export default function SampleNode({ data, selected }: NodeProps) {
-  const nodeData = data as unknown as WorkflowNodeData;
-  const count = nodeData.config?.count as number | undefined;
+export default function SampleNode({ data, selected }: TypedNodeProps<"sample">) {
+  const count = data.config?.count;
 
   return (
-    <BaseNode label={nodeData.label || "Sample"} color="bg-cyan-400" selected={selected}>
+    <BaseNode label={data.label || "Sample"} color="bg-cyan-400" selected={selected}>
       {count ? `${count} rows` : "Not configured"}
     </BaseNode>
   );
