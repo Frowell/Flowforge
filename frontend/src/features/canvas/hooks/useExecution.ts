@@ -26,10 +26,7 @@ export function useExecution(workflowId: string | undefined) {
       }),
     onSuccess: (data) => {
       executionIdRef.current = data.id;
-      queryClient.setQueryData(
-        executionQueryKey(workflowId, data.id),
-        data,
-      );
+      queryClient.setQueryData(executionQueryKey(workflowId, data.id), data);
     },
   });
 
@@ -51,8 +48,7 @@ export function useExecution(workflowId: string | undefined) {
       if (msg.id === executionId) {
         queryClient.setQueryData(
           executionQueryKey(workflowId, executionId),
-          (prev: ExecutionStatusResponse | null | undefined) =>
-            prev ? { ...prev, ...msg } : msg,
+          (prev: ExecutionStatusResponse | null | undefined) => (prev ? { ...prev, ...msg } : msg),
         );
       }
     });
