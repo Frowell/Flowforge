@@ -13,12 +13,7 @@ export default function KPIOutputNode({ data, selected }: TypedNodeProps<"kpi_ou
   }
 
   return (
-    <BaseNode
-      label={data.label || "KPI"}
-      color="bg-green-400"
-      selected={selected}
-      outputPorts={0}
-    >
+    <BaseNode label={data.label || "KPI"} color="bg-green-400" selected={selected} outputPorts={0}>
       {display}
     </BaseNode>
   );
