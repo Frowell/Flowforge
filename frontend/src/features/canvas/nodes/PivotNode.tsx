@@ -1,14 +1,12 @@
-import type { NodeProps } from "@xyflow/react";
+import type { TypedNodeProps } from "../types/nodeConfigs";
 import BaseNode from "./BaseNode";
-import type { WorkflowNodeData } from "../stores/workflowStore";
 
-export default function PivotNode({ data, selected }: NodeProps) {
-  const nodeData = data as unknown as WorkflowNodeData;
-  const pivotCol = (nodeData.config?.pivot_column as string) ?? "";
-  const valueCol = (nodeData.config?.value_column as string) ?? "";
+export default function PivotNode({ data, selected }: TypedNodeProps<"pivot">) {
+  const pivotCol = data.config?.pivot_column ?? "";
+  const valueCol = data.config?.value_column ?? "";
 
   return (
-    <BaseNode label={nodeData.label || "Pivot"} color="bg-purple-400" selected={selected}>
+    <BaseNode label={data.label || "Pivot"} color="bg-purple-400" selected={selected}>
       {pivotCol ? `${pivotCol} → ${valueCol}` : "Not configured"}
     </BaseNode>
   );

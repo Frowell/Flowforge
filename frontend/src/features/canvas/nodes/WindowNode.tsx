@@ -1,12 +1,10 @@
-import type { NodeProps } from "@xyflow/react";
+import type { TypedNodeProps } from "../types/nodeConfigs";
 import BaseNode from "./BaseNode";
-import type { WorkflowNodeData } from "../stores/workflowStore";
 
-export default function WindowNode({ data, selected }: NodeProps) {
-  const nodeData = data as unknown as WorkflowNodeData;
-  const func = nodeData.config?.function as string | undefined;
-  const partitionBy = nodeData.config?.partition_by as string[] | undefined;
-  const outputColumn = nodeData.config?.output_column as string | undefined;
+export default function WindowNode({ data, selected }: TypedNodeProps<"window">) {
+  const func = data.config?.function;
+  const partitionBy = data.config?.partition_by;
+  const outputColumn = data.config?.output_column;
 
   let display = "Not configured";
   if (func) {
@@ -16,7 +14,7 @@ export default function WindowNode({ data, selected }: NodeProps) {
   }
 
   return (
-    <BaseNode label={nodeData.label || "Window"} color="bg-amber-400" selected={selected}>
+    <BaseNode label={data.label || "Window"} color="bg-amber-400" selected={selected}>
       {display}
     </BaseNode>
   );

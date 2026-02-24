@@ -1,14 +1,12 @@
-import type { NodeProps } from "@xyflow/react";
+import type { TypedNodeProps } from "../types/nodeConfigs";
 import BaseNode from "./BaseNode";
-import type { WorkflowNodeData } from "../stores/workflowStore";
 
-export default function DataSourceNode({ data, selected }: NodeProps) {
-  const nodeData = data as unknown as WorkflowNodeData;
-  const table = (nodeData.config?.table as string) ?? "No table selected";
+export default function DataSourceNode({ data, selected }: TypedNodeProps<"data_source">) {
+  const table = data.config?.table ?? "No table selected";
 
   return (
     <BaseNode
-      label={nodeData.label || "Data Source"}
+      label={data.label || "Data Source"}
       color="bg-blue-400"
       selected={selected}
       inputPorts={0}

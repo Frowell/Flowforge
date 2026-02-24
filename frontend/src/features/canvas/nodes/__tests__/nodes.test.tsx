@@ -32,9 +32,10 @@ import TableOutputNode from "../TableOutputNode";
 import ChartOutputNode from "../ChartOutputNode";
 import KPIOutputNode from "../KPIOutputNode";
 
-const makeNodeProps = (config: Record<string, unknown> = {}, selected = false) => ({
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const makeNodeProps = (config: Record<string, unknown> = {}, selected = false): any => ({
   id: "test-node",
-  data: { config, nodeType: "test" },
+  data: { config, nodeType: "test", label: "" },
   selected,
   type: "test",
   isConnectable: true,

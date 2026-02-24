@@ -1,13 +1,11 @@
-import type { NodeProps } from "@xyflow/react";
+import type { TypedNodeProps } from "../types/nodeConfigs";
 import BaseNode from "./BaseNode";
-import type { WorkflowNodeData } from "../stores/workflowStore";
 
-export default function SelectNode({ data, selected }: NodeProps) {
-  const nodeData = data as unknown as WorkflowNodeData;
-  const columns = (nodeData.config?.columns as string[]) ?? [];
+export default function SelectNode({ data, selected }: TypedNodeProps<"select">) {
+  const columns = data.config?.columns ?? [];
 
   return (
-    <BaseNode label={nodeData.label || "Select"} color="bg-cyan-400" selected={selected}>
+    <BaseNode label={data.label || "Select"} color="bg-cyan-400" selected={selected}>
       {columns.length > 0 ? `${columns.length} columns` : "All columns"}
     </BaseNode>
   );

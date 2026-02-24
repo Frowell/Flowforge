@@ -1,13 +1,11 @@
-import type { NodeProps } from "@xyflow/react";
+import type { TypedNodeProps } from "../types/nodeConfigs";
 import BaseNode from "./BaseNode";
-import type { WorkflowNodeData } from "../stores/workflowStore";
 
-export default function GroupByNode({ data, selected }: NodeProps) {
-  const nodeData = data as unknown as WorkflowNodeData;
-  const groupCols = (nodeData.config?.group_columns as string[]) ?? [];
+export default function GroupByNode({ data, selected }: TypedNodeProps<"group_by">) {
+  const groupCols = data.config?.group_columns ?? [];
 
   return (
-    <BaseNode label={nodeData.label || "Group By"} color="bg-purple-400" selected={selected}>
+    <BaseNode label={data.label || "Group By"} color="bg-purple-400" selected={selected}>
       {groupCols.length > 0 ? groupCols.join(", ") : "Not configured"}
     </BaseNode>
   );
