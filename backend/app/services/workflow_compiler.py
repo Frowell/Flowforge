@@ -1066,4 +1066,3 @@ class WorkflowCompiler:
                 result.append(seg)
 
         return result
-
