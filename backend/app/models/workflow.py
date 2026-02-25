@@ -26,6 +26,7 @@ from app.core.database import Base, TenantMixin, TimestampMixin, UUIDPrimaryKeyM
 
 if TYPE_CHECKING:
     from app.models.dashboard import Widget
+    from app.models.execution import Execution
     from app.models.user import User
 
 
@@ -46,6 +47,10 @@ class Workflow(Base, UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin):
         back_populates="workflow",
         cascade="all, delete-orphan",
         order_by="WorkflowVersion.version_number.desc()",
+    )
+    executions: Mapped[list[Execution]] = relationship(  # noqa: F821
+        back_populates="workflow",
+        cascade="all, delete-orphan",
     )
 
 
