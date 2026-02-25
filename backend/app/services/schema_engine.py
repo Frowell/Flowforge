@@ -285,6 +285,12 @@ def kpi_output_transform(
 class SchemaEngine:
     """Validates and propagates schemas through a workflow DAG."""
 
+    def __init__(
+        self,
+        transforms: dict[str, SchemaTransformFn] | None = None,
+    ) -> None:
+        self._transforms = transforms if transforms is not None else _transforms
+
     def validate_dag(
         self,
         nodes: list[dict],
@@ -316,7 +322,7 @@ class SchemaEngine:
                 output_schemas.get(src_id, []) for src_id in inbound.get(node_id, [])
             ]
 
-            transform = _transforms.get(node_type)
+            transform = self._transforms.get(node_type)
             if transform is None:
                 raise ValueError(f"Unknown node type: {node_type}")
 
