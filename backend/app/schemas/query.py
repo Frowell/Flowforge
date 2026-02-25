@@ -28,6 +28,27 @@ class NodeStatusResponse(BaseModel):
     error: str | None = None
 
 
+class ExecutionHistoryItem(BaseModel):
+    id: UUID
+    workflow_id: UUID
+    status: str
+    started_by: UUID
+    node_statuses: dict = {}
+    started_at: str | None = None
+    completed_at: str | None = None
+    error_message: str | None = None
+    created_at: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class ExecutionListResponse(BaseModel):
+    items: list[ExecutionHistoryItem]
+    total: int
+    page: int
+    page_size: int
+
+
 class QueryResultResponse(BaseModel):
     """Preview data returned for a node or widget."""
 

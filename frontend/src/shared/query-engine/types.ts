@@ -114,3 +114,17 @@ export interface ExecutionStatusResponse {
     }
   >;
 }
+
+export interface ExecutionHistoryItem {
+  id: string;
+  workflow_id: string;
+  status: string;
+  started_by: string;
+  node_statuses: Record<string, unknown>;
+  started_at: string | null;
+  completed_at: string | null;
+  error_message: string | null;
+  created_at: string | null;
+}
+
+export type ExecutionListResponse = PaginatedResponse<ExecutionHistoryItem>;
